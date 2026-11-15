@@ -3,7 +3,7 @@ name: Construire l'appli
 on:
   push:
     branches: [main]
-    paths-ignore: ['**.md']
+    paths-ignore: ['**.md', 'docs/**', 'outils/**']
   workflow_dispatch:
 permissions:
   contents: write
