@@ -5,12 +5,12 @@
 window.CONFIG = {
   /* ===== Familles (fixes) : famille → ressource gagnée → stat ===== */
   familles: [
-    { id: 'esprit',     nom: 'Esprit',       emoji: '🧠', ressource: 'savoir',     stat: 'intelligence' },
-    { id: 'corps',      nom: 'Corps',        emoji: '💪', ressource: 'pierre',     stat: 'force' },
-    { id: 'creation',   nom: 'Création',     emoji: '🛠️', ressource: 'cristaux',   stat: 'creativite' },
-    { id: 'social',     nom: 'Social',       emoji: '🤝', ressource: 'nourriture', stat: 'charisme' },
-    { id: 'discipline', nom: 'Discipline',   emoji: '🧹', ressource: 'bois',       stat: 'discipline' },
-    { id: 'pro',        nom: 'Pro & admin',  emoji: '💼', ressource: 'or',         stat: 'organisation' },
+    { id: 'esprit',     nom: 'Esprit',       emoji: '🧠', ressource: 'savoir',     stat: 'intelligence', nomStat: 'Intelligence' },
+    { id: 'corps',      nom: 'Corps',        emoji: '💪', ressource: 'pierre',     stat: 'force',        nomStat: 'Force' },
+    { id: 'creation',   nom: 'Création',     emoji: '🛠️', ressource: 'cristaux',   stat: 'creativite',   nomStat: 'Créativité' },
+    { id: 'social',     nom: 'Social',       emoji: '🤝', ressource: 'nourriture', stat: 'charisme',     nomStat: 'Charisme' },
+    { id: 'discipline', nom: 'Discipline',   emoji: '🧹', ressource: 'bois',       stat: 'discipline',   nomStat: 'Discipline' },
+    { id: 'pro',        nom: 'Pro & admin',  emoji: '💼', ressource: 'or',         stat: 'organisation', nomStat: 'Organisation' },
     { id: 'repos',      nom: 'Repos',        emoji: '🌿', ressource: null,         stat: null } // Repos → moral
   ],
 

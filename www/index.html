@@ -13,6 +13,7 @@
 <body class="demarrage">
   <header class="entete">
     <h1 id="titre">Aujourd'hui</h1>
+    <p class="entete-sous" id="sous-titre"></p>
   </header>
 
   <main>
@@ -20,12 +21,26 @@
     <section class="ecran" id="ecran-aujourdhui" data-titre="Aujourd'hui">
       <!-- Ressources et barre d'XP : le progrès toujours visible -->
       <div class="tableau">
-        <div class="ressources" id="ressources" aria-label="Ressources"></div>
-        <div class="barre-xp" id="barre-xp">
-          <div class="xp-ligne"><b id="xp-niveau">Niv. 1</b><span id="xp-reste"></span></div>
-          <div class="jauge"><i id="xp-jauge"></i></div>
+        <div class="tableau-chef">
+          <div class="medaillon" aria-hidden="true"><span id="xp-medaillon">1</span></div>
+          <div class="barre-xp" id="barre-xp">
+            <div class="xp-ligne"><b id="xp-niveau">Niv. 1</b><span id="xp-reste"></span></div>
+            <div class="jauge"><i id="xp-jauge"></i></div>
+          </div>
         </div>
+        <div class="ressources" id="ressources" aria-label="Ressources"></div>
       </div>
+      <!-- Lien vraie vie → village : le chantier le plus proche d'être payé -->
+      <button type="button" class="chantier" id="carte-chantier" data-aller="village" hidden>
+        <span class="chantier-icone" id="chantier-icone" aria-hidden="true"></span>
+        <span class="chantier-texte">
+          <small>Prochain chantier</small>
+          <b id="chantier-nom"></b>
+          <span class="chantier-jauge"><i id="chantier-jauge"></i></span>
+          <span class="chantier-detail" id="chantier-detail"></span>
+        </span>
+        <span class="chantier-chevron" aria-hidden="true">›</span>
+      </button>
       <div class="carte vide" id="aujourdhui-vide">
         <div class="vide-emoji" id="vide-emoji" aria-hidden="true">🏡</div>
         <h2 id="vide-titre">Ton village attend ta première tâche</h2>
@@ -67,10 +82,17 @@
 
     <!-- Écran Perso -->
     <section class="ecran" id="ecran-perso" data-titre="Perso">
-      <div class="carte">
+      <div class="carte chef">
+        <div class="medaillon grand" aria-hidden="true"><span id="perso-niveau">1</span></div>
         <h2>Le chef du village</h2>
-        <p>Niveau, stats et série apparaîtront ici.</p>
+        <p class="discret" id="perso-xp"></p>
+        <div class="jauge"><i id="perso-jauge"></i></div>
       </div>
+      <h3 class="intertitre">Tes talents</h3>
+      <div class="stats" id="perso-stats"></div>
+      <h3 class="intertitre">Ton hameau</h3>
+      <div class="carte" id="perso-village"></div>
+      <p class="discret aide">Série, moral et historique arrivent bientôt.</p>
     </section>
 
     <!-- Écran Réglages -->
@@ -239,6 +261,7 @@
   <!-- Feuille d'ajout express : nom + Enregistrer ; le reste est replié dans « Plus d'options » -->
   <dialog class="feuille" id="feuille-ajout" aria-labelledby="ajout-titre">
     <form id="form-ajout" method="dialog" novalidate>
+      <div class="poignee" aria-hidden="true"></div>
       <h2 id="ajout-titre">Nouvelle tâche</h2>
       <input class="champ" id="ajout-nom" type="text" placeholder="Ex. : lire 20 pages" autocomplete="off"
              enterkeyhint="done" maxlength="80" aria-label="Nom de la tâche">
@@ -296,6 +319,7 @@
   <!-- Feuille : saisie d'une progression (objectif chiffré) -->
   <dialog class="feuille" id="feuille-saisie" aria-labelledby="saisie-titre">
     <form id="form-saisie" method="dialog" novalidate>
+      <div class="poignee" aria-hidden="true"></div>
       <h2 id="saisie-titre"></h2>
       <p class="discret" id="saisie-info"></p>
       <label class="etiquette-champ" id="saisie-question" for="saisie-valeur"></label>
@@ -312,6 +336,7 @@
   <!-- Feuille : nouvelle catégorie perso -->
   <dialog class="feuille" id="feuille-categorie" aria-labelledby="categorie-titre">
     <form id="form-categorie" method="dialog" novalidate>
+      <div class="poignee" aria-hidden="true"></div>
       <h2 id="categorie-titre">Nouvelle catégorie</h2>
       <div class="ligne-champs">
         <input class="champ emoji" id="categorie-emoji" type="text" placeholder="🎸" autocomplete="off" aria-label="Emoji">

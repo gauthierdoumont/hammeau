@@ -543,6 +543,8 @@ function afficher(nom) {
   const onglet = ecran.dataset.parent || nom;
   document.querySelectorAll('.onglet').forEach(b => b.classList.toggle('actif', b.dataset.aller === onglet));
   if (nom === 'apropos') remplirApropos();
+  if (nom === 'perso' && etat) rendrePerso();
+  rendreSousTitre(nom);
   window.scrollTo(0, 0);
   // Le village ne tourne que quand on le regarde (batterie)
   if (nom === 'village' && etat) window.Village?.ouvrir(etat);
@@ -554,6 +556,8 @@ function rendre() {
   rendreListes();
   rendreCategories();
   window.VillageUI?.rendre(etat);
+  if (document.getElementById('ecran-perso').classList.contains('actif')) rendrePerso();
+  rendreSousTitre(historique[historique.length - 1]);
   window.Village?.actualiser(etat);
   const dernier = etat.reglages.dernierExport;
   document.getElementById('info-dernier-export').textContent = dernier ? 'Dernier export : ' + dateCourte(dernier) : 'Jamais exporté pour l\'instant';
@@ -572,9 +576,69 @@ function rendreTableau() {
     if (!enVol[p.dataset.ressource]) afficherCompteur(p, j.ressources[p.dataset.ressource] || 0);
   }
   const besoin = M.xpPourNiveau(j.niveau, C);
+  document.getElementById('xp-medaillon').textContent = j.niveau;
   document.getElementById('xp-niveau').textContent = `Niv. ${j.niveau}`;
   document.getElementById('xp-reste').textContent = `encore ${nombre(besoin - j.xp)} XP avant le niveau ${j.niveau + 1}`;
   document.getElementById('xp-jauge').style.width = `${Math.min(100, (j.xp / besoin) * 100)}%`;
+  rendreChantier();
+}
+
+// Carte « Prochain chantier » : le lien entre les tâches du jour et le village
+function rendreChantier() {
+  const carte = document.getElementById('carte-chantier');
+  const ch = Economie.prochainChantier(etat, C);
+  const def = ch && window.CATALOGUE_VILLAGE?.batiments[ch.type];
+  carte.hidden = !def;
+  if (!def) return;
+  const p = ch.possibilite;
+  const pret = !Object.keys(p.manque).length;
+  carte.classList.toggle('pret', pret);
+  document.getElementById('chantier-icone').textContent = def.emoji;
+  document.getElementById('chantier-nom').textContent = p.action === 'ameliorer' ? `${def.nom} · niveau ${p.niveauCible}` : def.nom;
+  document.getElementById('chantier-jauge').style.width = `${Math.round(ch.progression * 100)}%`;
+  const manques = Object.entries(p.manque).sort((a, b) => b[1] - a[1]);
+  document.getElementById('chantier-detail').textContent = pret
+    ? 'Tout est prêt : va construire ! 🔨'
+    : 'Il manque ' + manques.slice(0, 3).map(([r, q]) => `${nombre(q)} ${C.ressources.find(x => x.id === r).emoji}`).join(' · ') + (manques.length > 3 ? ' …' : '');
+}
+
+// Écran Perso : le chef, ses talents (stats) et son hameau
+function rendrePerso() {
+  const j = etat.joueur, besoin = M.xpPourNiveau(j.niveau, C);
+  document.getElementById('perso-niveau').textContent = j.niveau;
+  document.getElementById('perso-xp').textContent = `Niveau ${j.niveau} · ${nombre(j.xp)} / ${nombre(besoin)} XP · ${nombre(j.xpTotal)} XP en tout`;
+  document.getElementById('perso-jauge').style.width = `${Math.min(100, (j.xp / besoin) * 100)}%`;
+  const stats = M.stats(j.gagneTotal, C);
+  document.getElementById('perso-stats').replaceChildren(...C.familles.filter(f => f.stat).map(f => {
+    const total = j.gagneTotal[f.id] || 0;
+    const vers = (total % C.stat.diviseur) / C.stat.diviseur;    // progression vers le point suivant
+    const bonus = Economie.bonus(etat, f.id, C);
+    const ligne = el('div', { class: 'stat' },
+      el('span', { class: 'stat-icone', 'aria-hidden': 'true' }, f.emoji),
+      el('span', { class: 'stat-texte' },
+        el('span', { class: 'stat-titre' }, el('b', {}, f.nomStat), bonus ? el('small', { class: 'stat-bonus' }, `+${Math.round(bonus * 100)} %`) : ''),
+        el('span', { class: 'stat-jauge' }, el('i', {}))),
+      el('b', { class: 'stat-valeur' }, String(stats[f.stat])));
+    ligne.style.setProperty('--famille', `var(--${f.id})`);
+    ligne.querySelector('.stat-jauge i').style.width = `${Math.round(vers * 100)}%`;
+    return ligne;
+  }));
+  const bats = etat.village?.batiments || [];
+  const CV = window.CATALOGUE_VILLAGE;
+  document.getElementById('perso-village').replaceChildren(bats.length
+    ? el('div', { class: 'perso-bats' }, ...bats.map(b => el('span', { class: 'perso-bat' }, `${CV.batiments[b.type].emoji} ${CV.batiments[b.type].nom}`, el('small', {}, ` niv. ${b.niveau}`))))
+    : el('p', { class: 'discret' }, 'Ton hameau attend sa Mairie : chaque tâche t\'en rapproche.'));
+}
+
+// Sous-titre de l'en-tête sur Aujourd'hui : la date et un petit mot selon l'heure
+function rendreSousTitre(nom) {
+  const st = document.getElementById('sous-titre');
+  if (nom !== 'aujourdhui' || !etat) { st.textContent = ''; return; }
+  const m = maintenant();
+  const h = J.partiesLocales(m, C.jour.fuseau).heure;
+  const date = m.toLocaleDateString('fr-BE', { timeZone: C.jour.fuseau, weekday: 'long', day: 'numeric', month: 'long' });
+  const mot = h < 4 ? 'Douce nuit 🌙' : h < 12 ? 'Belle matinée ☀️' : h < 18 ? 'Bel après-midi 🌤️' : 'Bonne soirée 🌇';
+  st.textContent = `${date.charAt(0).toUpperCase() + date.slice(1)} · ${mot}`;
 }
 
 function rendreListes() {
@@ -598,7 +662,9 @@ function rendreListes() {
   const blocs = [];
   for (const type of T.TYPES) {
     if (!listes[type].length) continue;
-    blocs.push(el('h3', { class: 'intertitre' }, NOMS_TYPES[type]));
+    const faites = listes[type].filter(t => M.estFaite(t, listes.bilans.get(t.id))).length;
+    blocs.push(el('h3', { class: 'intertitre' }, NOMS_TYPES[type],
+      type === 'quotidienne' ? el('span', { class: 'compte' + (faites === listes[type].length ? ' complet' : '') }, `${faites}/${listes[type].length}`) : ''));
     for (const t of listes[type]) blocs.push(carteTache(t, listes.bilans.get(t.id)));
   }
   jourAffiche = jour;
