@@ -38,12 +38,29 @@
     <!-- Écran Village (V2) -->
     <section class="ecran" id="ecran-village" data-titre="Village">
       <!-- Scène isométrique (Phaser, chargé à la 1re ouverture de l'onglet) -->
-      <div class="village" id="village" aria-label="Ton village">
-        <div class="village-chargement" id="village-chargement">Le village se prépare…</div>
+      <div class="village" id="village" aria-label="Ton village" data-ambiance="jour">
+        <div class="village-etoiles" aria-hidden="true"></div>
+        <div class="village-chargement" id="village-chargement"><span>Le village se prépare…</span></div>
+        <!-- Ressources, toujours visibles en haut du village -->
+        <div class="village-hud" id="village-hud" aria-label="Tes ressources"></div>
+        <!-- Bouton « Construire » -->
+        <button type="button" class="village-construire" id="btn-construire" aria-label="Construire">
+          <span class="village-construire-icone" aria-hidden="true">🔨</span><span>Construire</span>
+        </button>
+        <!-- Barre du placement libre -->
+        <div class="village-placement" id="village-placement" hidden>
+          <b id="placement-titre"></b>
+          <p id="placement-texte">Touche une case pour choisir l'emplacement.</p>
+          <div class="placement-boutons">
+            <button type="button" class="bouton" id="btn-placement-annuler">Annuler</button>
+            <button type="button" class="bouton principal" id="btn-placer">✅ Placer ici</button>
+          </div>
+        </div>
         <div class="village-bulle" id="village-bulle" hidden>
           <b>Bienvenue dans ton hameau 🏡</b>
-          <span>Glisse pour te promener, pince pour zoomer. La construction arrive très bientôt : tes ressources t'attendent !</span>
-          <button type="button" class="bouton" id="village-bulle-ok">C'est parti</button>
+          <span>Ici, ce que tu fais dans la vraie vie devient des bâtiments. Commence par la <b>Mairie</b> : touche <b>🔨 Construire</b>.</span>
+          <span class="discret">Glisse pour te promener, pince pour zoomer, touche un bâtiment pour le voir.</span>
+          <button type="button" class="bouton principal" id="village-bulle-ok">C'est parti</button>
         </div>
       </div>
     </section>
@@ -140,6 +157,7 @@
         <h3 class="intertitre credits-titre">Crédits</h3>
         <ul class="credits">
           <li><b>Graphismes du village</b> — Kenney (kenney.nl), domaine public (CC0). Merci !</li>
+          <li><b>Sons</b> — Kenney (kenney.nl), domaine public (CC0).</li>
           <li><b>Moteur du village</b> — Phaser (phaser.io), licence MIT.</li>
           <li><b>Police des titres</b> — Cinzel, licence SIL Open Font.</li>
         </ul>
@@ -311,6 +329,37 @@
     </form>
   </dialog>
 
+  <!-- Feuille : construire (liste des bâtiments) -->
+  <dialog class="feuille" id="feuille-construire" aria-labelledby="construire-titre">
+    <div class="feuille-contenu">
+      <div class="poignee" aria-hidden="true"></div>
+      <h2 id="construire-titre">Construire</h2>
+      <p class="discret">Tes tâches de la vraie vie paient les chantiers. Chaque bâtiment amplifie une famille de tâches.</p>
+      <div id="liste-construire" class="liste-construire"></div>
+      <div class="feuille-boutons"><button type="button" class="bouton" data-fermer>Fermer</button></div>
+    </div>
+  </dialog>
+
+  <!-- Feuille : fiche d'un bâtiment -->
+  <dialog class="feuille" id="feuille-batiment" aria-labelledby="fiche-nom">
+    <div class="feuille-contenu">
+      <div class="poignee" aria-hidden="true"></div>
+      <div class="fiche-entete">
+        <div class="fiche-icone" id="fiche-icone" aria-hidden="true"></div>
+        <div>
+          <h2 id="fiche-nom"></h2>
+          <div class="fiche-etoiles" id="fiche-etoiles"></div>
+        </div>
+      </div>
+      <p class="fiche-effet" id="fiche-effet"></p>
+      <div id="fiche-suite"></div>
+      <div class="feuille-boutons">
+        <button type="button" class="bouton" data-fermer>Fermer</button>
+        <button type="button" class="bouton" id="btn-deplacer">↔️ Déplacer</button>
+      </div>
+    </div>
+  </dialog>
+
   <!-- Fenêtre de dialogue réutilisable (confirmations, messages) -->
   <dialog id="dialogue">
     <h2 id="dialogue-titre"></h2>
@@ -332,7 +381,9 @@
   <script src="economie.js"></script>
   <script src="assets/village/catalogue.js"></script>
   <script src="village-geo.js"></script>
+  <script src="sons.js"></script>
   <script src="village.js"></script>
+  <script src="village-ui.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

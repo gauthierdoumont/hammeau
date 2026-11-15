@@ -388,6 +388,58 @@ function S_ok(e) { return e.schemaVersion === 2 && new Set(e.taches.map(t => t.i
   await ctx.close();
 }
 
+/* 8. Construire : Mairie d'abord, coût payé, fiche, amélioration (pas de capture : surprise) */
+{
+  const { ctx, page, erreurs, externes } = await nouvellePage(412);
+  await page.evaluate(() => Appli.modifier(e => { for (const r of Object.keys(e.joueur.ressources)) e.joueur.ressources[r] = 300; e.joueur.niveau = 6; }));
+  await page.click('.onglet[data-aller="village"]');
+  await page.waitForFunction(() => window.Village?.estPret(), null, { timeout: 15000 });
+  await page.click('#village-bulle-ok');
+  await page.click('#btn-construire');
+  await page.waitForSelector('#feuille-construire[open]');
+  verifier(await page.locator('#liste-construire .bat-carte').count() === 8, '8 bâtiments proposés');
+  verifier((await page.textContent('#liste-construire')).includes('Construis d\'abord la Mairie'), 'autres bâtiments verrouillés avec explication');
+  await page.click('[data-construire="mairie"]');
+  verifier(await page.isVisible('#village-placement'), 'mode placement');
+  verifier(await page.isEnabled('#btn-placer'), 'case de départ libre');
+  await page.click('#btn-placer');
+  await page.waitForTimeout(400);
+  let e = await page.evaluate(() => Appli.etat());
+  verifier(e.village.batiments.length === 1 && e.village.batiments[0].type === 'mairie', 'Mairie construite');
+  verifier(e.joueur.ressources.bois === 260 && e.joueur.ressources.savoir === 260, 'coût payé (40 de chaque)');
+  const stocke = JSON.parse(await lire(page));
+  verifier(stocke.schemaVersion === 2 && stocke.village.batiments.length === 1, 'village sauvegardé');
+  // Placement refusé sur une case occupée (le puits)
+  await page.click('#btn-construire');
+  await page.click('[data-construire="taverne"]');
+  await page.evaluate(() => Village.quitterPlacement());
+  await page.click('#btn-placement-annuler');
+  // Fiche de la Mairie (ouverte comme si on l'avait touchée) puis amélioration
+  await page.click('#btn-construire');
+  await page.click('[data-voir]');
+  await page.waitForSelector('#feuille-batiment[open]');
+  verifier((await page.textContent('#fiche-nom')) === 'Mairie', 'fiche de la Mairie');
+  await page.click('#btn-ameliorer');
+  await page.waitForTimeout(400);
+  e = await page.evaluate(() => Appli.etat());
+  verifier(e.village.batiments[0].niveau === 2 && e.joueur.ressources.bois === 100, 'Mairie niveau 2 (160 de chaque payé)');
+  // Bonus : la Bibliothèque fait gagner plus de Savoir
+  await page.click('#btn-construire');
+  await page.click('[data-construire="bibliotheque"]');
+  await page.click('#btn-placer');
+  await page.waitForTimeout(300);
+  const bonus = await page.evaluate(() => Economie.bonus(Appli.etat(), 'esprit', CONFIG));
+  verifier(bonus === 0.05, 'bonus Esprit +5 % : ' + bonus);
+  // Bouton retour pendant un placement = annuler
+  await page.click('#btn-construire');
+  await page.click('[data-construire="taverne"]');
+  await page.evaluate(() => retourEcranPrecedent());
+  verifier(!(await page.isVisible('#village-placement')), 'retour : placement annulé');
+  verifier(!erreurs.length, 'erreurs console (construction) : ' + erreurs);
+  verifier(!externes.length, 'ressources externes (construction) : ' + externes);
+  await ctx.close();
+}
+
 await nav.close(); serveur.close();
-console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso, cocher, village');
+console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso, cocher, village, construction');
 process.exit(echecs.length ? 1 : 0);

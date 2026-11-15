@@ -11,7 +11,7 @@
   /* ===== TERRAIN =====
    * Une lettre par case (ligne = gy, colonne = gx) :
    *  . herbe constructible   = chemin   ~ rivière   # pont
-   *  T arbre   M bosquet   P sapin   G grand sapin   R rochers   B blé   W puits
+   *  T arbre   M bosquet   P sapin   G grand sapin   R rochers   B potager   W puits
    */
   const carte = [
     'PG..=..T.~PG',
@@ -27,7 +27,7 @@
     'P...=...T~MP',
     'GPT.=....~PG',
   ];
-  const decors = { T: 'tree_single_N', M: 'tree_multiple_N', P: 'tree_pine_N', G: 'tree_pineLarge_N', R: 'rocks_grass_N', B: 'furrow_cropWheat_N', W: 'well_N' };
+  const decors = { T: 'tree_single_N', M: 'tree_multiple_N', P: 'tree_pine_N', G: 'tree_pineLarge_N', R: 'rocks_grass_N', B: 'furrow_crop_N', W: 'well_N' };
 
   /* ===== BÂTIMENTS =====
    * Chaque niveau (1 à 5) = liste de pièces [image, h, dx?, dy?] posées sur la case du bâtiment (dx, dy : case voisine).
@@ -61,21 +61,21 @@
       niveaux: maison({ rdc: 'building_doorWindowsBeige_N', etage: 'building_windowsBeige_N', toit: 'roof_churchPurple_N', balcon: 'balcony_stone_N' }) },
     arene:        { nom: 'Arène',        emoji: '⚔️', famille: 'corps',      empreinte: [1, 1],
       niveaux: tour({ base: 'castle_towerGreenBase_N', haut: 'castle_towerGreenTop_N' }) },
-    atelier:      { nom: 'Atelier',      emoji: '🔨', famille: 'creation',   empreinte: [1, 1],
+    atelier:      { nom: 'Atelier',      emoji: '🔨', famille: 'creation',   empreinte: [1, 1], fumee: true,
       niveaux: maison({ rdc: 'building_door_E', etage: 'building_window_E', toit: 'roof_slantBrown_N', balcon: 'balcony_wood_E' }) },
-    taverne:      { nom: 'Taverne',      emoji: '🍺', famille: 'social',     empreinte: [1, 1],
+    taverne:      { nom: 'Taverne',      emoji: '🍺', famille: 'social',     empreinte: [1, 1], fumee: true,
       niveaux: maison({ rdc: 'building_doorWindows_N', etage: 'building_windows_N', toit: 'roof_gableBrown_N', balcon: 'balcony_wood_N' }) },
-    scierie:      { nom: 'Scierie',      emoji: '🪚', famille: 'discipline', empreinte: [1, 1],
+    scierie:      { nom: 'Scierie',      emoji: '🪚', famille: 'discipline', empreinte: [1, 1], fumee: true,
       niveaux: maison({ rdc: 'building_door_N', etage: 'building_windows_E', toit: 'roof_gableGreen_E', balcon: 'balcony_wood_E' }) },
     banque:       { nom: 'Banque',       emoji: '🏦', famille: 'pro',        empreinte: [1, 1],
       niveaux: maison({ rdc: 'building_doorBeige_E', etage: 'building_windowBeige_E', toit: 'roof_roundedBeige_N', balcon: 'balcony_stone_E' }) },
     jardin:       { nom: 'Jardin',       emoji: '🌳', famille: 'repos',      empreinte: [2, 2],
       niveaux: [
         [['tree_single_N', 1]],
-        [['tree_single_N', 1], ['furrow_cropWheat_N', 1, 1, 0]],
-        [['tree_multiple_N', 1], ['furrow_cropWheat_N', 1, 1, 0], ['well_N', 1, 0, 1]],
-        [['tree_multiple_N', 1], ['furrow_cropWheat_N', 1, 1, 0], ['well_N', 1, 0, 1], ['tree_pine_N', 1, 1, 1]],
-        [['tree_pineLarge_N', 1], ['furrow_cropWheat_N', 1, 1, 0], ['well_N', 1, 0, 1], ['tree_multiple_N', 1, 1, 1]],
+        [['tree_single_N', 1], ['furrow_crop_N', 1, 1, 0]],
+        [['tree_multiple_N', 1], ['furrow_crop_N', 1, 1, 0], ['well_N', 1, 0, 1]],
+        [['tree_multiple_N', 1], ['furrow_crop_N', 1, 1, 0], ['well_N', 1, 0, 1], ['tree_pine_N', 1, 1, 1]],
+        [['tree_pineLarge_N', 1], ['furrow_crop_N', 1, 1, 0], ['well_N', 1, 0, 1], ['tree_multiple_N', 1, 1, 1]],
       ] },
   };
 

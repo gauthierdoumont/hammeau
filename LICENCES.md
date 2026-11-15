@@ -3,6 +3,7 @@
 | Élément | Fichier | Auteur | Licence |
 |---|---|---|---|
 | Graphismes du village (pack « Sketch Town » + « Sketch Town Expansion ») | `www/assets/village/village.png` (atlas : pièces choisies, réduites de moitié par `outils/preparer-village.js`) + `LICENCE-pack.txt` | Kenney (www.kenney.nl) | Creative Commons Zero (CC0 1.0) — domaine public, crédit apprécié |
+| Sons courts (pose, marteau, fanfare, pièces, clic, validation) | `www/assets/sons/*.ogg` (6 fichiers renommés, non modifiés) + `LICENCE-sons.txt` | Kenney (www.kenney.nl) — packs « Impact Sounds », « RPG Audio », « Music Jingles », « Interface Sounds » | Creative Commons Zero (CC0 1.0) |
 | Moteur du village Phaser 3.90.0 | `www/lib/phaser.min.js` (copie non modifiée) | Phaser Studio Inc. (phaser.io) | MIT |
 | Police Cinzel (titres, graisse 700) | `www/fonts/cinzel-latin-700-normal.woff2` | The Cinzel Project Authors (https://github.com/NDISCOVER/Cinzel), via Fontsource | SIL Open Font License 1.1 (texte complet ci-dessous) |
 

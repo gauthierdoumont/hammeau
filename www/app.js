@@ -369,7 +369,8 @@ function cocher(tacheId, quantite = null) {
   if (!ok) return false;
   // Retour immédiat : le gain s'envole vers son compteur, petite vibration
   animerGain(depart, r, avant);
-  if (etat.reglages.vibrations) PL.Haptics?.impact({ style: 'LIGHT' }).catch(() => {});
+  vibrer('LIGHT');
+  window.Sons?.jouer(r.terminee ? 'pieces' : 'valide');
   let texte = r.terminee ? 'Bien joué ✅' : `${Math.round(r.progression * 100)} % fait ✨`;
   if (r.niveauxGagnes) texte = `Niveau ${etat.joueur.niveau} atteint ! 🎉`;
   proposerAnnulation(texte, avant);
@@ -545,13 +546,14 @@ function afficher(nom) {
   window.scrollTo(0, 0);
   // Le village ne tourne que quand on le regarde (batterie)
   if (nom === 'village' && etat) window.Village?.ouvrir(etat);
-  else window.Village?.fermer();
+  else { window.VillageUI?.quitter(); window.Village?.fermer(); }
 }
 
 function rendre() {
   if (!etat) return;
   rendreListes();
   rendreCategories();
+  window.VillageUI?.rendre(etat);
   window.Village?.actualiser(etat);
   const dernier = etat.reglages.dernierExport;
   document.getElementById('info-dernier-export').textContent = dernier ? 'Dernier export : ' + dateCourte(dernier) : 'Jamais exporté pour l\'instant';
@@ -670,6 +672,7 @@ function aller(nom) {
 function retourEcranPrecedent() {
   const ouverts = document.querySelectorAll('dialog[open]');
   if (ouverts.length) { ouverts[ouverts.length - 1].close(); return true; }
+  if (window.VillageUI?.retour()) return true;      // placement en cours dans le village → annulé
   if (document.body.classList.contains('bloque') || historique.length <= 1) return false;
   historique.pop();
   afficher(historique[historique.length - 1]);
@@ -827,6 +830,17 @@ function descriptionResume(r) {
 function echapper(t) {
   return String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
+
+/* ===== FENÊTRE SUR L'APPLI (pour le village : village-ui.js, village.js) ===== */
+function vibrer(style) {
+  if (etat?.reglages?.vibrations === false) return;
+  PL.Haptics?.impact({ style }).catch(() => {});
+}
+window.Appli = {
+  etat: () => etat, modifier, refus, toast, dialogue, message, maintenant, vibrer,
+  nouvelId: () => S.nouvelId(),
+};
+window.Sons?.brancher(() => etat?.reglages?.sons !== false);
 
 /* ===== LANCEMENT ===== */
 demarrer().catch((x) => {
