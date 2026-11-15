@@ -37,9 +37,14 @@
 
     <!-- Écran Village (V2) -->
     <section class="ecran" id="ecran-village" data-titre="Village">
-      <div class="carte">
-        <h2>Le village</h2>
-        <p>Il se construira ici, avec tes ressources. Surprise !</p>
+      <!-- Scène isométrique (Phaser, chargé à la 1re ouverture de l'onglet) -->
+      <div class="village" id="village" aria-label="Ton village">
+        <div class="village-chargement" id="village-chargement">Le village se prépare…</div>
+        <div class="village-bulle" id="village-bulle" hidden>
+          <b>Bienvenue dans ton hameau 🏡</b>
+          <span>Glisse pour te promener, pince pour zoomer. La construction arrive très bientôt : tes ressources t'attendent !</span>
+          <button type="button" class="bouton" id="village-bulle-ok">C'est parti</button>
+        </div>
       </div>
     </section>
 
@@ -132,7 +137,12 @@
           <dt>Stockage natif</dt><dd id="info-stockage">—</dd>
           <dt>Taille des données</dt><dd id="info-taille">—</dd>
         </dl>
-        <p class="discret">Police des titres : Cinzel (licence SIL Open Font).</p>
+        <h3 class="intertitre credits-titre">Crédits</h3>
+        <ul class="credits">
+          <li><b>Graphismes du village</b> — Kenney (kenney.nl), domaine public (CC0). Merci !</li>
+          <li><b>Moteur du village</b> — Phaser (phaser.io), licence MIT.</li>
+          <li><b>Police des titres</b> — Cinzel, licence SIL Open Font.</li>
+        </ul>
         <p class="signature">Créé par Gauthier Doumont</p>
       </div>
     </section>
@@ -319,6 +329,9 @@
   <script src="taches.js"></script>
   <script src="temps.js"></script>
   <script src="moteur.js"></script>
+  <script src="assets/village/catalogue.js"></script>
+  <script src="village-geo.js"></script>
+  <script src="village.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

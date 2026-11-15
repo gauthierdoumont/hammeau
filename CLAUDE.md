@@ -177,8 +177,8 @@ Objectif d'équilibrage : **environ 4 mois** d'usage régulier pour tout monter 
 - [ ] 8. Réglages, À propos, vérification des mises à jour, check-list du skill, release v1.0.0 (~40 min)
 
 ### V2 — Le village
-- [ ] 9. Choix et intégration du pack graphique (surprise) + crédits (~45 min)
-- [ ] 10. Scène Phaser isométrique : grille, caméra, zoom au doigt (~45 min)
+- [x] 9. Choix et intégration du pack graphique (surprise) + crédits (~45 min)
+- [x] 10. Scène Phaser isométrique : grille, caméra, zoom au doigt (~45 min)
 - [ ] 11. Construire / améliorer / coûts / bonus des bâtiments / Mairie (~45 min)
 - [ ] 12. Animations, villageois, effets, sons (~45 min)
 - [ ] 13. Bâtiments endommagés + réparation, extensions, décorations (~45 min)

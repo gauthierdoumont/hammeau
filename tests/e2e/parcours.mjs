@@ -37,7 +37,9 @@ async function nouvellePage(largeur = 412, stockageDepart = null) {
   page.on('console', m => m.type() === 'error' && !/illisibles/.test(m.text()) && erreurs.push(m.text()));
   page.on('request', r => { if (!r.url().startsWith('http://localhost:4173')) externes.push(r.url()); });
   await page.goto(URL_APPLI);
-  await ctx.setOffline(true);
+  // Hors ligne : toute adresse extérieure est refusée (setOffline bloquerait aussi le serveur local, alors que
+  // sur le téléphone les fichiers sont DANS l'appli). Les tentatives sont quand même comptées dans « externes ».
+  await ctx.route(url => !String(url).startsWith('http://localhost:4173'), route => route.abort());
   await pause(page);
   return { ctx, page, erreurs, externes };
 }
@@ -80,7 +82,7 @@ for (const largeur of [360, 412, 1100]) {
   verifier(exporte.meta?.appli === CLE && !('icsUrl' in exporte.reglages), 'export : meta présente, sans adresse iCal');
   verifier((await page.textContent('#info-dernier-export')).startsWith('Dernier export'), 'date du dernier export affichée');
 
-  await ctx.setOffline(false); await page.reload(); await ctx.setOffline(true); await pause(page);
+  await page.reload(); await pause(page);
   verifier(JSON.parse(await lire(page)).reglages.dernierExport, 'rechargement : données gardées');
 
   // Import de la fixture fictive (avec une adresse iCal à ne PAS reprendre)
@@ -357,6 +359,35 @@ function S_ok(e) { return e.schemaVersion === 1 && new Set(e.taches.map(t => t.i
   await ctx.close();
 }
 
+/* 7. Village : Phaser chargé seulement à l'ouverture de l'onglet, scène à la bonne taille, endormie hors de l'onglet.
+ * (Pas de capture enregistrée : le village est une surprise jusqu'au 1er lancement sur le téléphone.) */
+{
+  const { ctx, page, erreurs, externes } = await nouvellePage(412);
+  const phaserCharge = () => page.evaluate(() => !!window.Phaser);
+  verifier(!(await phaserCharge()), 'Phaser pas chargé au démarrage (appli rapide)');
+  await page.click('.onglet[data-aller="village"]');
+  await page.waitForFunction(() => window.Village?.estPret(), null, { timeout: 15000 });
+  verifier(await phaserCharge(), 'Phaser chargé à l\'ouverture du village');
+  const boite = await page.locator('#village canvas').boundingBox();
+  verifier(boite && boite.width === 412 && boite.height > 500, 'scène pleine largeur et haute : ' + JSON.stringify(boite));
+  verifier(await page.isVisible('#village-bulle'), 'bulle d\'accueil à la 1re visite');
+  await page.click('#village-bulle-ok');
+  await page.evaluate(() => Village.demo());
+  await page.mouse.move(206, 400); await page.mouse.down(); await page.mouse.move(80, 300, { steps: 6 }); await page.mouse.up();
+  await page.mouse.wheel(0, -300);
+  await page.waitForTimeout(300);
+  await page.click('.onglet[data-aller="aujourdhui"]');
+  verifier(!(await page.evaluate(() => Village.tourne())), 'village endormi hors de son onglet');
+  verifier(!(await page.isVisible('#village')), 'scène masquée sur Aujourd\'hui');
+  await page.click('.onglet[data-aller="village"]');
+  await page.waitForTimeout(200);
+  verifier(await page.evaluate(() => Village.tourne()), 'village réveillé au retour');
+  verifier(!(await page.isVisible('#village-bulle')), 'bulle d\'accueil plus montrée ensuite');
+  verifier(!erreurs.length, 'erreurs console (village) : ' + erreurs);
+  verifier(!externes.length, 'ressources externes (village) : ' + externes);
+  await ctx.close();
+}
+
 await nav.close(); serveur.close();
-console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso');
+console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso, cocher, village');
 process.exit(echecs.length ? 1 : 0);

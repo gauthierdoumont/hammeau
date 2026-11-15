@@ -1,5 +1,11 @@
 # Journal des versions — Hameau
 
+## 0.5.0 — 2026-11-16
+- 🏘️ Le village est là ! Onglet Village : une île à explorer (glisser pour se promener, pincer pour zoomer).
+- Graphismes libres (domaine public) et moteur de jeu intégrés dans l'appli : tout marche hors ligne.
+- Le village ne se charge qu'à la 1re ouverture de l'onglet et se met en veille quand on le quitte (rapidité et batterie).
+- Menu embelli : barre d'onglets en bois et or avec icônes dessinées, Réglages en liste groupée, crédits dans À propos.
+
 ## 0.4.1 — 2026-11-16 (correctifs)
 - Un objectif atteint par petites saisies (ex. 10 × 1 minute) arrive bien à 100 % (avant : bloqué à 99,99 %).
 - « Tout le reste » termine toujours la tâche.

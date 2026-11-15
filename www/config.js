@@ -96,6 +96,9 @@ window.CONFIG = {
   pause: { retroJoursMax: 7 },                          // ↑ = pause activable plus loin dans le passé
   incendie: { part: 0.2, max: 50 },                     // V1 : part de la ressource perdue (plafonnée à max)
 
+  /* ===== Village : caméra (zoom en taille d'écran ; 1 = images à leur taille réelle) ===== */
+  village: { zoomMin: 0.3, zoomMax: 1.4, zoomDepart: 0.6 },   // zoomMax ↑ = on peut voir les bâtiments de plus près
+
   /* ===== Village et économie (V2, utilisés à l'étape 11) ===== */
   batiments: {
     niveauMax: 5,

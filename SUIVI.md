@@ -1,12 +1,12 @@
 # Suivi — Hameau
 
 ## Où on en est
-- Version : 0.4.1 · Étape suivante : **1b** (clé de signature + 1er build, quand Gauthier est sur son PC), puis 🔁 **point de contrôle** (2-3 jours d'usage), puis 5a · Dernière session : 2026-11-16
+- Version : 0.5.0 · Étape suivante : **11** (construire / améliorer / coûts / Mairie). La **1b** (clé + 1er APK) est gardée pour la toute fin (demande de Gauthier) · Dernière session : 2026-11-16
 
 ## Dernière session
-- Fait : étapes 1a, 2, 3 et 4 (cocher, progression partielle, gains de base, animation « +25 », Annuler, modifier / supprimer une tâche). 1b reportée : Gauthier n'était pas sur son PC.
-- Testé : `npm test` (38 tests : données, tâches, moteur, jour logique), `npm run e2e` (Playwright, horloge simulée lundi 16/11 : navigation hors ligne, export/import, récupération, ajout, options, catégories, cocher, saisie partielle, Annuler, modifier, supprimer, niveau).
-- Non testé / à vérifier sur le téléphone : tout (1er APK à l'étape 1b) — en particulier : export via la feuille de partage, choix d'un .json à l'import, fenêtre d'ajout quand le clavier s'ouvre (adjustResize), sélecteur de date, vibration à la coche, fluidité de l'animation « +25 ».
+- Fait : relecture complète du code → 10 bugs corrigés (0.4.1) ; menu embelli par un 2e agent (barre d'onglets, Réglages, À propos) ; étapes 9 et 10 du village (pack graphique CC0 en atlas, scène Phaser isométrique, caméra, zoom au doigt, veille hors onglet, crédits).
+- Testé : `npm test` (52 tests : données, tâches, moteur, jour logique, village), `npm run e2e` (Playwright : tout le parcours + village chargé à la demande, taille de la scène, glisser, molette, veille / réveil, aucune ressource extérieure).
+- Non testé / à vérifier sur le téléphone : tout (1er APK à la 1b) — en plus de la liste précédente : fluidité du village (≥ 30 fps), netteté, pincement à deux doigts, batterie après 10 min.
 
 ## Bugs connus
 - (aucun)
@@ -32,11 +32,18 @@
 | 2026-11-16 | Toast « Annuler » 5 s après chaque coche / suppression | Erreur de doigt pardonnée (skill moteur-recompenses) |
 | 2026-11-16 | Progression = somme des quantités / cible ; gain d'une saisie = gain mérité − déjà reçu (≥ 0) | Robuste aux arrondis et aux modifications de taille / cible |
 | 2026-11-16 | Changer le type ou ajouter / retirer l'objectif d'une tâche → sa progression repart de zéro (`tache.depuis`), gains gardés | Sinon tâche bloquée « déjà faite » |
+| 2026-11-16 | 1b (clé + 1er APK) faite en tout dernier ; on avance sur le village avant | Demande de Gauthier |
+| 2026-11-16 | Menu embelli par un 2e agent (Réglages + barre d'onglets) | Demande de Gauthier (« les deux ») |
+| 2026-11-16 | Pack du village : un seul pack CC0 cohérent (voir `LICENCES.md`), préparé en atlas par `outils/preparer-village.js` | Surprise : ni nom ni capture montrés avant le 1er lancement |
+| 2026-11-16 | Niveaux des bâtiments = étages en plus (1/2/2/3/4) + balcon dès le niveau 3 ; tours : étages de tour + rempart | Le pack n'a pas de niveaux tout faits |
+| 2026-11-16 | `etat.village` pas encore créé : la migration (schéma v2) arrive à l'étape 11, quand on construit pour de vrai | Pas de changement de structure inutile |
 | 2026-11-15 | `joueur.xp` = XP dans le niveau en cours, `joueur.xpTotal` = cumul (champ ajouté) | Un changement de courbe ne fera jamais baisser un niveau |
 
 ## À faire plus tard (noté, hors étape)
 - Étape 5a : simulation de l'économie (`outils/simulation.js`, skill `moteur-recompenses`) — impossible avant le moteur de gains.
 - Étape 8 : Réglages → « Sauvegardes automatiques » (liste + Restaurer) et rappel doux d'export après 14 jours (valeur déjà dans `config.js`).
+- Étape 11 : placement libre (fantôme + « Placer ici ») sur les cases constructibles ; migration v2 `village`.
+- Étape 12 : animations (pose, fumée, villageois) — `prefers-reduced-motion`.
 - Point de contrôle : poser les 5 questions du skill `reprise-session` §7 après 2-3 jours d'usage.
 - Réglages → Mes catégories : renommer / changer l'emoji d'une catégorie perso.
 

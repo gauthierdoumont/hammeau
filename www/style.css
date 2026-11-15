@@ -12,6 +12,8 @@
 
 /* ===== JETONS ===== */
 :root {
+  --ciel-haut: #13202f;   /* ciel du soir derrière le village */
+  --ciel-bas: #2e5560;
   --fond: #1B1714;
   --surface: #2A231E;
   --surface-2: #362D26;
@@ -468,3 +470,34 @@ body.bloque main { padding-bottom: calc(var(--bas) + 24px); }
   .jauge i { transition: none; }
 }
 .toast { width: max-content; }   /* sinon le texte se replie sur 2 lignes (largeur limitée par left: 50 %) */
+
+/* ===== VILLAGE (scène Phaser + bulles par-dessus) ===== */
+.village {
+  position: fixed; left: 0; right: 0; top: 0; z-index: 1;      /* top réglé par village.js sous l'en-tête */
+  bottom: calc(var(--bas) + var(--hauteur-onglets));
+  background: linear-gradient(180deg, var(--ciel-haut) 0%, var(--ciel-bas) 100%);
+  overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.village canvas { display: block; }
+/* Pas d'animation d'apparition sur l'écran Village : une transformation sur un parent décalerait la scène (position: fixed) */
+#ecran-village.actif { animation: none; }
+.village-chargement {
+  position: absolute; inset: 0; display: grid; place-items: center; padding: 24px;
+  color: var(--texte-doux); font-family: var(--police-titre); text-align: center;
+}
+.village-bulle {
+  position: absolute; left: 16px; right: 16px; bottom: 16px; z-index: 2;
+  max-width: 480px; margin: 0 auto; padding: 16px;
+  display: flex; flex-direction: column; gap: 8px;
+  background: var(--surface); border: 1px solid var(--bord); border-radius: var(--rayon);
+  box-shadow: 0 10px 30px var(--ombre);
+}
+.village-bulle b { font-family: var(--police-titre); font-size: 1.1rem; }
+.village-bulle span { color: var(--texte-doux); }
+.village-bulle .bouton { align-self: flex-end; }
+
+/* ===== CRÉDITS (À propos) ===== */
+.credits-titre { margin-top: 16px; }
+.credits { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; text-align: left; }
+.credits li { color: var(--texte-doux); font-size: .875rem; line-height: 1.4; }
+.credits b { color: var(--texte); font-weight: 600; }

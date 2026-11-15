@@ -540,12 +540,16 @@ function afficher(nom) {
   document.querySelectorAll('.onglet').forEach(b => b.classList.toggle('actif', b.dataset.aller === onglet));
   if (nom === 'apropos') remplirApropos();
   window.scrollTo(0, 0);
+  // Le village ne tourne que quand on le regarde (batterie)
+  if (nom === 'village' && etat) window.Village?.ouvrir(etat);
+  else window.Village?.fermer();
 }
 
 function rendre() {
   if (!etat) return;
   rendreListes();
   rendreCategories();
+  window.Village?.actualiser(etat);
   const dernier = etat.reglages.dernierExport;
   document.getElementById('info-dernier-export').textContent = dernier ? 'Dernier export : ' + dateCourte(dernier) : 'Jamais exporté pour l\'instant';
 }
