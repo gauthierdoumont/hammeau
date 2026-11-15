@@ -277,3 +277,72 @@ body.bloque main { padding-bottom: calc(var(--bas) + 24px); }
   .ecran.actif, .feuille[open], .tache.nouvelle { animation: none; }
   .toast, .bouton, .fab { transition: none; }
 }
+
+/* ===== ÉTAPE 4 : TABLEAU (ressources + XP) ===== */
+.tableau { margin-bottom: 8px; }
+.ressources { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.ressources::-webkit-scrollbar { display: none; }
+.pastille-res {
+  flex: none; display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 10px; border-radius: 999px; background: var(--surface); border: 1px solid var(--bord);
+  font-weight: 700; font-size: .9rem; font-variant-numeric: tabular-nums;
+}
+.pastille-res.pulse { animation: pulse .4s ease-out; }
+@keyframes pulse { 0% { transform: scale(1); } 40% { transform: scale(1.22); border-color: var(--accent); } 100% { transform: scale(1); } }
+.barre-xp { margin-top: 10px; }
+.xp-ligne { display: flex; justify-content: space-between; font-size: .875rem; margin-bottom: 4px; }
+.xp-ligne b { font-family: var(--police-titre); }
+.xp-ligne span { color: var(--texte-doux); }
+.jauge { height: 10px; background: var(--surface); border: 1px solid var(--bord); border-radius: 99px; overflow: hidden; }
+.jauge i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 99px; transition: width .5s cubic-bezier(.2, .8, .2, 1); }
+.barre-xp.pulse .jauge { animation: pulse .4s ease-out; }
+
+/* ===== CARTES DE TÂCHE : cocher, progression, gain prévu ===== */
+.tache { padding: 6px 8px 6px 4px; gap: 6px; }
+.case {
+  flex: none; width: var(--toucher); height: var(--toucher); display: grid; place-items: center;
+  background: none; border: 0; padding: 0;
+}
+.case::before {
+  content: ''; width: 28px; height: 28px; border-radius: 8px; border: 2px solid var(--texte-doux);
+  display: grid; place-items: center; font-weight: 900; color: var(--fond); transition: transform var(--duree), background var(--duree);
+}
+.case:active::before { transform: scale(.85); }
+.tache.fait .case::before { content: '✓'; background: var(--accent); border-color: var(--accent); }
+.tache.fait .tache-nom { opacity: .6; text-decoration: line-through; }
+.tache.fait .tache-emoji { opacity: .6; }
+.tache-corps { background: none; border: 0; padding: 6px 0; text-align: left; display: flex; gap: 10px; align-items: center; min-height: var(--toucher); }
+.tache-texte { flex: 1; min-width: 0; }
+.mini { display: block; height: 5px; background: var(--surface-2); border-radius: 9px; margin-top: 6px; overflow: hidden; }
+.mini i { display: block; height: 100%; background: var(--famille, var(--accent)); border-radius: 9px; }
+.gain { flex: none; font-weight: 800; color: var(--accent); white-space: nowrap; font-size: .95rem; padding-right: 6px; }
+.plus {
+  flex: none; width: 44px; height: 44px; border-radius: var(--rayon);
+  background: var(--surface-2); border: 1px solid var(--bord); color: var(--accent); font-size: 1.5rem; font-weight: 700; line-height: 1;
+}
+.plus:active { transform: scale(.94); }
+.autres-jours { margin: 0 4px 8px; }
+
+/* Le gain qui s'envole vers son compteur */
+.vol {
+  position: fixed; z-index: 10; pointer-events: none; left: 0; top: 0;
+  font-weight: 800; font-size: 1.15rem; color: var(--accent); white-space: nowrap;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, .7);
+}
+
+/* Saisie d'un objectif chiffré */
+.champ.grand { font-size: 1.6rem; text-align: center; font-weight: 700; }
+.raccourcis { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.raccourcis button { min-height: 40px; padding: 0 14px; border-radius: 999px; background: var(--fond); border: 1px solid var(--bord); font-weight: 600; }
+.danger { color: var(--erreur); display: block; margin: 16px auto 0; }
+
+/* Toast avec bouton « Annuler » */
+.toast { display: flex; align-items: center; gap: 14px; }
+.toast.avec-action { pointer-events: auto; }
+#toast-action { background: none; border: 0; color: var(--fond); font-weight: 800; text-decoration: underline; min-height: 36px; padding: 0 4px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pastille-res.pulse, .barre-xp.pulse .jauge { animation: none; }
+  .jauge i { transition: none; }
+}
+.toast { width: max-content; }   /* sinon le texte se replie sur 2 lignes (largeur limitée par left: 50 %) */

@@ -5,6 +5,8 @@
 const C = window.CONFIG;
 const S = window.Stockage;
 const T = window.Taches;
+const M = window.Moteur;
+const J = window.Temps;
 const CLE = S.CLE;
 const NOMS_TYPES = { quotidienne: '🔁 Quotidiennes', imprevu: '⚡ Imprévus', bonus: '⭐ Bonus' };
 const JOURS_COURTS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
@@ -21,6 +23,8 @@ let saisie = null;                  // tâche en cours d'ajout (feuille d'ajout)
 let origineCategorie = null;        // 'ajout' si la nouvelle catégorie est créée depuis la feuille d'ajout
 let familleCategorie = null;        // famille choisie pour la nouvelle catégorie
 let derniereAjoutee = null;         // id de la tâche à mettre en valeur
+let tacheEditee = null;             // id de la tâche en cours de modification (null = ajout)
+let tacheSaisie = null;             // id de la tâche dont on saisit la progression
 
 /* ===== HORLOGE =====
  * Dans le navigateur, localStorage « debug_maintenant » permet de simuler une date (tests).
@@ -32,6 +36,9 @@ function maintenant() {
 function jourCivil(instant) {        // AAAA-MM-JJ à Bruxelles
   return new Intl.DateTimeFormat('en-CA', { timeZone: C.jour.fuseau, year: 'numeric', month: '2-digit', day: '2-digit' })
     .format(instant);
+}
+function jourActuel() {              // jour logique (la journée finit à 4 h du matin)
+  return J.jourLogique(maintenant(), C);
 }
 function horodatageFichier(instant) { // triable, sans « : » (interdit dans certains noms de fichiers)
   return instant.toISOString().slice(0, 19).replace(/:/g, '-');
@@ -66,13 +73,29 @@ function modifier(action) {
     S.verifier(copie);
   } catch (x) {
     console.error(x);
-    toast('Action annulée, rien n\'a été perdu.');
+    toast(x.pourUtilisateur || 'Action annulée, rien n\'a été perdu.');
     return false;
   }
   etat = copie;
   sauver(etat);
   rendre();
   return true;
+}
+// Erreur à montrer telle quelle (ex. « Déjà fait aujourd'hui ✅ »)
+function refus(texte) { const x = new Error(texte); x.pourUtilisateur = texte; return x; }
+
+// « Annuler » : revient à l'état d'avant, seulement si rien n'a changé entre-temps
+function proposerAnnulation(texte, avant) {
+  const apres = etat;
+  toast(texte, {
+    texte: 'Annuler', delai: 5000, action: () => {
+      if (etat !== apres) return toast('Trop tard pour annuler.');
+      etat = avant;
+      sauver(etat);
+      rendre();
+      toast('Annulé ↩️');
+    }
+  });
 }
 
 /* ===== SAUVEGARDES AUTOMATIQUES =====
@@ -202,26 +225,49 @@ async function essayerCopieSecours() {
   }
 }
 
-/* ===== AJOUT DE TÂCHE (feuille d'ajout express) ===== */
-function ouvrirAjout() {
+/* ===== AJOUT / MODIFICATION DE TÂCHE (même feuille) ===== */
+function ouvrirAjout(tache = null) {
+  tacheEditee = tache?.id ?? null;
   saisie = {
-    categorieId: T.categorieParDefaut(etat, C),
-    type: C.taches.defauts.type,
-    taille: C.taches.defauts.taille,
-    jours: [...T.TOUS_LES_JOURS],
-    objectif: false
+    categorieId: tache?.categorieId ?? T.categorieParDefaut(etat, C),
+    type: tache?.type ?? C.taches.defauts.type,
+    taille: tache?.taille ?? C.taches.defauts.taille,
+    jours: [...(tache?.jours ?? T.TOUS_LES_JOURS)],
+    objectif: !!tache?.objectif
   };
   const f = document.getElementById('form-ajout');
   f.reset();
-  document.getElementById('options').hidden = true;
-  document.getElementById('btn-options').setAttribute('aria-expanded', 'false');
-  document.getElementById('btn-options').textContent = 'Plus d\'options ▾';
+  const champ = (id, v) => { document.getElementById(id).value = v ?? ''; };
+  if (tache) {
+    champ('ajout-nom', tache.nom);
+    champ('ajout-echeance', tache.echeance);
+    document.getElementById('ajout-important').checked = !!tache.important;
+    document.getElementById('ajout-objectif').checked = !!tache.objectif;
+    champ('ajout-cible', tache.objectif?.cible);
+    champ('ajout-unite', tache.objectif?.unite);
+  }
+  document.getElementById('ajout-titre').textContent = tache ? 'Modifier la tâche' : 'Nouvelle tâche';
+  document.getElementById('btn-supprimer').hidden = !tache;
+  basculerOptions(!!tache);   // en modification, tout est déplié
   document.getElementById('ajout-erreur').textContent = '';
   rendreAjout();
   const dlg = document.getElementById('feuille-ajout');
   dlg.showModal();
   dlg.scrollTop = 0;
-  setTimeout(() => document.getElementById('ajout-nom').focus(), 60);
+  if (!tache) setTimeout(() => document.getElementById('ajout-nom').focus(), 60);
+}
+
+async function supprimerTacheEditee() {
+  const t = etat.taches.find(x => x.id === tacheEditee);
+  if (!t) return;
+  const ok = await dialogue('Supprimer cette tâche ?',
+    `<p><b>${echapper(t.nom)}</b></p><p class="discret">Tout ce qu'elle t'a déjà rapporté (XP, ressources) reste à toi.</p>`,
+    [{ texte: 'Garder', valeur: false }, { texte: 'Supprimer', valeur: true, principal: true }]);
+  if (!ok) return;
+  const avant = etat;
+  if (!modifier(e => T.supprimerTache(e, t.id, maintenant().toISOString()))) return;
+  document.getElementById('feuille-ajout').close();
+  proposerAnnulation('Tâche supprimée', avant);
 }
 
 function basculerOptions(forcer) {
@@ -273,7 +319,7 @@ function blocGrille(titre, categories) {
 
 function enregistrerTache() {
   const val = (id) => document.getElementById(id).value;
-  const r = T.creerTache({
+  const donnees = {
     nom: val('ajout-nom'),
     categorieId: saisie.categorieId,
     type: saisie.type,
@@ -282,7 +328,10 @@ function enregistrerTache() {
     echeance: val('ajout-echeance') || undefined,
     important: document.getElementById('ajout-important').checked,
     objectif: saisie.objectif ? { cible: val('ajout-cible'), unite: val('ajout-unite') } : undefined
-  }, etat, C, S.nouvelId(), maintenant().toISOString());
+  };
+  const ancienne = tacheEditee ? etat.taches.find(t => t.id === tacheEditee) : null;
+  const r = ancienne ? T.modifierTache(ancienne, donnees, etat, C)
+    : T.creerTache(donnees, etat, C, S.nouvelId(), maintenant().toISOString());
   if (!r.ok) {
     document.getElementById('ajout-erreur').textContent = r.erreur;
     // L'erreur concerne peut-être une option repliée : on déplie
@@ -290,11 +339,111 @@ function enregistrerTache() {
     return;
   }
   derniereAjoutee = r.tache.id;
+  if (ancienne) {
+    if (!modifier(e => T.remplacerTache(e, r.tache))) return;
+    document.getElementById('feuille-ajout').close();
+    toast('Tâche modifiée ✏️');
+    return;
+  }
   if (!modifier(e => T.ajouterTache(e, r.tache))) return;
   document.getElementById('feuille-ajout').close();
   if (historique[historique.length - 1] !== 'aujourdhui') aller('aujourdhui');
   PL.Haptics?.impact({ style: 'LIGHT' }).catch(() => {});
   toast('Tâche ajoutée ✅');
+}
+
+/* ===== COCHER / SAISIR UNE PROGRESSION ===== */
+// quantite = null → terminer la tâche ; nombre → progression d'un objectif chiffré
+function cocher(tacheId, quantite = null) {
+  const carte = document.querySelector(`.tache[data-tache="${tacheId}"]`);
+  const depart = (carte?.querySelector('.case') || carte)?.getBoundingClientRect();
+  const avant = etat;
+  let r;
+  const ok = modifier(e => {
+    r = M.saisir(e, tacheId, quantite, { id: S.nouvelId(), horodatage: maintenant().toISOString(), jour: jourActuel() }, C);
+    if (!r.ok) throw refus(r.erreur);
+  });
+  if (!ok) return false;
+  // Retour immédiat : le gain s'envole vers son compteur, petite vibration
+  animerGain(depart, r, avant);
+  if (etat.reglages.vibrations) PL.Haptics?.impact({ style: 'LIGHT' }).catch(() => {});
+  let texte = r.terminee ? 'Bien joué ✅' : `${Math.round(r.progression * 100)} % fait ✨`;
+  if (r.niveauxGagnes) texte = `Niveau ${etat.joueur.niveau} atteint ! 🎉`;
+  proposerAnnulation(texte, avant);
+  return true;
+}
+
+function ouvrirSaisie(tacheId) {
+  const t = etat.taches.find(x => x.id === tacheId);
+  if (!t?.objectif) return;
+  tacheSaisie = tacheId;
+  const p = M.progression(t, etat.journal, jourActuel());
+  const reste = +(t.objectif.cible * (1 - p)).toFixed(2);
+  document.getElementById('form-saisie').reset();
+  document.getElementById('saisie-titre').textContent = t.nom;
+  document.getElementById('saisie-info').textContent = `${nombre(+(t.objectif.cible * p).toFixed(2))} / ${nombre(t.objectif.cible)} ${t.objectif.unite}`;
+  document.getElementById('saisie-question').textContent = `Combien de ${t.objectif.unite} ?`;
+  document.getElementById('saisie-erreur').textContent = '';
+  const raccourcis = [...new Set([1, 5, 10].filter(v => v < reste).concat(reste))];
+  document.getElementById('saisie-raccourcis').replaceChildren(...raccourcis.map(v =>
+    el('button', { type: 'button', 'data-valeur': v }, v === reste ? `Tout le reste (${nombre(v)})` : `+${nombre(v)}`)));
+  document.getElementById('feuille-saisie').showModal();
+  setTimeout(() => document.getElementById('saisie-valeur').focus(), 60);
+}
+
+function validerSaisie(valeur) {
+  const v = Number(String(valeur).replace(',', '.').trim());
+  if (!(v > 0) || !Number.isFinite(v)) {
+    document.getElementById('saisie-erreur').textContent = 'Entre un nombre plus grand que 0.';
+    return;
+  }
+  document.getElementById('feuille-saisie').close();
+  cocher(tacheSaisie, v);
+}
+
+/* ===== ANIMATIONS DE RÉCOMPENSE ===== */
+const MOUVEMENT_REDUIT = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+function animerGain(depart, r, avant) {
+  if (!r.gain) return;
+  const res = r.ressource ? C.ressources.find(x => x.id === r.ressource) : null;
+  const cible = res ? document.querySelector(`.pastille-res[data-ressource="${res.id}"]`) : document.getElementById('barre-xp');
+  const etiquette = el('div', { class: 'vol', 'aria-hidden': 'true' }, `+${r.gain} ${res ? res.emoji : 'XP'}`);
+  document.body.append(etiquette);
+  const de = depart || { left: innerWidth / 2, top: innerHeight / 2, width: 0, height: 0 };
+  const vers = cible?.getBoundingClientRect() || de;
+  const x0 = de.left + de.width / 2 - 20, y0 = de.top + de.height / 2 - 14;
+  const x1 = vers.left + vers.width / 2 - 20, y1 = vers.top + vers.height / 2 - 14;
+  // Le compteur garde l'ancienne valeur jusqu'à l'arrivée, puis défile jusqu'à la nouvelle
+  const valeurAvant = res ? avant.joueur.ressources[res.id] : null;
+  if (res && cible) cible.querySelector('b').textContent = nombre(valeurAvant);
+  const arrivee = () => {
+    etiquette.remove();
+    if (!cible) return;
+    cible.classList.remove('pulse'); void cible.offsetWidth; cible.classList.add('pulse');
+    if (res) defiler(cible.querySelector('b'), valeurAvant, etat.joueur.ressources[res.id]);
+  };
+  if (MOUVEMENT_REDUIT || !etiquette.animate) {
+    etiquette.style.transform = `translate(${x0}px, ${y0 - 20}px)`;
+    setTimeout(arrivee, 600);
+    return;
+  }
+  etiquette.animate([
+    { transform: `translate(${x0}px, ${y0}px) scale(.8)`, opacity: 0 },
+    { transform: `translate(${x0}px, ${y0 - 30}px) scale(1.15)`, opacity: 1, offset: .25 },
+    { transform: `translate(${x1}px, ${y1}px) scale(.9)`, opacity: .9 }
+  ], { duration: 700, easing: 'cubic-bezier(.2,.8,.2,1)' }).onfinish = arrivee;
+}
+
+function defiler(noeud, de, a) {
+  if (MOUVEMENT_REDUIT || de === a) { noeud.textContent = nombre(a); return; }
+  const debut = performance.now();
+  const pas = (t) => {
+    const k = Math.min(1, (t - debut) / 400);
+    noeud.textContent = nombre(Math.round(de + (a - de) * k));
+    if (k < 1) requestAnimationFrame(pas);
+  };
+  requestAnimationFrame(pas);
 }
 
 /* ===== NOUVELLE CATÉGORIE PERSO ===== */
@@ -381,33 +530,79 @@ function rendre() {
   document.getElementById('info-dernier-export').textContent = dernier ? 'Dernier export : ' + dateCourte(dernier) : 'Jamais exporté pour l\'instant';
 }
 
+function rendreTableau() {
+  const j = etat.joueur;
+  document.getElementById('ressources').replaceChildren(...C.ressources
+    .filter(r => r.id !== 'gemmes' || j.ressources.gemmes > 0)          // les gemmes apparaissent au 1er coffre
+    .map(r => el('span', { class: 'pastille-res', 'data-ressource': r.id, title: r.nom },
+      el('span', { 'aria-hidden': 'true' }, r.emoji), el('b', {}, nombre(j.ressources[r.id] || 0)))));
+  const besoin = M.xpPourNiveau(j.niveau, C);
+  document.getElementById('xp-niveau').textContent = `Niv. ${j.niveau}`;
+  document.getElementById('xp-reste').textContent = `encore ${nombre(besoin - j.xp)} XP avant le niveau ${j.niveau + 1}`;
+  document.getElementById('xp-jauge').style.width = `${Math.min(100, (j.xp / besoin) * 100)}%`;
+}
+
 function rendreListes() {
-  const listes = T.listes(etat);
+  rendreTableau();
+  const jour = jourActuel();
+  const listes = M.listesDuJour(etat, jour, J.jourIso(jour));
   const total = listes.quotidienne.length + listes.imprevu.length + listes.bonus.length;
+  // Liste vide : message adapté (1re fois, tout fait aujourd'hui, ou rien de prévu) — jamais culpabilisant
   document.getElementById('aujourdhui-vide').hidden = total > 0;
+  if (!total) {
+    const faitAujourdhui = etat.journal.some(s => s.jour === jour);
+    const [emoji, titre, texte] = !etat.journal.length && !etat.taches.length
+      ? ['🏡', 'Ton village attend ta première tâche', 'Chaque chose faite dans la vraie vie, même à moitié, le fera grandir.']
+      : faitAujourdhui
+        ? ['🏆', 'Tout est fait pour aujourd\'hui 🎉', 'Profite ! Un petit bonus en plus si l\'envie te prend.']
+        : ['🌤️', 'Rien de prévu pour l\'instant', 'Ajoute ce que tu veux faire aujourd\'hui, même tout petit.'];
+    document.getElementById('vide-emoji').textContent = emoji;
+    document.getElementById('vide-titre').textContent = titre;
+    document.getElementById('vide-texte').textContent = texte;
+  }
   const blocs = [];
   for (const type of T.TYPES) {
     if (!listes[type].length) continue;
     blocs.push(el('h3', { class: 'intertitre' }, NOMS_TYPES[type]));
-    for (const t of listes[type]) blocs.push(carteTache(t));
+    for (const t of listes[type]) blocs.push(carteTache(t, jour));
+  }
+  if (listes.autresJours) {
+    const s = listes.autresJours > 1;
+    blocs.push(el('p', { class: 'discret autres-jours' }, `🗓️ ${listes.autresJours} quotidienne${s ? 's' : ''} prévue${s ? 's' : ''} d'autres jours`));
   }
   document.getElementById('listes').replaceChildren(...blocs);
   derniereAjoutee = null;
 }
 
-function carteTache(t) {
+function carteTache(t, jour) {
   const cat = T.categorie(etat, t.categorieId);
+  const progression = M.progression(t, etat.journal, jour);
+  const fait = progression >= 1;
   const details = [];
-  if (t.objectif) details.push(`Objectif : ${nombre(t.objectif.cible)} ${t.objectif.unite}`);
-  if (t.type === 'quotidienne') details.push(t.jours.length === 7 ? 'Tous les jours' : t.jours.map(j => JOURS_NOMS[j - 1]).join(', '));
+  if (t.objectif) details.push(`${nombre(+(t.objectif.cible * progression).toFixed(2))} / ${nombre(t.objectif.cible)} ${t.objectif.unite}`);
+  if (t.type === 'quotidienne' && t.jours.length < 7) details.push(t.jours.map(j => JOURS_NOMS[j - 1]).join(', '));
   if (t.echeance) details.push('Pour le ' + dateEcheance(t.echeance));
   if (t.important) details.push('❗ Important');
-  const carte = el('div', { class: 'tache' + (t.id === derniereAjoutee ? ' nouvelle' : ''), 'data-tache': t.id });
+
+  const carte = el('div', { class: 'tache' + (fait ? ' fait' : '') + (t.id === derniereAjoutee ? ' nouvelle' : ''), 'data-tache': t.id });
   carte.style.setProperty('--famille', cat ? `var(--${cat.familleId})` : '');
+  const texte = el('span', { class: 'tache-texte' }, el('span', { class: 'tache-nom' }, t.nom), details.length ? el('small', {}, details.join(' · ')) : '');
+  if (t.objectif) {
+    const barre = el('span', { class: 'mini' }, el('i', {}));
+    barre.firstChild.style.width = `${progression * 100}%`;
+    texte.append(barre);
+  }
   carte.append(
-    el('span', { class: 'tache-emoji', 'aria-hidden': 'true' }, cat?.emoji ?? '•'),
-    el('span', { class: 'tache-corps' }, el('span', { class: 'tache-nom' }, t.nom), details.length ? el('small', {}, details.join(' · ')) : '')
+    el('button', { class: 'case', 'data-cocher': t.id, 'aria-label': (fait ? 'Fait : ' : 'Terminer : ') + t.nom, ...(fait ? { disabled: '' } : {}) }),
+    el('button', { class: 'tache-corps', 'data-modifier': t.id, 'aria-label': 'Modifier : ' + t.nom },
+      el('span', { class: 'tache-emoji', 'aria-hidden': 'true' }, cat?.emoji ?? '•'), texte)
   );
+  if (!fait) {
+    const reste = M.gainRestant(t, etat.journal, jour, C);
+    const res = M.ressourceDe(cat, C);
+    carte.append(el('span', { class: 'gain', 'aria-label': `rapporte ${reste}` }, `+${reste} ${res ? C.ressources.find(r => r.id === res).emoji : 'XP'}`));
+    if (t.objectif) carte.append(el('button', { class: 'plus', 'data-saisir': t.id, 'aria-label': `Ajouter des ${t.objectif.unite}` }, '+'));
+  }
   return carte;
 }
 
@@ -476,20 +671,29 @@ function message(titre, texte) {
   return dialogue(titre, `<p>${echapper(texte)}</p>`, [{ texte: 'OK', valeur: true, principal: true }]);
 }
 
+// Petit message en bas ; option {texte, action, delai} = bouton (ex. « Annuler »)
 let minuteurToast;
-function toast(texte) {
+function toast(texte, option = null) {
   const t = document.getElementById('toast');
-  t.textContent = texte;
+  const bouton = document.getElementById('toast-action');
+  document.getElementById('toast-texte').textContent = texte;
+  bouton.hidden = !option;
+  bouton.textContent = option?.texte ?? '';
+  bouton.onclick = option ? () => { t.classList.remove('visible', 'avec-action'); option.action(); } : null;
+  t.classList.toggle('avec-action', !!option);
   t.classList.add('visible');
   clearTimeout(minuteurToast);
-  minuteurToast = setTimeout(() => t.classList.remove('visible'), 2600);
+  minuteurToast = setTimeout(() => t.classList.remove('visible', 'avec-action'), option?.delai ?? 2600);
 }
 
 /* ===== ÉVÉNEMENTS ===== */
 document.addEventListener('click', (e) => {
-  const cible = e.target.closest('[data-aller], [data-action], [data-fermer]');
+  const cible = e.target.closest('[data-aller], [data-action], [data-fermer], [data-cocher], [data-saisir], [data-modifier]');
   if (!cible) return;
   if (cible.dataset.aller) return aller(cible.dataset.aller);
+  if (cible.dataset.cocher) return cocher(cible.dataset.cocher);
+  if (cible.dataset.saisir) return ouvrirSaisie(cible.dataset.saisir);
+  if (cible.dataset.modifier) return ouvrirAjout(etat.taches.find(t => t.id === cible.dataset.modifier));
   if ('fermer' in cible.dataset) return cible.closest('dialog')?.close();
   const action = cible.dataset.action;
   if (action === 'ajouter' && etat) ouvrirAjout();
@@ -521,6 +725,15 @@ document.getElementById('ajout-objectif').addEventListener('change', (e) => {
   if (saisie.objectif) document.getElementById('ajout-cible').focus();
 });
 document.getElementById('form-ajout').addEventListener('submit', (e) => { e.preventDefault(); enregistrerTache(); });
+document.getElementById('btn-supprimer').addEventListener('click', supprimerTacheEditee);
+
+// Feuille de saisie d'un objectif chiffré
+document.getElementById('feuille-saisie').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) return e.currentTarget.close();
+  const b = e.target.closest('[data-valeur]');
+  if (b) validerSaisie(b.dataset.valeur);
+});
+document.getElementById('form-saisie').addEventListener('submit', (e) => { e.preventDefault(); validerSaisie(document.getElementById('saisie-valeur').value); });
 document.getElementById('ajout-nom').addEventListener('input', () => { document.getElementById('ajout-erreur').textContent = ''; });
 
 // Feuille « nouvelle catégorie »

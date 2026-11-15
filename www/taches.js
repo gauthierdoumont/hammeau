@@ -96,6 +96,32 @@
     etat.reglages.derniereCategorie = tache.categorieId;
   };
 
+  /* ===== MODIFIER / SUPPRIMER ===== */
+  // Mêmes règles que la création ; on garde l'id, la date de création et l'historique (journal intact)
+  T.modifierTache = function (ancienne, saisie, etat, C) {
+    const r = T.creerTache(saisie, etat, C, ancienne.id, ancienne.creeLe);
+    if (!r.ok) return r;
+    const tache = { ...r.tache, incendieApplique: ancienne.incendieApplique, archivee: ancienne.archivee };
+    if (ancienne.termineeLe) tache.termineeLe = ancienne.termineeLe;
+    return { ok: true, tache };
+  };
+  T.remplacerTache = function (etat, tache) {
+    const i = etat.taches.findIndex(t => t.id === tache.id);
+    if (i < 0) throw new Error('Tâche introuvable');
+    if (etat.taches[i].categorieId !== tache.categorieId) {
+      const cat = T.categorie(etat, tache.categorieId);
+      if (cat) cat.nbUtilisations++;
+    }
+    etat.taches[i] = tache;
+  };
+  // Suppression « douce » : la tâche disparaît des listes, mais l'XP et les ressources déjà gagnées restent
+  T.supprimerTache = function (etat, id, quand) {
+    const t = etat.taches.find(x => x.id === id);
+    if (!t) throw new Error('Tâche introuvable');
+    t.archivee = true;
+    t.supprimeeLe = quand;
+  };
+
   /* ===== LISTES (écran Aujourd'hui) ===== */
   // Tâches non archivées, rangées par type. Imprévus : échéance la plus proche d'abord, sans échéance ensuite.
   T.listes = function (etat) {

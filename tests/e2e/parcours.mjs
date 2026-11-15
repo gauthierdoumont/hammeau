@@ -23,6 +23,8 @@ const pause = (page) => page.waitForTimeout(300);
 
 async function nouvellePage(largeur = 412, stockageDepart = null) {
   const ctx = await nav.newContext({ viewport: { width: largeur, height: 800 }, deviceScaleFactor: 1, colorScheme: 'dark', acceptDownloads: true });
+  // Horloge simulée : lundi 16 novembre 2026, 10 h (Bruxelles) → résultats identiques quel que soit le jour du test
+  await ctx.addInitScript(() => localStorage.setItem('debug_maintenant', '2026-11-16T10:00:00+01:00'));
   if (stockageDepart !== null) {
     // Seulement au tout premier chargement (pas aux rechargements)
     await ctx.addInitScript(([cle, val]) => {
@@ -184,7 +186,7 @@ for (const largeur of [360, 412, 1100]) {
   const lire20 = e.taches.find(t => t.nom === 'Lire');
   verifier(lire20?.type === 'quotidienne' && lire20.jours.join() === '1,2,3,4,5' && lire20.objectif?.cible === 20, 'tâche avec options : ' + JSON.stringify(lire20));
   verifier(e.reglages.derniereCategorie === 'lecture', 'dernière catégorie mémorisée');
-  verifier((await page.textContent('#listes')).includes('Objectif : 20 pages · lun, mar, mer, jeu, ven'), 'détails de la quotidienne');
+  verifier((await page.textContent('#listes')).includes('0 / 20 pages · lun, mar, mer, jeu, ven'), 'détails de la quotidienne');
 
   // Catégorie perso depuis la feuille d'ajout, puis utilisée tout de suite
   await page.click('#fab');
@@ -234,6 +236,101 @@ for (const largeur of [360, 412, 1100]) {
   await ctx.close();
 }
 function S_ok(e) { return e.schemaVersion === 1 && new Set(e.taches.map(t => t.id)).size === e.taches.length; }
+
+/* 6. Étape 4 : cocher, progression partielle, gains, animation, Annuler, modifier, supprimer, niveau */
+{
+  const { ctx, page, erreurs } = await nouvellePage(412);
+  const etatStocke = async () => JSON.parse(await lire(page));
+  const ajouter = async (nom, options) => {
+    await page.click('#fab');
+    await page.fill('#ajout-nom', nom);
+    if (options) await options();
+    await page.click('#btn-enregistrer');
+    await pause(page);
+  };
+  const idDe = async (nom) => (await etatStocke()).taches.find(t => t.nom === nom).id;
+
+  // Tâche simple : cocher → +25 XP et +25 bois, gain affiché avant
+  await ajouter('Faire la vaisselle');
+  verifier((await page.textContent(`.tache[data-tache="${await idDe('Faire la vaisselle')}"] .gain`)).includes('+25 🪵'), 'gain prévu affiché');
+  await page.click(`[data-cocher="${await idDe('Faire la vaisselle')}"]`);
+  await page.waitForTimeout(200);
+  verifier(await page.locator('.vol').count() === 1, 'le gain s\'envole');
+  await page.screenshot({ path: 'tests/captures/etape4-vol.png' });
+  await page.waitForTimeout(1000);
+  let e = await etatStocke();
+  verifier(e.joueur.xpTotal === 25 && e.joueur.ressources.bois === 25, 'gains enregistrés : ' + JSON.stringify(e.joueur.ressources));
+  verifier(e.taches[0].archivee && e.journal.length === 1 && e.journal[0].jour === '2026-11-16', 'imprévu archivé, journal avec jour logique');
+  verifier((await page.textContent('.pastille-res[data-ressource="bois"] b')) === '25', 'compteur bois à 25');
+  verifier(await page.isVisible('#toast-action'), 'bouton Annuler proposé');
+  await page.click('#toast-action');
+  await pause(page);
+  e = await etatStocke();
+  verifier(e.joueur.xpTotal === 0 && e.journal.length === 0 && !e.taches[0].archivee, 'Annuler : tout revient comme avant');
+
+  // Objectif chiffré quotidien : 10 sur 20 → 50 %, puis « Tout le reste »
+  await ajouter('Lire', async () => {
+    await page.click('#btn-options');
+    await page.click('.tuile[data-categorie="lecture"]');
+    await page.click('#choix-type [data-type="quotidienne"]');
+    await page.check('#ajout-objectif');
+    await page.fill('#ajout-cible', '20');
+    await page.fill('#ajout-unite', 'pages');
+  });
+  const lireId = await idDe('Lire');
+  await page.click(`[data-saisir="${lireId}"]`);
+  await page.waitForSelector('#feuille-saisie[open]');
+  verifier((await page.textContent('#saisie-question')) === 'Combien de pages ?', 'question de saisie');
+  await page.screenshot({ path: 'tests/captures/etape4-saisie.png' });
+  await page.fill('#saisie-valeur', '10');
+  await page.press('#saisie-valeur', 'Enter');
+  await page.waitForTimeout(1000);
+  e = await etatStocke();
+  verifier(e.joueur.ressources.savoir === 13 && e.journal.at(-1).progression === 0.5, 'saisie partielle : +13 savoir, 50 %');
+  verifier((await page.textContent(`.tache[data-tache="${lireId}"]`)).includes('10 / 20 pages'), 'carte : 10 / 20 pages');
+  await page.click(`[data-saisir="${lireId}"]`);
+  await page.click('#saisie-raccourcis button:last-child');
+  await page.waitForTimeout(1000);
+  e = await etatStocke();
+  verifier(e.joueur.ressources.savoir === 25, 'objectif complété : 25 savoir au total');
+  verifier(await page.locator(`.tache.fait[data-tache="${lireId}"]`).count() === 1, 'quotidienne marquée faite');
+  verifier(await page.locator(`[data-cocher="${lireId}"][disabled]`).count() === 1, 'quotidienne faite : case désactivée');
+
+  // Modifier puis supprimer (avec Annuler)
+  await ajouter('Apeler le garage');
+  const garage = await idDe('Apeler le garage');
+  await page.click(`[data-modifier="${garage}"]`);
+  verifier((await page.textContent('#ajout-titre')) === 'Modifier la tâche' && (await page.inputValue('#ajout-nom')) === 'Apeler le garage', 'feuille de modification pré-remplie');
+  await page.fill('#ajout-nom', 'Appeler le garage');
+  await page.click('#btn-enregistrer');
+  await pause(page);
+  e = await etatStocke();
+  verifier(e.taches.find(t => t.id === garage).nom === 'Appeler le garage', 'tâche renommée');
+  const xpAvant = e.joueur.xpTotal;
+  await page.click(`[data-modifier="${garage}"]`);
+  await page.click('#btn-supprimer');
+  await page.waitForSelector('#dialogue[open]');
+  await page.click('#dialogue-boutons .principal');
+  await pause(page);
+  e = await etatStocke();
+  verifier(e.taches.find(t => t.id === garage).archivee && e.joueur.xpTotal === xpAvant, 'suppression douce, XP gardée');
+  verifier(await page.locator(`[data-tache="${garage}"]`).count() === 0, 'tâche supprimée retirée de la liste');
+  await page.click('#toast-action');
+  await pause(page);
+  verifier(await page.locator(`[data-tache="${garage}"]`).count() === 1, 'Annuler la suppression');
+
+  // Montée de niveau
+  await page.evaluate(() => { etat.joueur.xp = 95; });
+  await page.click(`[data-cocher="${garage}"]`);
+  await page.waitForTimeout(300);
+  verifier((await page.textContent('#toast-texte')).includes('Niveau 2'), 'message de niveau');
+  verifier((await page.textContent('#xp-niveau')) === 'Niv. 2', 'barre : niveau 2');
+  await page.waitForTimeout(900);
+  await page.screenshot({ path: 'tests/captures/etape4-final.png', fullPage: true });
+  verifier(!(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)), 'étape 4 : pas de défilement horizontal');
+  verifier(!erreurs.length, 'erreurs console (étape 4) : ' + erreurs);
+  await ctx.close();
+}
 
 await nav.close(); serveur.close();
 console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso');

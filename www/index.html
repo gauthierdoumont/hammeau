@@ -18,10 +18,18 @@
   <main>
     <!-- Écran Aujourd'hui (accueil) -->
     <section class="ecran" id="ecran-aujourdhui" data-titre="Aujourd'hui">
+      <!-- Ressources et barre d'XP : le progrès toujours visible -->
+      <div class="tableau">
+        <div class="ressources" id="ressources" aria-label="Ressources"></div>
+        <div class="barre-xp" id="barre-xp">
+          <div class="xp-ligne"><b id="xp-niveau">Niv. 1</b><span id="xp-reste"></span></div>
+          <div class="jauge"><i id="xp-jauge"></i></div>
+        </div>
+      </div>
       <div class="carte vide" id="aujourdhui-vide">
-        <div class="vide-emoji" aria-hidden="true">🏡</div>
-        <h2>Ton village attend ta première tâche</h2>
-        <p>Chaque chose faite dans la vraie vie, même à moitié, le fera grandir.</p>
+        <div class="vide-emoji" id="vide-emoji" aria-hidden="true">🏡</div>
+        <h2 id="vide-titre">Ton village attend ta première tâche</h2>
+        <p id="vide-texte">Chaque chose faite dans la vraie vie, même à moitié, le fera grandir.</p>
         <button class="bouton principal" data-action="ajouter">➕ Ajouter une tâche</button>
       </div>
       <div id="listes"></div>
@@ -173,10 +181,27 @@
         </div>
       </div>
 
+      <button type="button" class="lien danger" id="btn-supprimer" hidden>🗑️ Supprimer cette tâche</button>
       <p class="erreur" id="ajout-erreur" role="alert"></p>
       <div class="feuille-boutons">
         <button type="button" class="bouton" data-fermer>Annuler</button>
         <button type="submit" class="bouton principal" id="btn-enregistrer">Enregistrer</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Feuille : saisie d'une progression (objectif chiffré) -->
+  <dialog class="feuille" id="feuille-saisie" aria-labelledby="saisie-titre">
+    <form id="form-saisie" method="dialog" novalidate>
+      <h2 id="saisie-titre"></h2>
+      <p class="discret" id="saisie-info"></p>
+      <label class="etiquette-champ" id="saisie-question" for="saisie-valeur"></label>
+      <input class="champ grand" id="saisie-valeur" type="text" inputmode="decimal" enterkeyhint="done" autocomplete="off">
+      <div class="raccourcis" id="saisie-raccourcis"></div>
+      <p class="erreur" id="saisie-erreur" role="alert"></p>
+      <div class="feuille-boutons">
+        <button type="button" class="bouton" data-fermer>Annuler</button>
+        <button type="submit" class="bouton principal">Valider</button>
       </div>
     </form>
   </dialog>
@@ -208,13 +233,17 @@
     <div class="dialogue-boutons" id="dialogue-boutons"></div>
   </dialog>
 
-  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="toast" id="toast" role="status" aria-live="polite">
+    <span id="toast-texte"></span><button type="button" id="toast-action" hidden></button>
+  </div>
   <input type="file" id="fichier-import" accept=".json,application/json" hidden>
 
   <script src="version.js"></script>
   <script src="config.js"></script>
   <script src="stockage.js"></script>
   <script src="taches.js"></script>
+  <script src="temps.js"></script>
+  <script src="moteur.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

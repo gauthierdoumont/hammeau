@@ -1,5 +1,12 @@
 # Journal des versions — Hameau
 
+## 0.4.0 — 2026-11-16
+- Cocher une tâche rapporte de l'XP et la ressource de sa famille (petite 10 · moyenne 25 · grosse 50) : le gain s'envole vers son compteur, petite vibration.
+- Objectif chiffré : bouton + pour saisir « 10 pages » → 50 % des gains ; plusieurs saisies s'additionnent, plafond 100 %.
+- Quotidiennes : seulement celles prévues ce jour-là, une fois par jour (la journée finit à 4 h du matin).
+- Barre de ressources et barre d'XP avec niveau ; « Annuler » pendant 5 secondes après chaque action.
+- Toucher une tâche pour la modifier ou la supprimer (ce qu'elle a rapporté reste acquis).
+
 ## 0.3.0 — 2026-11-15
 - Nouvelle charte graphique « Taverne » : bois sombre et or, titres en Cinzel (police intégrée, hors ligne).
 - Bouton + : ajout express d'une tâche (nom + Enregistrer), catégorie par défaut = la dernière utilisée.
