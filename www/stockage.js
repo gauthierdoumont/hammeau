@@ -89,7 +89,8 @@
   /* ===== VÉRIFICATION =====
    * Lève une erreur si l'état est incohérent : rien n'est alors sauvegardé.
    */
-  S.verifier = function (e) {
+  // C (facultatif) : permet de vérifier les types de bâtiments et le niveau max lus dans config.js
+  S.verifier = function (e, C) {
     const err = (m) => { throw new Error('Données incohérentes : ' + m); };
     if (!estObjet(e)) err('pas un objet');
     if (!Number.isInteger(e.schemaVersion) || e.schemaVersion < 1) err('schemaVersion');
@@ -106,7 +107,9 @@
       const types = new Set();
       for (const b of e.village.batiments) {
         if (!estObjet(b) || typeof b.id !== 'string' || !b.id) err('village : id manquant');
-        if (!(Number.isInteger(b.niveau) && b.niveau >= 1 && b.niveau <= 5)) err('village : niveau ' + b.niveau);
+        if (typeof b.type !== 'string' || !b.type || (C && !(b.type in C.batiments.familles))) err('village : type inconnu ' + b.type);
+        const max = C ? C.batiments.niveauMax : 99;
+        if (!(Number.isInteger(b.niveau) && b.niveau >= 1 && b.niveau <= max)) err('village : niveau ' + b.niveau);
         if (!Number.isInteger(b.x) || !Number.isInteger(b.y)) err('village : case invalide');
         if (types.has(b.type)) err('village : deux ' + b.type);
         types.add(b.type);
@@ -142,7 +145,7 @@
     if (v > S.SCHEMA) return { type: 'trop-recent' };
     try {
       const etat = S.completer(S.migrer(e), C);
-      S.verifier(etat);
+      S.verifier(etat, C);
       return { type: 'ok', etat, aMigrer: v < S.SCHEMA };
     } catch (x) {
       return { type: 'illisible', erreur: x.message };
@@ -175,7 +178,7 @@
       const { meta, ...donnees } = e;
       etat = S.completer(S.migrer(donnees), C);
       etat.reglages.icsUrl = etatActuel?.reglages?.icsUrl || '';
-      S.verifier(etat);
+      S.verifier(etat, C);
     } catch (x) {
       return non('Ce fichier est abîmé, rien n\'a été changé. (' + x.message + ')');
     }

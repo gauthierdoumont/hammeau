@@ -90,7 +90,7 @@ test('decider : rien de stocké → état neuf ; version plus récente → refus
 });
 
 test('village : deux bâtiments du même type, niveau 6 ou case invalide → refusé', () => {
-  const casser = (f) => { const e = fixtureV2(); f(e); return () => S.verifier(e); };
+  const casser = (f) => { const e = fixtureV2(); f(e); return () => S.verifier(e, C); };
   assert.throws(casser(e => { e.village.batiments[1].type = 'mairie'; }), /deux mairie/);
   assert.throws(casser(e => { e.village.batiments[0].niveau = 6; }), /niveau/);
   assert.throws(casser(e => { e.village.batiments[0].x = 1.5; }), /case/);

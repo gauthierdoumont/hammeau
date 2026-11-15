@@ -1,12 +1,12 @@
 # Suivi — Hameau
 
 ## Où on en est
-- Version : 0.5.0 · Étape suivante : **11** (construire / améliorer / coûts / Mairie). La **1b** (clé + 1er APK) est gardée pour la toute fin (demande de Gauthier) · Dernière session : 2026-11-16
+- Version : 0.6.0 · Étape suivante : **13** (bâtiments endommagés, réparation, extensions, décorations) ou retour à la V1 (5a, 5b, 6, 7, 8). La **1b** (clé + 1er APK) est gardée pour la toute fin · Dernière session : 2026-11-16
 
 ## Dernière session
-- Fait : relecture complète du code → 10 bugs corrigés (0.4.1) ; menu embelli par un 2e agent (barre d'onglets, Réglages, À propos) ; étapes 9 et 10 du village (pack graphique CC0 en atlas, scène Phaser isométrique, caméra, zoom au doigt, veille hors onglet, crédits).
-- Testé : `npm test` (52 tests : données, tâches, moteur, jour logique, village), `npm run e2e` (Playwright : tout le parcours + village chargé à la demande, taille de la scène, glisser, molette, veille / réveil, aucune ressource extérieure).
-- Non testé / à vérifier sur le téléphone : tout (1er APK à la 1b) — en plus de la liste précédente : fluidité du village (≥ 30 fps), netteté, pincement à deux doigts, batterie après 10 min.
+- Fait : étape 11 (règles dans `economie.js`, données v2 avec le village, construire / améliorer / déplacer, placement libre, fiche) ; étape 12 (animations, villageois, fumée, nuages, eau, ciel selon l'heure, nuit, sons) ; esthétique de l'appli (tableau de bord, prochain chantier, cartes, écran Perso). Relecture de code : 10 points corrigés (bonus calculé dans le moteur, types de bâtiments vérifiés, particules détruites, redessin partiel…).
+- Testé : `npm test` (63 tests), `npm run e2e` (parcours complet + construction : Mairie, coût, fiche, amélioration, bonus, retour). Captures du village regardées par Claude seulement (surprise).
+- Non testé / à vérifier sur le téléphone : tout (1er APK à la 1b) — en plus : fluidité avec villageois et fumée, sons, toucher précis d'un bâtiment, placement au doigt.
 
 ## Bugs connus
 - (aucun)
@@ -37,13 +37,17 @@
 | 2026-11-16 | Pack du village : un seul pack CC0 cohérent (voir `LICENCES.md`), préparé en atlas par `outils/preparer-village.js` | Surprise : ni nom ni capture montrés avant le 1er lancement |
 | 2026-11-16 | Niveaux des bâtiments = étages en plus (1/2/2/3/4) + balcon dès le niveau 3 ; tours : étages de tour + rempart | Le pack n'a pas de niveaux tout faits |
 | 2026-11-16 | `etat.village` pas encore créé : la migration (schéma v2) arrive à l'étape 11, quand on construit pour de vrai | Pas de changement de structure inutile |
+| 2026-11-16 | Placement libre des bâtiments (fantôme + « Placer ici »), déplaçables ensuite | Choix de Gauthier |
+| 2026-11-16 | Le bonus des bâtiments est calculé dans le moteur (`M.bonusFamille`), jamais par l'appelant | Aucune future façon de cocher ne peut l'oublier |
+| 2026-11-16 | Ambiance du village selon l'heure (aube 6-8 h, jour 8-18 h, soir 18-21 h, nuit) | « Très beau » demandé par Gauthier |
+| 2026-11-16 | Sons courts CC0 (pose, marteau, fanfare, pièces, clic, validation), désactivables | Étape 12 ; coche d'une tâche = son de pièces |
 | 2026-11-15 | `joueur.xp` = XP dans le niveau en cours, `joueur.xpTotal` = cumul (champ ajouté) | Un changement de courbe ne fera jamais baisser un niveau |
 
 ## À faire plus tard (noté, hors étape)
 - Étape 5a : simulation de l'économie (`outils/simulation.js`, skill `moteur-recompenses`) — impossible avant le moteur de gains.
 - Étape 8 : Réglages → « Sauvegardes automatiques » (liste + Restaurer) et rappel doux d'export après 14 jours (valeur déjà dans `config.js`).
-- Étape 11 : placement libre (fantôme + « Placer ici ») sur les cases constructibles ; migration v2 `village`.
-- Étape 12 : animations (pose, fumée, villageois) — `prefers-reduced-motion`.
+- Étape 13 : bâtiment endommagé (teinte grise, fumée sombre, ⚠️, Réparer), extensions de terrain, décorations (ressources / gemmes).
+- Étape 5b : écran de fête de niveau + ouverture de coffre (les sons et vibrations de base sont déjà là).
 - Point de contrôle : poser les 5 questions du skill `reprise-session` §7 après 2-3 jours d'usage.
 - Réglages → Mes catégories : renommer / changer l'emoji d'une catégorie perso.
 

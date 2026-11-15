@@ -1,5 +1,16 @@
 # Journal des versions — Hameau
 
+## 0.6.0 — 2026-11-16
+- 🔨 On construit ! La Mairie d'abord, puis 7 bâtiments qui donnent +5 % de gains par niveau à leur famille de tâches.
+- Placement libre : tu choisis la case (fantôme du bâtiment, case verte ou rouge, « Placer ici »), et tu peux déplacer plus tard.
+- Fiche de chaque bâtiment : étoiles de niveau, bonus actuel, coût du niveau suivant, ce qui manque et quelles tâches le rapportent.
+- Le village vit : bâtiments qui tombent et rebondissent, chantier au marteau, étincelles, bannière « Niveau 2 ! », fumée,
+  villageois qui se promènent, nuages, reflets sur la rivière, arbres au vent, ciel qui suit l'heure, fenêtres éclairées la nuit.
+- Petits sons (construction, pièces, validation), désactivables.
+- Aujourd'hui : tableau de bord en bois et or, carte « Prochain chantier », cartes de tâches en relief, date du jour.
+- Écran Perso : niveau du chef, 6 talents, bâtiments du hameau.
+- Données version 2 (le village), avec copie de sécurité automatique avant la mise à jour.
+
 ## 0.5.0 — 2026-11-16
 - 🏘️ Le village est là ! Onglet Village : une île à explorer (glisser pour se promener, pincer pour zoomer).
 - Graphismes libres (domaine public) et moteur de jeu intégrés dans l'appli : tout marche hors ligne.

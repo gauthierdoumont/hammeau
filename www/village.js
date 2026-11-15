@@ -74,8 +74,7 @@
     else { jeu.loop.wake(); redimensionner(); scene?.redessiner(etatCourant); scene?.majAmbiance(); }
   };
   V.fermer = function () {
-    ouvert = false;
-    scene?.quitterPlacement();
+    ouvert = false;              // (le placement en cours est annulé par village-ui.js, seul responsable)
     jeu?.loop.sleep();
   };
   V.actualiser = function (etat) {
@@ -171,6 +170,14 @@
   }
 
   /* ===== LA SCÈNE ===== */
+  // Rafale de particules « une fois » : l'émetteur est détruit après sa durée de vie (pas d'accumulation)
+  function rafale(sc, x, y, texture, config, n, profondeur) {
+    const em = sc.add.particles(x, y, texture, { ...config, emitting: false }).setDepth(profondeur);
+    em.explode(n);
+    sc.time.delayedCall((config.lifespan || 1000) + 200, () => em.destroy());
+    return em;
+  }
+
   function definirScene() {
     return class extends Phaser.Scene {
       constructor() {
@@ -216,7 +223,7 @@
             const d = this.poser(c.decor, c.gx, c.gy, 1);
             // Les arbres ondulent doucement au vent
             if (!MOUVEMENT_REDUIT && /^tree/.test(c.decor)) {
-              d.setOrigin(0.5, 0.78); d.y += 0.28 * 176;
+              d.setOrigin(0.5, 0.78); d.y += (0.78 - 0.5) * d.height;
               this.tweens.add({ targets: d, angle: { from: -1.2, to: 1.2 }, duration: 2400 + ((c.gx * 7 + c.gy * 13) % 9) * 180,
                 yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: (c.gx * 97 + c.gy * 31) % 1500 });
             }
@@ -284,52 +291,66 @@
       /* ----- Bâtiments : redessinés à chaque changement de l'état ----- */
       redessiner(etat) {
         const batiments = etat?.village?.batiments || [];
-        for (const { images, effets } of this.parBat.values()) { images.forEach(o => o.destroy()); effets.forEach(o => o.destroy()); }
-        this.parBat.clear();
-        const ambiance = this.ambiance || ambianceActuelle();
-        for (const bat of batiments) {
-          const images = G.pieces(bat, CV).map((p, i) => {
-            const img = this.poser(p.image, p.gx, p.gy, p.h, 1 + i % 5);
-            img.batId = bat.id;
-            img.setInteractive({ pixelPerfect: true });
-            return img;
-          });
-          const effets = [];
-          const haut = Math.max(...G.pieces(bat, CV).filter(p => p.gx === bat.x && p.gy === bat.y).map(p => p.h), 1);
-          // Fenêtres éclairées le soir et la nuit
-          for (const p of G.pieces(bat, CV)) {
-            if (!/^building_/.test(p.image)) continue;
-            const q = G.versEcran(p.gx, p.gy, T, p.h);
-            const l = this.add.image(q.x, q.y + 36, 'lueur').setScale(0.8, 0.45).setDepth(PROF.lueurs).setBlendMode(Phaser.BlendModes.ADD);
-            l.lueur = true;
-            l.setAlpha(ambiance === 'nuit' ? 0.85 : ambiance === 'soir' ? 0.45 : 0);
-            effets.push(l);
-          }
-          // Fumée des cheminées
-          if (!MOUVEMENT_REDUIT && CV.batiments[bat.type]?.fumee) {
-            const q = G.versEcran(bat.x, bat.y, T, haut + 0.55);
-            const f = this.add.particles(q.x + 18, q.y, 'fumee', {
-              speedY: { min: -26, max: -14 }, speedX: { min: -4, max: 8 }, lifespan: 2600,
-              alpha: { start: 0.55, end: 0 }, scale: { start: 0.25, end: 0.9 }, frequency: 520, quantity: 1,
-            }).setDepth(G.profondeur(bat.x, bat.y, haut + 1, 9));
-            effets.push(f);
-          }
-          // Niveau 5 : halo doré qui respire au pied du bâtiment
-          if (bat.niveau >= 5) {
-            const q = G.versEcran(bat.x, bat.y, T, 0);
-            const h = this.add.image(q.x, q.y + SOL_HAUT, 'halo').setScale(0.9, 0.45).setDepth(G.profondeur(bat.x, bat.y, 0, 7))
-              .setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.55);
-            if (!MOUVEMENT_REDUIT) this.tweens.add({ targets: h, alpha: { from: 0.3, to: 0.75 }, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-            effets.push(h);
-          }
-          this.parBat.set(bat.id, { bat, images, effets, haut });
+        const signature = b => `${b.type}|${b.niveau}|${b.x}|${b.y}|${b.endommage ? 1 : 0}`;
+        const presents = new Set(batiments.map(b => b.id));
+        // On ne recrée que les bâtiments nouveaux, déplacés, améliorés ou supprimés
+        for (const [id, rec] of this.parBat) {
+          const bat = batiments.find(b => b.id === id);
+          if (!presents.has(id) || signature(bat) !== rec.signature) { this.effacerBatiment(rec); this.parBat.delete(id); }
         }
+        for (const bat of batiments) if (!this.parBat.has(bat.id)) this.dessinerBatiment(bat, signature(bat));
+        this.libres = this.calculerCasesLibres();
         this.synchroniserVillageois(batiments);
         if (this.placement) this.majPlacement();
       }
+      effacerBatiment({ images, effets }) {
+        images.forEach(o => o.destroy());
+        effets.forEach(o => o.destroy());
+      }
+      dessinerBatiment(bat, signature) {
+        const ambiance = this.ambiance || ambianceActuelle();
+        const pieces = G.pieces(bat, CV);                 // calculées une seule fois
+        if (!pieces.length) return;                       // type inconnu : rien à dessiner
+        const images = pieces.map((p, i) => {
+          const img = this.poser(p.image, p.gx, p.gy, p.h, 1 + i % 5);
+          img.batId = bat.id;
+          img.setInteractive({ pixelPerfect: true });
+          return img;
+        });
+        const effets = [];
+        const haut = Math.max(...pieces.filter(p => p.gx === bat.x && p.gy === bat.y).map(p => p.h), 1);
+        // Fenêtres éclairées le soir et la nuit
+        for (const p of pieces) {
+          if (!/^building_/.test(p.image)) continue;
+          const q = G.versEcran(p.gx, p.gy, T, p.h);
+          const l = this.add.image(q.x, q.y + 36, 'lueur').setScale(0.8, 0.45).setDepth(PROF.lueurs).setBlendMode(Phaser.BlendModes.ADD);
+          l.lueur = true;
+          l.setAlpha(ambiance === 'nuit' ? 0.85 : ambiance === 'soir' ? 0.45 : 0);
+          effets.push(l);
+        }
+        // Fumée des cheminées
+        if (!MOUVEMENT_REDUIT && CV.batiments[bat.type]?.fumee) {
+          const q = G.versEcran(bat.x, bat.y, T, haut + 0.55);
+          const f = this.add.particles(q.x + 18, q.y, 'fumee', {
+            speedY: { min: -26, max: -14 }, speedX: { min: -4, max: 8 }, lifespan: 2600,
+            alpha: { start: 0.55, end: 0 }, scale: { start: 0.25, end: 0.9 }, frequency: 520, quantity: 1,
+          }).setDepth(G.profondeur(bat.x, bat.y, haut + 1, 9));
+          effets.push(f);
+        }
+        // Niveau max : halo doré qui respire au pied du bâtiment
+        if (bat.niveau >= window.CONFIG.batiments.niveauMax) {
+          const q = G.versEcran(bat.x, bat.y, T, 0);
+          const h = this.add.image(q.x, q.y + SOL_HAUT, 'halo').setScale(0.9, 0.45).setDepth(G.profondeur(bat.x, bat.y, 0, 7))
+            .setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.55);
+          if (!MOUVEMENT_REDUIT) this.tweens.add({ targets: h, alpha: { from: 0.3, to: 0.75 }, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+          effets.push(h);
+        }
+        this.parBat.set(bat.id, { bat, images, effets, haut, signature });
+      }
 
       /* ----- Villageois : un par bâtiment, se promène sur l'herbe et les chemins ----- */
-      casesLibres() {
+      // Cases où les villageois peuvent marcher : recalculées seulement quand les bâtiments changent
+      calculerCasesLibres() {
         const occ = G.occupees(this.terrain, etatCourant?.village?.batiments || [], CV);
         const libres = new Set();
         for (const c of this.terrain.cases) {
@@ -342,7 +363,7 @@
       synchroniserVillageois(batiments) {
         const ids = new Set(batiments.map(b => b.id));
         for (const [id, v] of this.villageois) if (!ids.has(id)) { this.tweens.killTweensOf(v); v.destroy(); this.villageois.delete(id); }
-        const libres = this.casesLibres();
+        const libres = this.libres;
         batiments.forEach((bat, i) => {
           if (this.villageois.has(bat.id)) return;
           const depart = this.voisineLibre(bat.x, bat.y, libres, 3);
@@ -367,7 +388,7 @@
       promener(v, batId) {
         if (!v.active || !this.villageois.has(batId)) return;
         const bat = this.parBat.get(batId)?.bat;
-        const libres = this.casesLibres();
+        const libres = this.libres;
         const pas = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => ({ gx: v.case.gx + dx, gy: v.case.gy + dy }))
           .filter(c => libres.has(`${c.gx},${c.gy}`) && (!bat || Math.abs(c.gx - bat.x) + Math.abs(c.gy - bat.y) <= 4));
         const suivante = pas.length ? Phaser.Utils.Array.GetRandom(pas) : null;
@@ -410,10 +431,10 @@
         const fin = parHauteur.length * 110 + 420;
         this.time.delayedCall(MOUVEMENT_REDUIT ? 0 : 380, () => {
           if (!MOUVEMENT_REDUIT) {
-            this.add.particles(q.x, q.y + SOL_HAUT + 10, 'poussiere', {
+            rafale(this, q.x, q.y + SOL_HAUT + 10, 'poussiere', {
               speed: { min: 40, max: 110 }, angle: { min: 160, max: 380 }, lifespan: 700, scale: { start: 0.9, end: 0.2 },
-              alpha: { start: 0.8, end: 0 }, quantity: 18, emitting: false,
-            }).setDepth(G.profondeur(b.bat.x, b.bat.y, 1, 9)).explode(18);
+              alpha: { start: 0.8, end: 0 },
+            }, 18, G.profondeur(b.bat.x, b.bat.y, 1, 9));
             this.cameras.main.shake(140, 0.0025);
           }
         });
@@ -439,9 +460,9 @@
         [0, 300, 600].forEach(t => this.time.delayedCall(220 + t, () => {
           window.Sons?.jouer('marteau');
           const q = G.versEcran(b.bat.x, b.bat.y, T, 1 + Math.random() * haut);
-          this.add.particles(q.x + Phaser.Math.Between(-30, 30), q.y, 'etincelle', {
-            speed: { min: 60, max: 150 }, lifespan: 380, scale: { start: 0.45, end: 0 }, tint: 0xffd27a, quantity: 6, emitting: false,
-          }).setDepth(PROF.textes - 1).explode(6);
+          rafale(this, q.x + Phaser.Math.Between(-30, 30), q.y, 'etincelle', {
+            speed: { min: 60, max: 150 }, lifespan: 380, scale: { start: 0.45, end: 0 }, tint: 0xffd27a,
+          }, 6, PROF.textes - 1);
         }));
         this.time.delayedCall(1000, () => {
           echafaudage.forEach(s => this.tweens.add({ targets: s, alpha: 0, y: s.y - 20, duration: 200, onComplete: () => s.destroy() }));
@@ -452,10 +473,10 @@
       etincelles(b) {
         if (MOUVEMENT_REDUIT) return;
         const q = G.versEcran(b.bat.x, b.bat.y, T, 2);
-        this.add.particles(q.x, q.y, 'etincelle', {
+        rafale(this, q.x, q.y, 'etincelle', {
           speed: { min: 80, max: 220 }, lifespan: 900, scale: { start: 0.6, end: 0 }, gravityY: 160,
-          tint: [0xffd27a, 0xffffff, 0xe8a33d], quantity: 26, emitting: false,
-        }).setDepth(PROF.textes - 1).explode(26);
+          tint: [0xffd27a, 0xffffff, 0xe8a33d],
+        }, 26, PROF.textes - 1);
       }
       banniere(b, texte) {
         const q = G.versEcran(b.bat.x, b.bat.y, T, 3.5);

@@ -18,6 +18,18 @@
     return (C.tailles[tache.taille] ?? C.tailles.moyenne) * (1 + bonus);
   };
 
+  /* ===== BONUS DU VILLAGE =====
+   * +bonusParNiveau × niveau pour la famille du bâtiment, sauf s'il est endommagé ou si le moral est bas.
+   * Calculé ICI (et pas par chaque appelant) : aucune future façon de cocher ne peut l'oublier.
+   */
+  M.bonusFamille = function (etat, familleId, C) {
+    if (!familleId || !C.batiments?.familles) return 0;
+    if ((etat.joueur?.moral ?? 100) < C.moral.seuilTriste) return 0;
+    const bat = (etat.village?.batiments || []).find(b => C.batiments.familles[b.type] === familleId);
+    if (!bat || bat.endommage) return 0;
+    return bat.niveau * C.batiments.bonusParNiveau;
+  };
+
   // Ressource gagnée par une catégorie (null pour la famille Repos, qui nourrit le moral)
   M.ressourceDe = function (categorie, C) {
     return C.familles.find(f => f.id === categorie?.familleId)?.ressource ?? null;
@@ -92,8 +104,8 @@
 
   /* ===== SAISIE =====
    * Modifie `etat` (à appeler dans modifier()). quantite = nombre saisi pour un objectif chiffré,
-   * ou null = « terminer » (cocher, ou « tout le reste »). ctx = {id, horodatage, jour, bonus?}.
-   * ctx.bonus = bonus du bâtiment de la famille (0 si aucun) : calculé par l'appelant avec Economie.bonus.
+   * ou null = « terminer » (cocher, ou « tout le reste »). ctx = {id, horodatage, jour}.
+   * Le bonus du bâtiment de la famille est calculé ici (M.bonusFamille).
    * → {ok: true, gain, ressource, progression, terminee, niveauxGagnes} ou {ok: false, erreur}
    */
   M.saisir = function (etat, tacheId, quantite, ctx, C) {
@@ -115,7 +127,8 @@
       apres = finaliser(tache, b.somme + valeur, 0).progression;
     }
 
-    const gain = Math.max(0, Math.round(M.brut(tache, C, ctx.bonus || 0) * apres) - b.deja);
+    const bonus = M.bonusFamille(etat, categorie?.familleId, C);
+    const gain = Math.max(0, Math.round(M.brut(tache, C, bonus) * apres) - b.deja);
     const ressource = M.ressourceDe(categorie, C);
     etat.journal.push({
       id: ctx.id, tacheId, horodatage: ctx.horodatage, jour: ctx.jour, valeur,

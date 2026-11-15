@@ -117,13 +117,9 @@
   /* ===== BONUS =====
    * +bonusParNiveau × niveau pour la famille du bâtiment, sauf s'il est endommagé ou si le moral est bas.
    */
-  E.bonus = function (etat, familleId, C) {
-    if (!familleId) return 0;
-    if ((etat.joueur?.moral ?? 100) < C.moral.seuilTriste) return 0;
-    const bat = (etat.village?.batiments || []).find(b => E.famille(b.type, C) === familleId);
-    if (!bat || bat.endommage) return 0;
-    return bat.niveau * C.batiments.bonusParNiveau;
-  };
+  // Une seule règle, dans le moteur des gains (moteur.js) : ici on la réutilise
+  const Moteur = typeof module !== 'undefined' ? require('./moteur.js') : racine.Moteur;
+  E.bonus = (etat, familleId, C) => Moteur.bonusFamille(etat, familleId, C);
 
   /* ===== PROCHAIN CHANTIER (carte « village » de l'écran Aujourd'hui) =====
    * Le chantier le plus proche d'être payé parmi ceux qui ne sont pas bloqués.

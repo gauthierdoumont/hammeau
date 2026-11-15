@@ -96,7 +96,7 @@ test('le bonus augmente vraiment les gains d\'une tâche', () => {
   E.construire(e, 'bibliotheque', 2, 2, ctx('b'), C);
   T.ajouterTache(e, T.creerTache({ nom: 'Lire', categorieId: 'lecture', taille: 'grosse' }, e, C, 't1', 'x').tache);
   const avant = e.joueur.ressources.savoir;
-  const r = M.saisir(e, 't1', null, { id: 's1', horodatage: 'x', jour: '2026-11-16', bonus: E.bonus(e, 'esprit', C) }, C);
+  const r = M.saisir(e, 't1', null, { id: 's1', horodatage: 'x', jour: '2026-11-16' }, C);   // le moteur trouve le bonus tout seul
   assert.equal(r.gain, 53);                                  // 50 × 1,05 = 52,5 → 53
   assert.equal(e.joueur.ressources.savoir - avant, 53);
 });
@@ -111,4 +111,16 @@ test('prochain chantier : la Mairie au début, puis le plus proche d\'être pay�
   E.construire(e, 'mairie', 6, 3, ctx('m'), C);
   e.joueur.ressources.bois = 70; e.joueur.ressources.pierre = 20;
   assert.equal(E.prochainChantier(e, C).type, 'scierie');    // tout est payé pour la Scierie
+});
+
+test('vérification : type de bâtiment inconnu ou niveau au-delà du max de config.js → refusé', () => {
+  const e = riche();
+  E.construire(e, 'mairie', 6, 3, ctx('m'), C);
+  e.village.batiments[0].type = 'moulin';
+  assert.throws(() => S.verifier(e, C), /type inconnu/);
+  e.village.batiments[0].type = 'mairie';
+  e.village.batiments[0].niveau = C.batiments.niveauMax + 1;
+  assert.throws(() => S.verifier(e, C), /niveau/);
+  e.village.batiments[0].niveau = C.batiments.niveauMax;
+  assert.equal(S.verifier(e, C), true);
 });

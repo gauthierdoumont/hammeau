@@ -13,13 +13,10 @@
   const $ = (id) => document.getElementById(id);
   const res = (id) => C.ressources.find(r => r.id === id);
   const famille = (id) => C.familles.find(f => f.id === id);
-  function el(balise, attributs = {}, ...enfants) {
-    const n = document.createElement(balise);
-    for (const [k, v] of Object.entries(attributs)) n.setAttribute(k, v);
-    n.append(...enfants.filter(x => x !== '' && x != null));
-    return n;
-  }
-  const nombre = (n) => Number(n).toLocaleString('fr-BE');
+  // Aides partagées avec app.js (une seule version de chaque)
+  const el = (...a) => A().el(...a);
+  const nombre = (n) => A().nombre(n);
+  const MAX = () => C.batiments.niveauMax;
 
   /* ===== TEXTES ===== */
   function effetTexte(type) {
@@ -61,14 +58,16 @@
 
   /* ===== FENÊTRE « CONSTRUIRE » ===== */
   function ouvrirConstruire() {
+    // Le village doit être prêt (sinon le placement n'aurait pas de scène où se faire)
+    if (!window.Village.estPret()) return A().toast('Le village se prépare… encore une seconde.');
     const etat = A().etat();
-    const cartes = C.batiments.ordre.map(type => {
+    const cartes = C.batiments.ordre.filter(type => CV.batiments[type]).map(type => {
       const def = CV.batiments[type], p = E.possibilite(etat, type, C), bat = E.batiment(etat, type);
       const fam = E.famille(type, C);
       const carte = el('div', { class: 'bat-carte' + (p.bloque && p.bloque !== 'max' ? ' verrou' : '') });
       carte.style.setProperty('--famille', fam ? `var(--${fam})` : 'var(--accent)');
       const texte = el('div', { class: 'bat-texte' },
-        el('div', { class: 'bat-titre' }, el('b', {}, def.nom), el('span', { class: 'bat-niveau' }, `Niv. ${bat?.niveau ?? 0}/5`)),
+        el('div', { class: 'bat-titre' }, el('b', {}, def.nom), el('span', { class: 'bat-niveau' }, `Niv. ${bat?.niveau ?? 0}/${MAX()}`)),
         el('small', {}, effetTexte(type)),
         p.action !== 'max' ? couts(p) : '',
         raisonTexte(p) ? el('p', { class: 'bat-raison' }, raisonTexte(p)) : '');
@@ -98,6 +97,7 @@
 
   /* ===== PLACEMENT LIBRE ===== */
   function commencerPlacement({ type, batId }) {
+    if (!window.Village.estPret()) return A().toast('Le village se prépare… encore une seconde.');
     placement = { type, batId };
     document.body.classList.add('village-placement-actif');
     $('village-placement').hidden = false;
@@ -150,8 +150,8 @@
     $('fiche-icone').textContent = def.emoji;
     $('feuille-batiment').style.setProperty('--famille', fam ? `var(--${fam})` : 'var(--accent)');
     $('fiche-nom').textContent = def.nom;
-    $('fiche-etoiles').replaceChildren(...Array.from({ length: 5 }, (_, i) => el('span', { class: i < bat.niveau ? 'pleine' : '' }, '★')));
-    $('fiche-etoiles').setAttribute('aria-label', `Niveau ${bat.niveau} sur 5`);
+    $('fiche-etoiles').replaceChildren(...Array.from({ length: MAX() }, (_, i) => el('span', { class: i < bat.niveau ? 'pleine' : '' }, '★')));
+    $('fiche-etoiles').setAttribute('aria-label', `Niveau ${bat.niveau} sur ${MAX()}`);
     // Effet actuel
     let effet;
     if (bat.type === 'mairie') effet = `Les autres bâtiments peuvent monter jusqu'au niveau ${bat.niveau}.`;

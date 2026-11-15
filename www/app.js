@@ -71,7 +71,7 @@ function modifier(action) {
   const copie = structuredClone(etat);
   try {
     action(copie);
-    S.verifier(copie);
+    S.verifier(copie, C);
   } catch (x) {
     console.error(x);
     toast(x.pourUtilisateur || 'Action annulée, rien n\'a été perdu.');
@@ -361,9 +361,7 @@ function cocher(tacheId, quantite = null) {
   const avant = etat;
   let r;
   const ok = modifier(e => {
-    const famille = T.categorie(e, e.taches.find(t => t.id === tacheId)?.categorieId)?.familleId;
-    r = M.saisir(e, tacheId, quantite, { id: S.nouvelId(), horodatage: maintenant().toISOString(), jour: jourActuel(),
-      bonus: Economie.bonus(e, famille, C) }, C);   // bâtiment de la famille : +5 % par niveau
+    r = M.saisir(e, tacheId, quantite, { id: S.nouvelId(), horodatage: maintenant().toISOString(), jour: jourActuel() }, C);
     if (!r.ok) throw refus(r.erreur);
   });
   if (!ok) return false;
@@ -626,7 +624,7 @@ function rendrePerso() {
   const bats = etat.village?.batiments || [];
   const CV = window.CATALOGUE_VILLAGE;
   document.getElementById('perso-village').replaceChildren(bats.length
-    ? el('div', { class: 'perso-bats' }, ...bats.map(b => el('span', { class: 'perso-bat' }, `${CV.batiments[b.type].emoji} ${CV.batiments[b.type].nom}`, el('small', {}, ` niv. ${b.niveau}`))))
+    ? el('div', { class: 'perso-bats' }, ...bats.filter(b => CV.batiments[b.type]).map(b => el('span', { class: 'perso-bat' }, `${CV.batiments[b.type].emoji} ${CV.batiments[b.type].nom}`, el('small', {}, ` niv. ${b.niveau}`))))
     : el('p', { class: 'discret' }, 'Ton hameau attend sa Mairie : chaque tâche t\'en rapproche.'));
 }
 
@@ -700,7 +698,7 @@ function carteTache(t, bilan) {
       el('span', { class: 'tache-emoji', 'aria-hidden': 'true' }, cat?.emoji ?? '•'), texte)
   );
   if (!fait) {
-    const reste = M.gainRestant(t, bilan, C, Economie.bonus(etat, cat?.familleId, C));
+    const reste = M.gainRestant(t, bilan, C, M.bonusFamille(etat, cat?.familleId, C));
     const res = M.ressourceDe(cat, C);
     carte.append(el('span', { class: 'gain', 'aria-label': `rapporte ${reste}` }, `+${reste} ${res ? C.ressources.find(r => r.id === res).emoji : 'XP'}`));
     if (t.objectif) carte.append(el('button', { class: 'plus', 'data-saisir': t.id, 'aria-label': `Ajouter des ${t.objectif.unite}` }, '+'));
@@ -903,7 +901,7 @@ function vibrer(style) {
   PL.Haptics?.impact({ style }).catch(() => {});
 }
 window.Appli = {
-  etat: () => etat, modifier, refus, toast, dialogue, message, maintenant, vibrer,
+  etat: () => etat, modifier, refus, toast, dialogue, message, maintenant, vibrer, el, nombre,
   nouvelId: () => S.nouvelId(),
 };
 window.Sons?.brancher(() => etat?.reglages?.sons !== false);
