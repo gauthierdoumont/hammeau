@@ -82,6 +82,12 @@
   racine.CATALOGUE_VILLAGE = {
     atlas: { cle: 'village', image: 'assets/village/village.png', json: 'assets/village/village.json' },
     tuile, carte, decors, batiments,
+    // Image de chaque décoration achetable (les prix sont dans config.js)
+    decorationsImages: {
+      arbre: 'tree_single_N', sapin: 'tree_pine_N', bosquet: 'tree_multiple_N', rochers: 'rocks_grass_N',
+      potager: 'furrow_crop_N', cloture: 'fence_wood_N', puits: 'well_N',
+      grandSapin: 'tree_pineLarge_N', rempart: 'castle_wall_N', porte: 'castle_gate_N', tour: 'castle_tower_N',
+    },
     fond: '#1f3346',             // ciel du soir, accordé à la charte Taverne
   };
   if (typeof module !== 'undefined') module.exports = racine.CATALOGUE_VILLAGE;

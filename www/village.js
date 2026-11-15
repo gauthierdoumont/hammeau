@@ -11,7 +11,7 @@
   const T = CV.tuile;
   const V = {};
   let jeu = null, scene = null, chargement = null, etatCourant = null, ouvert = false;
-  let rappels = { batiment: null, placement: null };
+  let rappels = { batiment: null, decoration: null, placement: null };
 
   const reglage = () => window.CONFIG.village;
   const densite = () => Math.min(window.devicePixelRatio || 1, 2);   // net sur le téléphone, sans écraser les fps
@@ -83,6 +83,7 @@
   };
   V.animer = (quoi, id) => scene?.animer(quoi, id);
   V.surBatiment = (fn) => { rappels.batiment = fn; };            // toucher un bâtiment
+  V.surDecoration = (fn) => { rappels.decoration = fn; };        // toucher une décoration
   V.placer = (opts, fn) => { rappels.placement = fn; scene?.entrerPlacement(opts); };
   V.validerPlacement = () => scene?.validerPlacement() ?? null;
   V.quitterPlacement = () => scene?.quitterPlacement();
@@ -183,6 +184,8 @@
       constructor() {
         super('village');
         this.parBat = new Map();      // id du bâtiment → { bat, images[], effets[] }
+        this.parDeco = new Map();     // id de la décoration → { bat: deco, images[], effets[] }
+        this.solObjets = [];          // images du terrain (pour le redessiner quand le hameau s'agrandit)
         this.villageois = new Map();  // id du bâtiment → sprite qui se promène
         this.placement = null;
       }
@@ -199,7 +202,8 @@
         textureRadiale(this, 'halo', 160, '255,214,120', 0.7);
         textureEtincelle(this);
         for (let i = 0; i < 3; i++) textureNuage(this, 'nuage' + i, i);
-        this.terrain = G.lireCarte(CV.carte, CV.decors);
+        this.anneaux = etatCourant?.village?.extensions || 0;
+        this.terrain = G.lireCarte(CV.carte, CV.decors, this.anneaux);
         this.dessinerTerrain();
         this.creerAmbiance();
         this.redessiner(etatCourant);
@@ -216,29 +220,55 @@
       }
 
       /* ----- Terrain : sol, décors, reflets sur l'eau (dessinés une seule fois) ----- */
-      dessinerTerrain() {
+      // nouvelAnneau : numéro de l'anneau qui vient d'être acheté → ses cases montent de sous terre
+      dessinerTerrain(nouvelAnneau = 0) {
+        const garder = (o) => { this.solObjets.push(o); return o; };
         for (const c of this.terrain.cases) {
-          this.poser(c.sol, c.gx, c.gy, 0);
+          const sol = garder(this.poser(c.sol, c.gx, c.gy, 0));
+          let d = null;
+          if (nouvelAnneau && c.anneau === nouvelAnneau && !MOUVEMENT_REDUIT) {
+            const delai = (Math.abs(c.gx) + Math.abs(c.gy)) * 25 % 900;
+            for (const o of [sol]) { const y = o.y; o.setY(y + 140).setAlpha(0); this.tweens.add({ targets: o, y, alpha: 1, duration: 520, delay: delai, ease: 'Back.easeOut' }); }
+          }
           if (c.decor) {
-            const d = this.poser(c.decor, c.gx, c.gy, 1);
+            d = garder(this.poser(c.decor, c.gx, c.gy, 1));
             // Les arbres ondulent doucement au vent
             if (!MOUVEMENT_REDUIT && /^tree/.test(c.decor)) {
               d.setOrigin(0.5, 0.78); d.y += (0.78 - 0.5) * d.height;
               this.tweens.add({ targets: d, angle: { from: -1.2, to: 1.2 }, duration: 2400 + ((c.gx * 7 + c.gy * 13) % 9) * 180,
                 yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: (c.gx * 97 + c.gy * 31) % 1500 });
             }
+            // Nouvel anneau : les arbres apparaissent juste après leur sol
+            if (nouvelAnneau && c.anneau === nouvelAnneau && !MOUVEMENT_REDUIT) {
+              d.setAlpha(0);
+              this.tweens.add({ targets: d, alpha: 1, duration: 400, delay: (Math.abs(c.gx) + Math.abs(c.gy)) * 25 % 900 + 350 });
+            }
           }
           // Reflets qui scintillent sur la rivière
           if (!MOUVEMENT_REDUIT && /river/.test(c.sol)) {
             for (let k = 0; k < 2; k++) {
               const p = G.versEcran(c.gx, c.gy, T, 0);
-              const e = this.add.image(p.x + (k ? 14 : -12), p.y + SOL_HAUT + (k ? -4 : 5), 'etincelle')
-                .setScale(0.35).setAlpha(0).setDepth(G.profondeur(c.gx, c.gy, 0, 6));
+              const e = garder(this.add.image(p.x + (k ? 14 : -12), p.y + SOL_HAUT + (k ? -4 : 5), 'etincelle')
+                .setScale(0.35).setAlpha(0).setDepth(G.profondeur(c.gx, c.gy, 0, 6)));
               this.tweens.add({ targets: e, alpha: { from: 0, to: 0.85 }, scale: { from: 0.2, to: 0.45 }, duration: 700,
                 yoyo: true, repeat: -1, repeatDelay: 1800 + ((c.gx + c.gy * 3 + k * 5) % 7) * 500, delay: (c.gy * 330 + k * 900) % 3000 });
             }
           }
         }
+      }
+
+      // Le hameau s'est agrandi : on redessine le terrain, le nouvel anneau apparaît en vague
+      majTerrain(etat) {
+        const anneaux = etat?.village?.extensions || 0;
+        if (anneaux === this.anneaux) return;
+        const nouvel = anneaux > this.anneaux ? anneaux : 0;
+        for (const o of this.solObjets) { this.tweens.killTweensOf(o); o.destroy(); }
+        this.solObjets = [];
+        this.anneaux = anneaux;
+        this.terrain = G.lireCarte(CV.carte, CV.decors, anneaux);
+        this.dessinerTerrain(nouvel);
+        this.etendueMonde = G.etendue(this.terrain, T);
+        this.reglerCamera(false);
       }
 
       /* ----- Ambiance : voile coloré selon l'heure, nuages, lucioles ----- */
@@ -290,6 +320,7 @@
 
       /* ----- Bâtiments : redessinés à chaque changement de l'état ----- */
       redessiner(etat) {
+        this.majTerrain(etat);
         const batiments = etat?.village?.batiments || [];
         const signature = b => `${b.type}|${b.niveau}|${b.x}|${b.y}|${b.endommage ? 1 : 0}`;
         const presents = new Set(batiments.map(b => b.id));
@@ -299,6 +330,23 @@
           if (!presents.has(id) || signature(bat) !== rec.signature) { this.effacerBatiment(rec); this.parBat.delete(id); }
         }
         for (const bat of batiments) if (!this.parBat.has(bat.id)) this.dessinerBatiment(bat, signature(bat));
+        // Décorations : même principe (seules les nouvelles, déplacées ou retirées sont refaites)
+        const decos = etat?.village?.decorations || [];
+        const sigDeco = d => `${d.type}|${d.x}|${d.y}`;
+        for (const [id, rec] of this.parDeco) {
+          const d = decos.find(x => x.id === id);
+          if (!d || sigDeco(d) !== rec.signature) { this.effacerBatiment(rec); this.parDeco.delete(id); }
+        }
+        for (const d of decos) {
+          if (this.parDeco.has(d.id)) continue;
+          const images = G.piecesDecoration(d, CV).map(p => {
+            const img = this.poser(p.image, p.gx, p.gy, p.h, 2);
+            img.decoId = d.id;
+            img.setInteractive({ pixelPerfect: true });
+            return img;
+          });
+          this.parDeco.set(d.id, { bat: d, images, effets: [], haut: 1, signature: sigDeco(d) });
+        }
         this.libres = this.calculerCasesLibres();
         this.synchroniserVillageois(batiments);
         if (this.placement) this.majPlacement();
@@ -337,6 +385,20 @@
           }).setDepth(G.profondeur(bat.x, bat.y, haut + 1, 9));
           effets.push(f);
         }
+        // Endommagé : grisé, fumée sombre et petit panneau ⚠️ qui flotte (réparable dans la fiche)
+        if (bat.endommage) {
+          images.forEach(i => i.setTint(0x9c9c9c));
+          const q = G.versEcran(bat.x, bat.y, T, haut + 0.4);
+          if (!MOUVEMENT_REDUIT) {
+            effets.push(this.add.particles(q.x - 10, q.y + 20, 'fumee', {
+              speedY: { min: -30, max: -18 }, speedX: { min: -6, max: 6 }, lifespan: 2200, tint: 0x3a3330,
+              alpha: { start: 0.7, end: 0 }, scale: { start: 0.35, end: 1.1 }, frequency: 300, quantity: 1,
+            }).setDepth(G.profondeur(bat.x, bat.y, haut + 1, 9)));
+          }
+          const alerte = this.add.text(q.x, q.y - 26, '⚠️', { fontSize: '30px' }).setOrigin(0.5).setDepth(PROF.textes - 2);
+          if (!MOUVEMENT_REDUIT) this.tweens.add({ targets: alerte, y: q.y - 36, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+          effets.push(alerte);
+        }
         // Niveau max : halo doré qui respire au pied du bâtiment
         if (bat.niveau >= window.CONFIG.batiments.niveauMax) {
           const q = G.versEcran(bat.x, bat.y, T, 0);
@@ -351,7 +413,7 @@
       /* ----- Villageois : un par bâtiment, se promène sur l'herbe et les chemins ----- */
       // Cases où les villageois peuvent marcher : recalculées seulement quand les bâtiments changent
       calculerCasesLibres() {
-        const occ = G.occupees(this.terrain, etatCourant?.village?.batiments || [], CV);
+        const occ = G.occupees(this.terrain, etatCourant?.village?.batiments || [], CV, etatCourant?.village?.decorations || []);
         const libres = new Set();
         for (const c of this.terrain.cases) {
           const k = `${c.gx},${c.gy}`;
@@ -412,9 +474,15 @@
 
       /* ----- Animations de construction et d'amélioration ----- */
       animer(quoi, id) {
-        const b = this.parBat.get(id);
+        const b = this.parBat.get(id) || this.parDeco.get(id);
         if (!b) return;
         if (quoi === 'amelioration') return this.chantier(b, () => this.pose(b, true));
+        if (quoi === 'reparation') {
+          window.Sons?.jouer('valide');
+          b.images.forEach(i => i.setTintFill(0xffffff));            // éclair blanc
+          this.time.delayedCall(120, () => b.images.forEach(i => i.clearTint()));
+          return this.etincelles(b);
+        }
         this.pose(b, false);
       }
       // Les étages tombent du ciel l'un après l'autre et rebondissent, nuage de poussière à l'arrivée
@@ -489,13 +557,15 @@
       }
 
       /* ----- Placement libre : fantôme + case verte / rouge ----- */
-      entrerPlacement({ type, batId }) {
+      // { type, batId? } pour un bâtiment ; { deco: true, type, decoId? } pour une décoration
+      entrerPlacement({ type, batId, deco = false, decoId }) {
         this.quitterPlacement();
-        const existant = batId ? this.parBat.get(batId)?.bat : null;
+        const rec = deco ? (decoId ? this.parDeco.get(decoId) : null) : (batId ? this.parBat.get(batId) : null);
+        const existant = rec?.bat ?? null;
         const niveau = existant?.niveau ?? 1;
-        const empreinte = CV.batiments[type]?.empreinte || [1, 1];
-        this.placement = { type, batId, niveau, empreinte, images: [], marque: this.add.graphics() };
-        if (existant) this.parBat.get(batId).images.forEach(i => i.setAlpha(0.25));
+        const empreinte = deco ? [1, 1] : (CV.batiments[type]?.empreinte || [1, 1]);
+        this.placement = { type, batId, deco, decoId, niveau, empreinte, images: [], marque: this.add.graphics() };
+        if (rec) rec.images.forEach(i => i.setAlpha(0.25));
         // Départ : la case libre la plus proche du centre de l'écran (ou la place actuelle si on déplace)
         const cam = this.cameras.main;
         const centre = G.versGrille(cam.midPoint.x, cam.midPoint.y - SOL_HAUT, T);
@@ -513,7 +583,8 @@
         const p = this.placement;
         if (!p) return false;
         const autres = (etatCourant?.village?.batiments || []).filter(b => b.id !== p.batId);
-        const occ = G.occupees(this.terrain, autres, CV);
+        const autresDecos = (etatCourant?.village?.decorations || []).filter(d => d.id !== p.decoId);
+        const occ = G.occupees(this.terrain, autres, CV, autresDecos);
         for (let dx = 0; dx < p.empreinte[0]; dx++) for (let dy = 0; dy < p.empreinte[1]; dy++) {
           const k = `${gx + dx},${gy + dy}`;
           const c = this.terrain.cases.find(x => x.gx === gx + dx && x.gy === gy + dy);
@@ -532,8 +603,9 @@
         const p = this.placement;
         p.images.forEach(i => i.destroy());
         p.libre = this.estLibre(p.gx, p.gy);
-        p.images = G.pieces({ type: p.type, niveau: p.niveau, x: p.gx, y: p.gy }, CV)
-          .map((q, i) => this.poser(q.image, q.gx, q.gy, q.h, 8 + (i % 2)).setAlpha(0.8));
+        const pieces = p.deco ? G.piecesDecoration({ type: p.type, x: p.gx, y: p.gy }, CV)
+          : G.pieces({ type: p.type, niveau: p.niveau, x: p.gx, y: p.gy }, CV);
+        p.images = pieces.map((q, i) => this.poser(q.image, q.gx, q.gy, q.h, 8 + (i % 2)).setAlpha(0.8));
         if (!p.libre) p.images.forEach(i => i.setTint(0xff9a8a));
         // Losange(s) de couleur sous le fantôme
         p.marque.clear().setDepth(G.profondeur(p.gx, p.gy, 0, 9));
@@ -549,7 +621,7 @@
       validerPlacement() {
         const p = this.placement;
         if (!p || !p.libre) return null;
-        return { gx: p.gx, gy: p.gy, type: p.type, batId: p.batId };
+        return { gx: p.gx, gy: p.gy, type: p.type, batId: p.batId, deco: p.deco, decoId: p.decoId };
       }
       quitterPlacement() {
         const p = this.placement;
@@ -557,6 +629,7 @@
         p.images.forEach(i => i.destroy());
         p.marque.destroy();
         if (p.batId) this.parBat.get(p.batId)?.images.forEach(i => i.setAlpha(1));
+        if (p.decoId) this.parDeco.get(p.decoId)?.images.forEach(i => i.setAlpha(1));
         this.placement = null;
       }
 
@@ -569,7 +642,8 @@
         this.zoomMax = R.zoomMax * d;
         if (initial) {
           cam.setZoom(R.zoomDepart * d);
-          const centre = G.versEcran(this.terrain.largeur / 2 - 0.5, this.terrain.hauteur / 2 - 0.5, T, 1);
+          const m = this.terrain.min, M = this.terrain.max;
+          const centre = G.versEcran((m.gx + M.gx) / 2, (m.gy + M.gy) / 2, T, 1);
           cam.centerOn(centre.x, centre.y);
         } else {
           cam.setZoom(Phaser.Math.Clamp(cam.zoom, this.zoomMin, this.zoomMax));
@@ -617,15 +691,15 @@
           window.Sons?.jouer('clic');
           return this.deplacerFantome(c.gx, c.gy);
         }
-        const touches = this.input.hitTestPointer(p).filter(o => o.batId);
+        const touches = this.input.hitTestPointer(p).filter(o => o.batId || o.decoId);
         if (!touches.length) return;
         const devant = touches.reduce((a, b) => (b.depth > a.depth ? b : a));
-        const b = this.parBat.get(devant.batId);
+        const b = devant.batId ? this.parBat.get(devant.batId) : this.parDeco.get(devant.decoId);
         if (!b) return;
         // Petit rebond de réponse au toucher
         if (!MOUVEMENT_REDUIT) this.tweens.add({ targets: b.images, scaleY: { from: 0.94, to: 1 }, duration: 260, ease: 'Back.easeOut' });
         window.Sons?.jouer('clic');
-        rappels.batiment?.(b.bat.id);
+        if (devant.batId) rappels.batiment?.(b.bat.id); else rappels.decoration?.(b.bat.id);
       }
     };
   }

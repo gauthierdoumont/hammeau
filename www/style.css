@@ -720,3 +720,9 @@ body.village-placement-actif .village-construire { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .jauge i::after, .chantier.pret { animation: none; }
 }
+
+/* ===== ÉTAPE 13 : onglets de Construire, décorations, terrain ===== */
+.onglets-construire { margin-top: 12px; }
+.segments button[aria-selected="true"] { background: var(--accent); color: var(--fond); border-color: var(--accent); }
+.bat-carte.rare { background: linear-gradient(120deg, var(--or-voile), transparent 55%), var(--surface); }
+.fiche-type { font-size: .875rem; color: var(--texte-doux); font-weight: 600; }

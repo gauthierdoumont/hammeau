@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 globalThis.window = globalThis;
+require('../www/config.js');
 const CV = require('../www/assets/village/catalogue.js');
 const G = require('../www/village-geo.js');
 const T = CV.tuile;
@@ -74,4 +75,28 @@ test('cases occupées : décors du terrain + empreinte des bâtiments (jardin 2�
   const occ = G.occupees(t, [{ type: 'jardin', niveau: 1, x: 6, y: 7 }, { type: 'mairie', niveau: 1, x: 6, y: 3 }], CV);
   for (const k of ['6,7', '7,7', '6,8', '7,8', '6,3', '0,0', '4,5', '9,1']) assert.ok(occ.has(k), k);
   assert.ok(!occ.has('2,2'));
+});
+
+test('anneaux de terrain : la carte grandit tout autour, rivière et chemins prolongés', () => {
+  const base = G.lireCarte(CV.carte, CV.decors, 0);
+  const t = G.lireCarte(CV.carte, CV.decors, 2);
+  assert.equal(t.cases.length, (base.largeur + 4) * (base.hauteur + 4));
+  assert.deepEqual(t.min, { gx: -2, gy: -2 });
+  const a = (gx, gy) => t.cases.find(c => c.gx === gx && c.gy === gy);
+  assert.equal(a(9, -2).sol, 'grass_river_E');            // la rivière continue vers le haut
+  assert.equal(a(9, 13).sol, 'grass_river_E');            // … et vers le bas
+  assert.equal(a(-1, 5).sol, 'grass_path_N');             // le chemin continue à gauche
+  assert.equal(a(4, -1).sol, 'grass_path_E');
+  // L'île de départ ne change pas ; les nouvelles cases sont stables (mêmes arbres à chaque fois)
+  for (const c of base.cases) assert.deepEqual({ ...a(c.gx, c.gy), anneau: 0 }, { ...c, anneau: 0 });
+  assert.deepEqual(G.lireCarte(CV.carte, CV.decors, 2), t);
+  assert.ok(t.cases.filter(c => c.anneau > 0 && c.constructible).length > 40, 'de la place en plus pour construire');
+});
+
+test('décorations : image connue, cases occupées', () => {
+  for (const type of Object.keys(globalThis.CONFIG?.decorations || {})) assert.ok(CV.decorationsImages[type], type);
+  const t = G.lireCarte(CV.carte, CV.decors);
+  const occ = G.occupees(t, [], CV, [{ id: 'd', type: 'arbre', x: 2, y: 2 }]);
+  assert.ok(occ.has('2,2'));
+  assert.deepEqual(G.piecesDecoration({ type: 'tour', x: 1, y: 1 }, CV), [{ image: 'castle_tower_N', gx: 1, gy: 1, h: 1 }]);
 });

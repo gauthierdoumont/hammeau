@@ -181,7 +181,7 @@ Objectif d'équilibrage : **environ 4 mois** d'usage régulier pour tout monter 
 - [x] 10. Scène Phaser isométrique : grille, caméra, zoom au doigt (~45 min)
 - [x] 11. Construire / améliorer / coûts / bonus des bâtiments / Mairie (~45 min)
 - [x] 12. Animations, villageois, effets, sons (~45 min)
-- [ ] 13. Bâtiments endommagés + réparation, extensions, décorations (~45 min)
+- [x] 13. Bâtiments endommagés + réparation, extensions, décorations (~45 min)
 
 ### V3 — Calendrier + notifications
 - [ ] 14. Notifications locales matin/soir/échéances + permission + reprogrammation (~40 min)

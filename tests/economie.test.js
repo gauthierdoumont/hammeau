@@ -124,3 +124,50 @@ test('vérification : type de bâtiment inconnu ou niveau au-delà du max de con
   e.village.batiments[0].niveau = C.batiments.niveauMax;
   assert.equal(S.verifier(e, C), true);
 });
+
+/* ===== Étape 13 : réparation, extensions, décorations ===== */
+test('endommager : un bâtiment au hasard (hasard injecté), bonus en pause, puis réparation à 30 %', () => {
+  const e = riche();
+  E.construire(e, 'mairie', 6, 3, ctx('m'), C);
+  E.construire(e, 'bibliotheque', 2, 2, ctx('b'), C);
+  const touche = E.endommager(e, () => 0.99);               // 2e bâtiment intact
+  assert.equal(touche.id, 'b');
+  assert.equal(E.bonus(e, 'esprit', C), 0);
+  assert.equal(E.possibilite(e, 'bibliotheque', C).bloque, 'endommage');
+  assert.deepEqual(E.coutReparation('bibliotheque', 1, C), { savoir: 15, bois: 6, pierre: 6 });
+  const avant = e.joueur.ressources.savoir;
+  assert.equal(E.reparer(e, 'b', C).ok, true);
+  assert.equal(avant - e.joueur.ressources.savoir, 15);
+  assert.equal(E.bonus(e, 'esprit', C), 0.05);
+  assert.equal(E.reparer(e, 'b', C).ok, false);             // déjà réparé
+  E.endommager(e, () => 0); E.endommager(e, () => 0);
+  assert.equal(E.endommager(e, () => 0), null);             // plus rien d'intact
+});
+
+test('agrandir : coût ×1,5 à chaque anneau, 3 au maximum', () => {
+  const e = riche();
+  assert.deepEqual(E.coutExtension(0, C), { bois: 120, pierre: 120, or: 60 });
+  assert.deepEqual(E.coutExtension(1, C), { bois: 180, pierre: 180, or: 90 });
+  assert.deepEqual(E.coutExtension(2, C), { bois: 270, pierre: 270, or: 135 });
+  for (let i = 1; i <= 3; i++) assert.equal(E.agrandir(e, C).extensions, i);
+  assert.equal(E.possibiliteExtension(e, C).max, true);
+  assert.equal(E.agrandir(e, C).ok, false);
+  assert.equal(S.verifier(e, C), true);
+});
+
+test('décorations : achat en ressources ou en gemmes, déplacer, retirer', () => {
+  const e = riche(0);
+  e.joueur.ressources.bois = 20;
+  assert.equal(E.acheterDecoration(e, 'tour', 1, 1, ctx('t'), C).ok, false);   // pas de gemmes
+  assert.equal(E.acheterDecoration(e, 'arbre', 1, 1, ctx('a'), C).ok, true);
+  assert.equal(e.joueur.ressources.bois, 5);
+  e.joueur.ressources.gemmes = 5;
+  assert.equal(E.acheterDecoration(e, 'tour', 2, 1, ctx('t'), C).ok, true);
+  assert.equal(e.joueur.ressources.gemmes, 0);
+  assert.equal(E.deplacerDecoration(e, 'a', 3, 3).decoration.x, 3);
+  assert.equal(E.retirerDecoration(e, 't').ok, true);
+  assert.equal(e.village.decorations.length, 1);
+  assert.equal(S.verifier(e, C), true);
+  e.village.decorations.push({ id: 'z', type: 'licorne', x: 0, y: 0 });
+  assert.throws(() => S.verifier(e, C), /décoration inconnue/);
+});

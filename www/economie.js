@@ -60,6 +60,7 @@
     const cible = niveau + 1;
     const cout = E.cout(type, cible, C);
     const r = { action: bat ? 'ameliorer' : 'construire', niveauCible: cible, cout, manque: E.manque(etat, cout), bloque: null };
+    if (bat?.endommage) { r.bloque = 'endommage'; return r; }
     if (type === 'mairie') {
       const requis = C.mairie.niveauJoueurRequis[cible - 1] ?? Infinity;
       if (etat.joueur.niveau < requis) { r.bloque = 'niveauJoueur'; r.requis = requis; }
@@ -79,6 +80,7 @@
     if (p.bloque === 'max') return 'Ce bâtiment est déjà au niveau maximum.';
     if (p.bloque === 'mairie') return `Monte d'abord la Mairie au niveau ${p.requis}.`;
     if (p.bloque === 'niveauJoueur') return `La Mairie demande le niveau ${p.requis} de chef.`;
+    if (p.bloque === 'endommage') return 'Répare d\'abord ce bâtiment.';
     if (Object.keys(p.manque).length) return 'Il manque encore quelques ressources.';
     return null;
   }
@@ -105,6 +107,80 @@
     payer(etat, p.cout);
     bat.niveau = p.niveauCible;
     return { ok: true, batiment: bat, cout: p.cout };
+  };
+
+  /* ===== RÉPARATION (étape 13) =====
+   * Un incendie (étape 6) peut endommager un bâtiment : son bonus est en pause jusqu'à la réparation.
+   * Coût : C.reparation.part du coût de son niveau actuel (arrondi au-dessus).
+   */
+  E.coutReparation = function (type, niveau, C) {
+    const cout = {};
+    for (const [r, q] of Object.entries(E.cout(type, niveau, C))) cout[r] = Math.ceil(q * C.reparation.part);
+    return cout;
+  };
+  E.reparer = function (etat, id, C) {
+    const bat = (etat.village?.batiments || []).find(b => b.id === id);
+    if (!bat) return { ok: false, erreur: 'Bâtiment introuvable.' };
+    if (!bat.endommage) return { ok: false, erreur: 'Ce bâtiment est en parfait état.' };
+    const cout = E.coutReparation(bat.type, bat.niveau, C);
+    if (Object.keys(E.manque(etat, cout)).length) return { ok: false, erreur: 'Il manque encore quelques ressources pour réparer.' };
+    payer(etat, cout);
+    bat.endommage = false;
+    return { ok: true, batiment: bat, cout };
+  };
+  // Endommage un bâtiment au hasard (hasard injecté : rng() entre 0 et 1). → le bâtiment touché, ou null
+  E.endommager = function (etat, rng) {
+    const intacts = (etat.village?.batiments || []).filter(b => !b.endommage);
+    if (!intacts.length) return null;
+    const bat = intacts[Math.min(intacts.length - 1, Math.floor(rng() * intacts.length))];
+    bat.endommage = true;
+    return bat;
+  };
+
+  /* ===== AGRANDIR LE HAMEAU (étape 13) ===== */
+  E.coutExtension = function (n, C) {          // coût de l'extension numéro n+1 (n = déjà faites)
+    const cout = {};
+    for (const [r, q] of Object.entries(C.extensions.coutBase)) cout[r] = Math.round(q * C.extensions.facteur ** n);
+    return cout;
+  };
+  E.possibiliteExtension = function (etat, C) {
+    const n = etat.village?.extensions || 0;
+    if (n >= C.extensions.max) return { max: true, n, cout: {}, manque: {} };
+    const cout = E.coutExtension(n, C);
+    return { max: false, n, cout, manque: E.manque(etat, cout) };
+  };
+  E.agrandir = function (etat, C) {
+    const p = E.possibiliteExtension(etat, C);
+    if (p.max) return { ok: false, erreur: 'Le hameau a atteint sa taille maximale.' };
+    if (Object.keys(p.manque).length) return { ok: false, erreur: 'Il manque encore quelques ressources.' };
+    payer(etat, p.cout);
+    etat.village.extensions = p.n + 1;
+    return { ok: true, extensions: p.n + 1, cout: p.cout };
+  };
+
+  /* ===== DÉCORATIONS (étape 13) ===== */
+  E.acheterDecoration = function (etat, type, x, y, ctx, C) {
+    const def = C.decorations[type];
+    if (!def) return { ok: false, erreur: 'Décoration inconnue.' };
+    const manque = E.manque(etat, def.cout);
+    if (Object.keys(manque).length) return { ok: false, erreur: 'Il manque encore quelques ressources.' };
+    payer(etat, def.cout);
+    const deco = { id: ctx.id, type, x, y };
+    etat.village.decorations.push(deco);
+    return { ok: true, decoration: deco, cout: def.cout };
+  };
+  E.deplacerDecoration = function (etat, id, x, y) {
+    const d = (etat.village?.decorations || []).find(v => v.id === id);
+    if (!d) return { ok: false, erreur: 'Décoration introuvable.' };
+    d.x = x; d.y = y;
+    return { ok: true, decoration: d };
+  };
+  // Retirer une décoration : elle disparaît (on le dit avant, pas de remboursement)
+  E.retirerDecoration = function (etat, id) {
+    const i = (etat.village?.decorations || []).findIndex(v => v.id === id);
+    if (i < 0) return { ok: false, erreur: 'Décoration introuvable.' };
+    etat.village.decorations.splice(i, 1);
+    return { ok: true };
   };
 
   E.deplacer = function (etat, id, x, y) {

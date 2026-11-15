@@ -114,6 +114,15 @@
         if (types.has(b.type)) err('village : deux ' + b.type);
         types.add(b.type);
       }
+      if (!Array.isArray(e.village.decorations)) err('village : décorations');
+      const ids = new Set();
+      for (const d of e.village.decorations) {
+        if (!estObjet(d) || typeof d.id !== 'string' || !d.id || ids.has(d.id)) err('village : décoration sans id ou en double');
+        ids.add(d.id);
+        if (C && !(d.type in C.decorations)) err('village : décoration inconnue ' + d.type);
+        if (!Number.isInteger(d.x) || !Number.isInteger(d.y)) err('village : case de décoration invalide');
+      }
+      if (!Number.isInteger(e.village.extensions) || e.village.extensions < 0 || (C && e.village.extensions > C.extensions.max)) err('village : extensions');
     }
     for (const k of ['categories', 'taches', 'journal']) {
       const vus = new Set();

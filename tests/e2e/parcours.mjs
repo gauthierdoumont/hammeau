@@ -430,6 +430,34 @@ function S_ok(e) { return e.schemaVersion === 2 && new Set(e.taches.map(t => t.i
   await page.waitForTimeout(300);
   const bonus = await page.evaluate(() => Economie.bonus(Appli.etat(), 'esprit', CONFIG));
   verifier(bonus === 0.05, 'bonus Esprit +5 % : ' + bonus);
+  // Étape 13 : décoration, agrandissement, incendie simulé puis réparation
+  await page.evaluate(() => Appli.modifier(e => { e.joueur.ressources.gemmes = 5; for (const r of ['bois', 'pierre', 'or', 'savoir']) e.joueur.ressources[r] = 600; }));
+  await page.click('#btn-construire');
+  await page.click('[data-onglet="decorations"]');
+  verifier(await page.locator('[data-decoration]').count() === Object.keys(await page.evaluate(() => CONFIG.decorations)).length, 'toutes les décorations proposées');
+  await page.click('[data-decoration="tour"]');
+  await page.click('#btn-placer');
+  await page.waitForTimeout(300);
+  e = await page.evaluate(() => Appli.etat());
+  verifier(e.village.decorations.length === 1 && e.joueur.ressources.gemmes === 0, 'tour de guet achetée avec 5 gemmes');
+  await page.click('#btn-construire');
+  await page.click('[data-onglet="terrain"]');
+  await page.click('#btn-agrandir');
+  await page.waitForTimeout(600);
+  e = await page.evaluate(() => Appli.etat());
+  verifier(e.village.extensions === 1 && e.joueur.ressources.bois === 480, 'hameau agrandi (120 bois)');
+  verifier(await page.evaluate(() => Village.terrain().anneaux) === 1, 'la scène a ajouté un anneau');
+  await page.evaluate(() => Appli.modifier(x => { Economie.endommager(x, () => 0.99); }));
+  const bib = await page.evaluate(() => Appli.etat().village.batiments.find(b => b.type === 'bibliotheque'));
+  verifier(bib.endommage, 'incendie simulé : bibliothèque endommagée');
+  await page.click('#btn-construire');
+  await page.click('[data-onglet="batiments"]');
+  await page.click(`[data-voir="${bib.id}"]`);
+  await page.waitForSelector('#btn-reparer');
+  await page.click('#btn-reparer');
+  await page.waitForTimeout(300);
+  verifier(!(await page.evaluate(() => Appli.etat().village.batiments.find(b => b.type === 'bibliotheque').endommage)), 'bibliothèque réparée');
+
   // Bouton retour pendant un placement = annuler
   await page.click('#btn-construire');
   await page.click('[data-construire="taverne"]');
@@ -441,5 +469,5 @@ function S_ok(e) { return e.schemaVersion === 2 && new Set(e.taches.map(t => t.i
 }
 
 await nav.close(); serveur.close();
-console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso, cocher, village, construction');
+console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso, cocher, village, construction, décorations, agrandir, réparer');
 process.exit(echecs.length ? 1 : 0);

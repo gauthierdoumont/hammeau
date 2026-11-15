@@ -114,7 +114,22 @@ window.CONFIG = {
   },
   mairie: { cout: 40, niveauJoueurRequis: [1, 5, 10, 16, 23] }, // cout × n² de chaque ressource
   reparation: { part: 0.3 },                            // part du coût du niveau actuel
-  extensions: { facteur: 1.5 },                         // chaque extension coûte ×1,5 la précédente
+  // Agrandir le hameau : un anneau de terrain en plus tout autour ; chaque anneau coûte ×1,5 le précédent
+  extensions: { facteur: 1.5, max: 3, coutBase: { bois: 120, pierre: 120, or: 60 } },
+  // Décorations : communes (ressources) ou rares (gemmes, qui ne viennent que des coffres)
+  decorations: {
+    arbre:      { nom: 'Arbre',           emoji: '🌳', cout: { bois: 15 } },
+    sapin:      { nom: 'Sapin',           emoji: '🌲', cout: { bois: 15 } },
+    bosquet:    { nom: 'Bosquet',         emoji: '🌿', cout: { bois: 25 } },
+    rochers:    { nom: 'Rochers',         emoji: '🪨', cout: { pierre: 15 } },
+    potager:    { nom: 'Potager',         emoji: '🥕', cout: { nourriture: 20 } },
+    cloture:    { nom: 'Clôture',         emoji: '🪵', cout: { bois: 10 } },
+    puits:      { nom: 'Puits',           emoji: '🪣', cout: { pierre: 40, bois: 20 } },
+    grandSapin: { nom: 'Grand sapin',     emoji: '🎄', cout: { gemmes: 2 }, rare: true },
+    rempart:    { nom: 'Rempart',         emoji: '🧱', cout: { gemmes: 3 }, rare: true },
+    porte:      { nom: 'Porte fortifiée', emoji: '🏰', cout: { gemmes: 4 }, rare: true },
+    tour:       { nom: 'Tour de guet',    emoji: '🗼', cout: { gemmes: 5 }, rare: true }
+  },
 
   /* ===== Données ===== */
   donnees: {
