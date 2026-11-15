@@ -73,7 +73,7 @@ for (const largeur of [360, 412, 1100]) {
 {
   const { ctx, page, erreurs } = await nouvellePage();
   const initial = JSON.parse(await lire(page));
-  verifier(initial?.schemaVersion === 1 && initial.categories.length === 33, '1er lancement : état créé');
+  verifier(initial?.schemaVersion === 2 && initial.categories.length === 33, '1er lancement : état créé');
 
   await page.click('.onglet[data-aller="reglages"]');
   const [telechargement] = await Promise.all([page.waitForEvent('download'), page.click('#btn-exporter')]);
@@ -237,7 +237,7 @@ for (const largeur of [360, 412, 1100]) {
   verifier(!erreurs.length, 'erreurs console (étape 3) : ' + erreurs);
   await ctx.close();
 }
-function S_ok(e) { return e.schemaVersion === 1 && new Set(e.taches.map(t => t.id)).size === e.taches.length; }
+function S_ok(e) { return e.schemaVersion === 2 && new Set(e.taches.map(t => t.id)).size === e.taches.length; }
 
 /* 6. Étape 4 : cocher, progression partielle, gains, animation, Annuler, modifier, supprimer, niveau */
 {

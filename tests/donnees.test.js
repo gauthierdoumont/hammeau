@@ -11,6 +11,7 @@ const S = require('../www/stockage.js');
 const C = globalThis.CONFIG;
 
 const fixtureV1 = () => JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'etat-v1.json'), 'utf8'));
+const fixtureV2 = () => JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'etat-v2.json'), 'utf8'));
 const sansMeta = ({ meta, ...reste }) => reste;
 
 test('état initial : valide, 33 catégories, moral de départ, aucune ressource', () => {
@@ -44,10 +45,12 @@ test('fixture v1 → dernière version : aucune donnée perdue', () => {
   assert.deepEqual(apres.categories, avant.categories);
   assert.deepEqual(apres.joueur.ressources, avant.joueur.ressources);
   assert.equal(apres.joueur.xpTotal, avant.joueur.xpTotal);
+  assert.equal(apres.schemaVersion, S.SCHEMA);
+  assert.deepEqual(apres.village, { batiments: [], extensions: 0, decorations: [] });   // v2 : village vide ajouté
 });
 
 test('migrer un état déjà à jour = inchangé, et ne modifie pas l\'objet reçu', () => {
-  const e = fixtureV1();
+  const e = fixtureV2();
   const copie = structuredClone(e);
   assert.deepEqual(S.migrer(e), copie);
   assert.deepEqual(e, copie);
@@ -75,12 +78,22 @@ test('decider : texte illisible → aucun état neuf proposé (rien ne sera écr
   assert.equal(S.decider('"juste une chaîne"', C).type, 'illisible');
 });
 
-test('decider : rien de stocké → état neuf ; version plus récente → refus ; v1 → ok', () => {
+test('decider : rien de stocké → état neuf ; version plus récente → refus ; v1 → migration ; v2 → ok', () => {
   assert.equal(S.decider(null, C).type, 'neuf');
   assert.equal(S.decider(JSON.stringify({ ...fixtureV1(), schemaVersion: S.SCHEMA + 1 }), C).type, 'trop-recent');
-  const d = S.decider(JSON.stringify(fixtureV1()), C);
-  assert.equal(d.type, 'ok');
-  assert.equal(d.aMigrer, false);
+  const d1 = S.decider(JSON.stringify(fixtureV1()), C);
+  assert.equal(d1.type, 'ok');
+  assert.equal(d1.aMigrer, true);                    // → app.js fait une copie de sécurité avant de sauver
+  const d2 = S.decider(JSON.stringify(fixtureV2()), C);
+  assert.equal(d2.aMigrer, false);
+  assert.equal(d2.etat.village.batiments.length, 2);
+});
+
+test('village : deux bâtiments du même type, niveau 6 ou case invalide → refusé', () => {
+  const casser = (f) => { const e = fixtureV2(); f(e); return () => S.verifier(e); };
+  assert.throws(casser(e => { e.village.batiments[1].type = 'mairie'; }), /deux mairie/);
+  assert.throws(casser(e => { e.village.batiments[0].niveau = 6; }), /niveau/);
+  assert.throws(casser(e => { e.village.batiments[0].x = 1.5; }), /case/);
 });
 
 test('decider : données incohérentes → écran de récupération, pas d\'écrasement', () => {
@@ -107,7 +120,7 @@ test('export : jamais l\'adresse iCal, avec meta', () => {
 });
 
 test('export → import = même état (hors meta), adresse iCal de l\'appareil conservée', () => {
-  const original = fixtureV1();
+  const original = fixtureV2();
   const texte = JSON.stringify(S.pourExport(original, '2026-11-15T10:00:00.000Z', '0.2.0'));
   const surAppareil = S.etatInitial(C);
   surAppareil.reglages.icsUrl = 'https://exemple.invalid/autre.ics';

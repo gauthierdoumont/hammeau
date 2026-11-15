@@ -101,6 +101,10 @@ window.CONFIG = {
 
   /* ===== Village et économie (V2, utilisés à l'étape 11) ===== */
   batiments: {
+    // Bâtiment → famille qu'il amplifie (la Mairie n'en a pas : elle débloque les niveaux des autres)
+    familles: { mairie: null, bibliotheque: 'esprit', arene: 'corps', atelier: 'creation', taverne: 'social',
+      scierie: 'discipline', banque: 'pro', jardin: 'repos' },
+    ordre: ['mairie', 'bibliotheque', 'arene', 'atelier', 'taverne', 'scierie', 'banque', 'jardin'],   // ordre d'affichage
     niveauMax: 5,
     bonusParNiveau: 0.05,  // ↑ = un bâtiment amplifie plus les gains de sa famille
     coutFamille: 50,       // coût au niveau n = coutFamille × n² de la ressource de la famille

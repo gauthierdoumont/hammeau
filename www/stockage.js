@@ -7,16 +7,16 @@
   const S = {};
 
   S.CLE = 'hameau_v1';   // clé de stockage : ne change jamais
-  S.SCHEMA = 1;          // version de la structure des données
+  S.SCHEMA = 2;          // version de la structure des données (2 = ajout du village)
 
-  /* ===== MODÈLE (schemaVersion 1) =====
+  /* ===== MODÈLE (schemaVersion 2) =====
    * categories[] {id, nom, emoji, familleId, perso, nbUtilisations}
    * taches[]     {id, nom, categorieId, type, taille, objectif?{cible, unite}, jours?[1-7], echeance?, important?,
    *               incendieApplique, creeLe, termineeLe?, archivee}
    * journal[]    {id, tacheId, horodatage, jour, valeur, progression, gains{xp, ressource, quantite}}
    * joueur       xp = XP gagnée dans le niveau en cours (xpTotal = cumul, ne baisse jamais)
    * etat         {dernierJourTraite}
-   * village      (V2 — ajouté par migration le moment venu)
+   * village      {batiments[{id, type, niveau 1-5, x, y (case de grille), endommage, construitLe}], extensions, decorations[]}
    * reglages     icsUrl n'est JAMAIS exportée
    */
   S.etatInitial = function (C) {
@@ -40,6 +40,7 @@
         pause: { actif: false, depuis: null, jusqua: null }
       },
       etat: { dernierJourTraite: null },
+      village: { batiments: [], extensions: 0, decorations: [] },
       reglages: {
         notifMatin: '08:00',
         notifSoir: '20:00',
@@ -56,7 +57,10 @@
   /* ===== MIGRATIONS =====
    * Une entrée par nouvelle version : MIGRATIONS[2] = e => {...}. Jamais modifiées une fois publiées.
    */
-  S.MIGRATIONS = {};
+  S.MIGRATIONS = {
+    // v2 : le village arrive (vide). Rien d'autre ne change.
+    2: e => { e.village ??= { batiments: [], extensions: 0, decorations: [] }; return e; },
+  };
 
   S.migrer = function (e) {
     let v = e.schemaVersion ?? 1;
@@ -97,6 +101,17 @@
     if (!(j.xp >= 0) || !(j.xpTotal >= 0)) err('xp négative');
     if (!(j.moral >= 0 && j.moral <= 100)) err('moral hors de 0-100');
     for (const [r, v] of Object.entries(j.ressources || {})) if (!(v >= 0)) err('ressource négative : ' + r);
+    if (e.village !== undefined) {
+      if (!estObjet(e.village) || !Array.isArray(e.village.batiments)) err('village');
+      const types = new Set();
+      for (const b of e.village.batiments) {
+        if (!estObjet(b) || typeof b.id !== 'string' || !b.id) err('village : id manquant');
+        if (!(Number.isInteger(b.niveau) && b.niveau >= 1 && b.niveau <= 5)) err('village : niveau ' + b.niveau);
+        if (!Number.isInteger(b.x) || !Number.isInteger(b.y)) err('village : case invalide');
+        if (types.has(b.type)) err('village : deux ' + b.type);
+        types.add(b.type);
+      }
+    }
     for (const k of ['categories', 'taches', 'journal']) {
       const vus = new Set();
       for (const x of e[k]) {

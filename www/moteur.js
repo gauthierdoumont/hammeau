@@ -13,8 +13,9 @@
   const PRESQUE_UN = 1 - 1e-9;   // 10 × 0,1 = 0,9999999999999999 en informatique : on considère que c'est 100 %
 
   /* ===== GAIN BRUT D'UNE TÂCHE (non arrondi) ===== */
-  M.brut = function (tache, C) {
-    return C.tailles[tache.taille] ?? C.tailles.moyenne;
+  // bonus = fraction en plus venant du bâtiment de la famille (ex. 0,10 = +10 %), calculé par Economie.bonus
+  M.brut = function (tache, C, bonus = 0) {
+    return (C.tailles[tache.taille] ?? C.tailles.moyenne) * (1 + bonus);
   };
 
   // Ressource gagnée par une catégorie (null pour la famille Repos, qui nourrit le moral)
@@ -69,7 +70,7 @@
   M.estFaite = (tache, bilan) => tache.type === 'quotidienne' ? bilan.progression >= 1 : !!tache.archivee;
 
   // Ce qu'il reste à gagner sur la tâche (affiché sur la carte : « +25 📜 »)
-  M.gainRestant = (tache, bilan, C) => Math.max(0, Math.round(M.brut(tache, C)) - bilan.deja);
+  M.gainRestant = (tache, bilan, C, bonus = 0) => Math.max(0, Math.round(M.brut(tache, C, bonus)) - bilan.deja);
 
   // Quantité qu'il reste à faire pour un objectif chiffré
   M.reste = (tache, bilan) => tache.objectif ? arrondi(Math.max(0, tache.objectif.cible - bilan.somme)) : 0;
@@ -91,7 +92,8 @@
 
   /* ===== SAISIE =====
    * Modifie `etat` (à appeler dans modifier()). quantite = nombre saisi pour un objectif chiffré,
-   * ou null = « terminer » (cocher, ou « tout le reste »). ctx = {id, horodatage, jour}.
+   * ou null = « terminer » (cocher, ou « tout le reste »). ctx = {id, horodatage, jour, bonus?}.
+   * ctx.bonus = bonus du bâtiment de la famille (0 si aucun) : calculé par l'appelant avec Economie.bonus.
    * → {ok: true, gain, ressource, progression, terminee, niveauxGagnes} ou {ok: false, erreur}
    */
   M.saisir = function (etat, tacheId, quantite, ctx, C) {
@@ -113,7 +115,7 @@
       apres = finaliser(tache, b.somme + valeur, 0).progression;
     }
 
-    const gain = Math.max(0, Math.round(M.brut(tache, C) * apres) - b.deja);
+    const gain = Math.max(0, Math.round(M.brut(tache, C, ctx.bonus || 0) * apres) - b.deja);
     const ressource = M.ressourceDe(categorie, C);
     etat.journal.push({
       id: ctx.id, tacheId, horodatage: ctx.horodatage, jour: ctx.jour, valeur,

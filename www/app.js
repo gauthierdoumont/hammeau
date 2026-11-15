@@ -6,6 +6,7 @@ const C = window.CONFIG;
 const S = window.Stockage;
 const T = window.Taches;
 const M = window.Moteur;
+const Economie = window.Economie;
 const J = window.Temps;
 const CLE = S.CLE;
 const NOMS_TYPES = { quotidienne: '🔁 Quotidiennes', imprevu: '⚡ Imprévus', bonus: '⭐ Bonus' };
@@ -360,7 +361,9 @@ function cocher(tacheId, quantite = null) {
   const avant = etat;
   let r;
   const ok = modifier(e => {
-    r = M.saisir(e, tacheId, quantite, { id: S.nouvelId(), horodatage: maintenant().toISOString(), jour: jourActuel() }, C);
+    const famille = T.categorie(e, e.taches.find(t => t.id === tacheId)?.categorieId)?.familleId;
+    r = M.saisir(e, tacheId, quantite, { id: S.nouvelId(), horodatage: maintenant().toISOString(), jour: jourActuel(),
+      bonus: Economie.bonus(e, famille, C) }, C);   // bâtiment de la famille : +5 % par niveau
     if (!r.ok) throw refus(r.erreur);
   });
   if (!ok) return false;
@@ -629,7 +632,7 @@ function carteTache(t, bilan) {
       el('span', { class: 'tache-emoji', 'aria-hidden': 'true' }, cat?.emoji ?? '•'), texte)
   );
   if (!fait) {
-    const reste = M.gainRestant(t, bilan, C);
+    const reste = M.gainRestant(t, bilan, C, Economie.bonus(etat, cat?.familleId, C));
     const res = M.ressourceDe(cat, C);
     carte.append(el('span', { class: 'gain', 'aria-label': `rapporte ${reste}` }, `+${reste} ${res ? C.ressources.find(r => r.id === res).emoji : 'XP'}`));
     if (t.objectif) carte.append(el('button', { class: 'plus', 'data-saisir': t.id, 'aria-label': `Ajouter des ${t.objectif.unite}` }, '+'));
