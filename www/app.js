@@ -25,6 +25,7 @@ let familleCategorie = null;        // famille choisie pour la nouvelle catégor
 let derniereAjoutee = null;         // id de la tâche à mettre en valeur
 let tacheEditee = null;             // id de la tâche en cours de modification (null = ajout)
 let tacheSaisie = null;             // id de la tâche dont on saisit la progression
+let jourAffiche = null;             // jour logique affiché sur l'écran Aujourd'hui (pour détecter 4 h du matin)
 
 /* ===== HORLOGE =====
  * Dans le navigateur, localStorage « debug_maintenant » permet de simuler une date (tests).
@@ -33,9 +34,8 @@ function maintenant() {
   if (!NATIF) { try { const d = localStorage.getItem('debug_maintenant'); if (d) return new Date(d); } catch {} }
   return new Date();
 }
-function jourCivil(instant) {        // AAAA-MM-JJ à Bruxelles
-  return new Intl.DateTimeFormat('en-CA', { timeZone: C.jour.fuseau, year: 'numeric', month: '2-digit', day: '2-digit' })
-    .format(instant);
+function jourCivil(instant) {        // AAAA-MM-JJ à Bruxelles (même calcul testé que le jour logique)
+  return J.partiesLocales(instant, C.jour.fuseau).jour;
 }
 function jourActuel() {              // jour logique (la journée finit à 4 h du matin)
   return J.jourLogique(maintenant(), C);
@@ -330,7 +330,7 @@ function enregistrerTache() {
     objectif: saisie.objectif ? { cible: val('ajout-cible'), unite: val('ajout-unite') } : undefined
   };
   const ancienne = tacheEditee ? etat.taches.find(t => t.id === tacheEditee) : null;
-  const r = ancienne ? T.modifierTache(ancienne, donnees, etat, C)
+  const r = ancienne ? T.modifierTache(ancienne, donnees, etat, C, maintenant().toISOString())
     : T.creerTache(donnees, etat, C, S.nouvelId(), maintenant().toISOString());
   if (!r.ok) {
     document.getElementById('ajout-erreur').textContent = r.erreur;
@@ -377,21 +377,27 @@ function ouvrirSaisie(tacheId) {
   const t = etat.taches.find(x => x.id === tacheId);
   if (!t?.objectif) return;
   tacheSaisie = tacheId;
-  const p = M.progression(t, etat.journal, jourActuel());
-  const reste = +(t.objectif.cible * (1 - p)).toFixed(2);
+  const b = M.bilan(t, etat.journal, jourActuel());
+  const reste = M.reste(t, b);
   document.getElementById('form-saisie').reset();
   document.getElementById('saisie-titre').textContent = t.nom;
-  document.getElementById('saisie-info').textContent = `${nombre(+(t.objectif.cible * p).toFixed(2))} / ${nombre(t.objectif.cible)} ${t.objectif.unite}`;
+  document.getElementById('saisie-info').textContent = `${nombre(Math.min(b.somme, t.objectif.cible))} / ${nombre(t.objectif.cible)} ${t.objectif.unite}`;
   document.getElementById('saisie-question').textContent = `Combien de ${t.objectif.unite} ?`;
   document.getElementById('saisie-erreur').textContent = '';
-  const raccourcis = [...new Set([1, 5, 10].filter(v => v < reste).concat(reste))];
-  document.getElementById('saisie-raccourcis').replaceChildren(...raccourcis.map(v =>
-    el('button', { type: 'button', 'data-valeur': v }, v === reste ? `Tout le reste (${nombre(v)})` : `+${nombre(v)}`)));
+  // « Tout le reste » termine la tâche (pas d'arrondi qui laisserait 99,6 %)
+  const raccourcis = [1, 5, 10].filter(v => v < reste).map(v =>
+    el('button', { type: 'button', 'data-valeur': v }, `+${nombre(v)}`));
+  raccourcis.push(el('button', { type: 'button', 'data-valeur': 'tout' }, `Tout le reste (${nombre(reste)})`));
+  document.getElementById('saisie-raccourcis').replaceChildren(...raccourcis);
   document.getElementById('feuille-saisie').showModal();
   setTimeout(() => document.getElementById('saisie-valeur').focus(), 60);
 }
 
 function validerSaisie(valeur) {
+  if (valeur === 'tout') {
+    document.getElementById('feuille-saisie').close();
+    return cocher(tacheSaisie, null);
+  }
   const v = Number(String(valeur).replace(',', '.').trim());
   if (!(v > 0) || !Number.isFinite(v)) {
     document.getElementById('saisie-erreur').textContent = 'Entre un nombre plus grand que 0.';
@@ -414,14 +420,20 @@ function animerGain(depart, r, avant) {
   const vers = cible?.getBoundingClientRect() || de;
   const x0 = de.left + de.width / 2 - 20, y0 = de.top + de.height / 2 - 14;
   const x1 = vers.left + vers.width / 2 - 20, y1 = vers.top + vers.height / 2 - 14;
-  // Le compteur garde l'ancienne valeur jusqu'à l'arrivée, puis défile jusqu'à la nouvelle
-  const valeurAvant = res ? avant.joueur.ressources[res.id] : null;
-  if (res && cible) cible.querySelector('b').textContent = nombre(valeurAvant);
+  // Le compteur garde l'ancienne valeur jusqu'à l'arrivée, puis défile jusqu'à la valeur actuelle.
+  // Plusieurs gains en vol vers le même compteur : il ne recule jamais (on part de ce qui est affiché).
+  if (res && cible) {
+    if (!enVol[res.id]) afficherCompteur(cible, avant.joueur.ressources[res.id]);
+    enVol[res.id] = (enVol[res.id] || 0) + 1;
+  }
   const arrivee = () => {
     etiquette.remove();
     if (!cible) return;
     cible.classList.remove('pulse'); void cible.offsetWidth; cible.classList.add('pulse');
-    if (res) defiler(cible.querySelector('b'), valeurAvant, etat.joueur.ressources[res.id]);
+    if (res) {
+      enVol[res.id] = Math.max(0, enVol[res.id] - 1);
+      defiler(cible, Number(cible.dataset.affiche), etat.joueur.ressources[res.id]);
+    }
   };
   if (MOUVEMENT_REDUIT || !etiquette.animate) {
     etiquette.style.transform = `translate(${x0}px, ${y0 - 20}px)`;
@@ -435,12 +447,20 @@ function animerGain(depart, r, avant) {
   ], { duration: 700, easing: 'cubic-bezier(.2,.8,.2,1)' }).onfinish = arrivee;
 }
 
-function defiler(noeud, de, a) {
-  if (MOUVEMENT_REDUIT || de === a) { noeud.textContent = nombre(a); return; }
+const enVol = {};                    // ressource → nombre de gains encore en vol vers son compteur
+function afficherCompteur(pastille, valeur) {
+  pastille.dataset.affiche = valeur;
+  pastille.querySelector('b').textContent = nombre(valeur);
+}
+function defiler(pastille, de, a) {
+  // Un seul défilement à la fois par compteur : le nouveau remplace l'ancien (sinon les deux se chevauchent et le chiffre saute)
+  const jeton = pastille._jeton = (pastille._jeton || 0) + 1;
+  if (MOUVEMENT_REDUIT || de === a || !Number.isFinite(de)) { afficherCompteur(pastille, a); return; }
   const debut = performance.now();
   const pas = (t) => {
+    if (pastille._jeton !== jeton) return;
     const k = Math.min(1, (t - debut) / 400);
-    noeud.textContent = nombre(Math.round(de + (a - de) * k));
+    afficherCompteur(pastille, Math.round(de + (a - de) * k));
     if (k < 1) requestAnimationFrame(pas);
   };
   requestAnimationFrame(pas);
@@ -532,10 +552,16 @@ function rendre() {
 
 function rendreTableau() {
   const j = etat.joueur;
-  document.getElementById('ressources').replaceChildren(...C.ressources
-    .filter(r => r.id !== 'gemmes' || j.ressources.gemmes > 0)          // les gemmes apparaissent au 1er coffre
-    .map(r => el('span', { class: 'pastille-res', 'data-ressource': r.id, title: r.nom },
-      el('span', { 'aria-hidden': 'true' }, r.emoji), el('b', {}, nombre(j.ressources[r.id] || 0)))));
+  // Les pastilles sont créées une fois puis mises à jour sur place (sinon une animation en cours viserait un élément disparu)
+  const zone = document.getElementById('ressources');
+  const visibles = C.ressources.filter(r => r.id !== 'gemmes' || j.ressources.gemmes > 0);   // les gemmes apparaissent au 1er coffre
+  if (zone.children.length !== visibles.length) {
+    zone.replaceChildren(...visibles.map(r => el('span', { class: 'pastille-res', 'data-ressource': r.id, title: r.nom },
+      el('span', { 'aria-hidden': 'true' }, r.emoji), el('b', {}))));
+  }
+  for (const p of zone.children) {
+    if (!enVol[p.dataset.ressource]) afficherCompteur(p, j.ressources[p.dataset.ressource] || 0);
+  }
   const besoin = M.xpPourNiveau(j.niveau, C);
   document.getElementById('xp-niveau').textContent = `Niv. ${j.niveau}`;
   document.getElementById('xp-reste').textContent = `encore ${nombre(besoin - j.xp)} XP avant le niveau ${j.niveau + 1}`;
@@ -564,8 +590,9 @@ function rendreListes() {
   for (const type of T.TYPES) {
     if (!listes[type].length) continue;
     blocs.push(el('h3', { class: 'intertitre' }, NOMS_TYPES[type]));
-    for (const t of listes[type]) blocs.push(carteTache(t, jour));
+    for (const t of listes[type]) blocs.push(carteTache(t, listes.bilans.get(t.id)));
   }
+  jourAffiche = jour;
   if (listes.autresJours) {
     const s = listes.autresJours > 1;
     blocs.push(el('p', { class: 'discret autres-jours' }, `🗓️ ${listes.autresJours} quotidienne${s ? 's' : ''} prévue${s ? 's' : ''} d'autres jours`));
@@ -574,12 +601,12 @@ function rendreListes() {
   derniereAjoutee = null;
 }
 
-function carteTache(t, jour) {
+function carteTache(t, bilan) {
   const cat = T.categorie(etat, t.categorieId);
-  const progression = M.progression(t, etat.journal, jour);
-  const fait = progression >= 1;
+  const progression = bilan.progression;
+  const fait = M.estFaite(t, bilan);
   const details = [];
-  if (t.objectif) details.push(`${nombre(+(t.objectif.cible * progression).toFixed(2))} / ${nombre(t.objectif.cible)} ${t.objectif.unite}`);
+  if (t.objectif) details.push(`${nombre(Math.min(bilan.somme, t.objectif.cible))} / ${nombre(t.objectif.cible)} ${t.objectif.unite}`);
   if (t.type === 'quotidienne' && t.jours.length < 7) details.push(t.jours.map(j => JOURS_NOMS[j - 1]).join(', '));
   if (t.echeance) details.push('Pour le ' + dateEcheance(t.echeance));
   if (t.important) details.push('❗ Important');
@@ -598,7 +625,7 @@ function carteTache(t, jour) {
       el('span', { class: 'tache-emoji', 'aria-hidden': 'true' }, cat?.emoji ?? '•'), texte)
   );
   if (!fait) {
-    const reste = M.gainRestant(t, etat.journal, jour, C);
+    const reste = M.gainRestant(t, bilan, C);
     const res = M.ressourceDe(cat, C);
     carte.append(el('span', { class: 'gain', 'aria-label': `rapporte ${reste}` }, `+${reste} ${res ? C.ressources.find(r => r.id === res).emoji : 'XP'}`));
     if (t.objectif) carte.append(el('button', { class: 'plus', 'data-saisir': t.id, 'aria-label': `Ajouter des ${t.objectif.unite}` }, '+'));
@@ -759,6 +786,16 @@ document.getElementById('fichier-import').addEventListener('change', (e) => {
 
 // Bouton retour Android : ferme la fenêtre ouverte ou revient à l'écran précédent, sinon quitte
 PL.App?.addListener('backButton', () => { if (!retourEcranPrecedent()) PL.App.exitApp(); });
+
+// Nouvelle journée (4 h du matin) ou retour sur l'appli restée ouverte en arrière-plan :
+// on redessine pour que les quotidiennes d'hier ne restent pas « faites »
+function verifierNouveauJour() {
+  if (!etat) return;
+  if (jourActuel() !== jourAffiche) rendre();
+}
+PL.App?.addListener('resume', () => { verifierNouveauJour(); sauvegardeHebdo(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) verifierNouveauJour(); });
+setInterval(verifierNouveauJour, 60 * 1000);
 
 /* ===== UTILITAIRES ===== */
 // Crée un élément ; le texte passe toujours par textContent (les noms saisis ne sont jamais interprétés comme du HTML)

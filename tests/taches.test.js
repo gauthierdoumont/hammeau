@@ -97,6 +97,7 @@ test('grille : favoris = les plus utilisées (max config), puis 7 familles', () 
 });
 
 test('listes : archivées exclues, imprévus par échéance puis sans échéance', () => {
+  const M = require('../www/moteur.js');
   const e = neuf();
   const ajouter = (s, id, quand = QUAND) => T.ajouterTache(e, T.creerTache({ categorieId: 'papiers', ...s }, e, C, id, quand).tache);
   ajouter({ nom: 'sans échéance' }, 'a', '2026-11-01T00:00:00.000Z');
@@ -106,7 +107,7 @@ test('listes : archivées exclues, imprévus par échéance puis sans échéance
   ajouter({ nom: 'bonus', type: 'bonus' }, 'e');
   ajouter({ nom: 'finie', type: 'bonus' }, 'f');
   e.taches.find(t => t.id === 'f').archivee = true;
-  const l = T.listes(e);
+  const l = M.listesDuJour(e, '2026-11-16', 1);
   assert.deepEqual(l.imprevu.map(t => t.id), ['c', 'b', 'a']);
   assert.deepEqual(l.quotidienne.map(t => t.id), ['d']);
   assert.deepEqual(l.bonus.map(t => t.id), ['e']);

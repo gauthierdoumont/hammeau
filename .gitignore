@@ -8,3 +8,4 @@ dist/
 .env*
 perso/
 tests/captures/
+.claude/worktrees/

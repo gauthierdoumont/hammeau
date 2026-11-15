@@ -1,7 +1,7 @@
 # Suivi — Hameau
 
 ## Où on en est
-- Version : 0.4.0 · Étape suivante : **1b** (clé de signature + 1er build, quand Gauthier est sur son PC), puis 🔁 **point de contrôle** (2-3 jours d'usage), puis 5a · Dernière session : 2026-11-16
+- Version : 0.4.1 · Étape suivante : **1b** (clé de signature + 1er build, quand Gauthier est sur son PC), puis 🔁 **point de contrôle** (2-3 jours d'usage), puis 5a · Dernière session : 2026-11-16
 
 ## Dernière session
 - Fait : étapes 1a, 2, 3 et 4 (cocher, progression partielle, gains de base, animation « +25 », Annuler, modifier / supprimer une tâche). 1b reportée : Gauthier n'était pas sur son PC.
@@ -30,6 +30,8 @@
 | 2026-11-16 | Étape 4 = gains de BASE seulement ; Repos rapporte de l'XP sans ressource (moral à l'étape 6) | Multiplicateurs à l'étape 5a |
 | 2026-11-16 | Objectif d'un imprévu / bonus : progression cumulée sur plusieurs jours ; quotidienne : par jour logique | Un gros objectif (livre de 300 pages) peut s'étaler |
 | 2026-11-16 | Toast « Annuler » 5 s après chaque coche / suppression | Erreur de doigt pardonnée (skill moteur-recompenses) |
+| 2026-11-16 | Progression = somme des quantités / cible ; gain d'une saisie = gain mérité − déjà reçu (≥ 0) | Robuste aux arrondis et aux modifications de taille / cible |
+| 2026-11-16 | Changer le type ou ajouter / retirer l'objectif d'une tâche → sa progression repart de zéro (`tache.depuis`), gains gardés | Sinon tâche bloquée « déjà faite » |
 | 2026-11-15 | `joueur.xp` = XP dans le niveau en cours, `joueur.xpTotal` = cumul (champ ajouté) | Un changement de courbe ne fera jamais baisser un niveau |
 
 ## À faire plus tard (noté, hors étape)

@@ -328,6 +328,31 @@ function S_ok(e) { return e.schemaVersion === 1 && new Set(e.taches.map(t => t.i
   await page.waitForTimeout(900);
   await page.screenshot({ path: 'tests/captures/etape4-final.png', fullPage: true });
   verifier(!(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)), 'étape 4 : pas de défilement horizontal');
+
+  // Double toucher rapide sur deux tâches de la même ressource : le compteur ne recule jamais
+  await ajouter('Lessive');
+  await ajouter('Repassage');
+  const lessive = await idDe('Lessive'), repassage = await idDe('Repassage');
+  const ressource = await page.evaluate((id) => Moteur.ressourceDe(Taches.categorie(etat, etat.taches.find(t => t.id === id).categorieId), CONFIG), lessive);
+  await page.evaluate((r) => {
+    const b = document.querySelector(`.pastille-res[data-ressource="${r}"] b`);
+    window.__vues = [];
+    new MutationObserver(() => window.__vues.push(Number(b.textContent.replace(/\s/g, '')))).observe(b, { childList: true, characterData: true, subtree: true });
+  }, ressource);
+  await page.click(`[data-cocher="${lessive}"]`);
+  await page.waitForTimeout(150);
+  await page.click(`[data-cocher="${repassage}"]`);
+  await page.waitForTimeout(1500);
+  const vues = await page.evaluate(() => window.__vues);
+  verifier(vues.length > 0 && vues.every((v, i) => i === 0 || v >= vues[i - 1]), 'compteur jamais à reculons : ' + vues.join(','));
+  const final = (await etatStocke()).joueur.ressources[ressource];
+  verifier(vues.at(-1) === final, `compteur final = ${final}`);
+
+  // Nouvelle journée alors que l'appli reste ouverte : les quotidiennes se réactivent
+  verifier(await page.locator(`[data-cocher="${lireId}"][disabled]`).count() === 1, 'avant 4 h : Lire encore faite');
+  await page.evaluate(() => { localStorage.setItem('debug_maintenant', '2026-11-17T09:00:00+01:00'); verifierNouveauJour(); });
+  await pause(page);
+  verifier(await page.locator(`[data-cocher="${lireId}"]:not([disabled])`).count() === 1, 'lendemain : Lire à refaire');
   verifier(!erreurs.length, 'erreurs console (étape 4) : ' + erreurs);
   await ctx.close();
 }

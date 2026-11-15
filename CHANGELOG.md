@@ -1,5 +1,14 @@
 # Journal des versions — Hameau
 
+## 0.4.1 — 2026-11-16 (correctifs)
+- Un objectif atteint par petites saisies (ex. 10 × 1 minute) arrive bien à 100 % (avant : bloqué à 99,99 %).
+- « Tout le reste » termine toujours la tâche.
+- Une quotidienne changée en imprévu (ou l'inverse) redevient faisable ; ce qu'elle a rapporté reste acquis.
+- Changer la cible ou la taille d'une tâche entamée : les quantités faites sont gardées, le total gagné correspond à la nouvelle taille.
+- À 4 h du matin ou au retour sur l'appli, les quotidiennes se réactivent sans devoir la redémarrer.
+- Compteurs de ressources : plus de chiffre qui recule quand on coche deux tâches très vite.
+- Écran Aujourd'hui plus rapide quand l'historique devient long.
+
 ## 0.4.0 — 2026-11-16
 - Cocher une tâche rapporte de l'XP et la ressource de sa famille (petite 10 · moyenne 25 · grosse 50) : le gain s'envole vers son compteur, petite vibration.
 - Objectif chiffré : bouton + pour saisir « 10 pages » → 50 % des gains ; plusieurs saisies s'additionnent, plafond 100 %.

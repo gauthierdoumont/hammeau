@@ -97,12 +97,18 @@
   };
 
   /* ===== MODIFIER / SUPPRIMER ===== */
-  // Mêmes règles que la création ; on garde l'id, la date de création et l'historique (journal intact)
-  T.modifierTache = function (ancienne, saisie, etat, C) {
+  // Mêmes règles que la création ; on garde l'id, la date de création et l'historique (journal intact).
+  // Si la NATURE de la tâche change (type, ou objectif chiffré ajouté / retiré), sa progression repart de zéro
+  // à partir de `quand` : sinon une quotidienne cochée hier deviendrait un imprévu « déjà fait » impossible à terminer.
+  // Ce qui a déjà été gagné reste acquis.
+  T.modifierTache = function (ancienne, saisie, etat, C, quand) {
     const r = T.creerTache(saisie, etat, C, ancienne.id, ancienne.creeLe);
     if (!r.ok) return r;
     const tache = { ...r.tache, incendieApplique: ancienne.incendieApplique, archivee: ancienne.archivee };
     if (ancienne.termineeLe) tache.termineeLe = ancienne.termineeLe;
+    const natureChange = ancienne.type !== tache.type || !!ancienne.objectif !== !!tache.objectif;
+    if (natureChange && quand) tache.depuis = quand;
+    else if (ancienne.depuis) tache.depuis = ancienne.depuis;
     return { ok: true, tache };
   };
   T.remplacerTache = function (etat, tache) {
@@ -122,21 +128,7 @@
     t.supprimeeLe = quand;
   };
 
-  /* ===== LISTES (écran Aujourd'hui) ===== */
-  // Tâches non archivées, rangées par type. Imprévus : échéance la plus proche d'abord, sans échéance ensuite.
-  T.listes = function (etat) {
-    const actives = etat.taches.filter(t => !t.archivee);
-    const parCreation = (a, b) => (a.creeLe || '').localeCompare(b.creeLe || '');
-    return {
-      quotidienne: actives.filter(t => t.type === 'quotidienne').sort(parCreation),
-      imprevu: actives.filter(t => t.type === 'imprevu').sort((a, b) => {
-        if (a.echeance && b.echeance) return a.echeance.localeCompare(b.echeance) || parCreation(a, b);
-        if (a.echeance || b.echeance) return a.echeance ? -1 : 1;
-        return parCreation(a, b);
-      }),
-      bonus: actives.filter(t => t.type === 'bonus').sort(parCreation)
-    };
-  };
+  // (Les listes de l'écran Aujourd'hui sont construites par Moteur.listesDuJour : une seule règle de tri.)
 
   /* ===== UTILITAIRES ===== */
   function nettoyer(t) { return String(t ?? '').replace(/\s+/g, ' ').trim(); }

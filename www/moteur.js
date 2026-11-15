@@ -1,10 +1,16 @@
 /* moteur.js — Hameau — gains, progression et niveaux — Créé par Gauthier Doumont
  * Fonctions PURES (pas d'horloge, pas de hasard, pas de DOM) : testées dans node (tests/moteur.test.js).
  * Étape 4 : gain de BASE (taille). Les multiplicateurs (type, série, repos, anti-farm) et les coffres arrivent à l'étape 5a.
+ *
+ * Principe (robuste aux arrondis et aux modifications de tâche) :
+ * - progression = somme des quantités saisies / cible (on additionne des quantités, pas des pourcentages) ;
+ * - gain d'une saisie = gain total mérité maintenant − ce que la tâche a déjà rapporté (jamais négatif).
+ *   → la somme des saisies retombe toujours sur le gain complet, même si la taille ou la cible a changé entre-temps.
  */
 (function (racine) {
   'use strict';
   const M = {};
+  const PRESQUE_UN = 1 - 1e-9;   // 10 × 0,1 = 0,9999999999999999 en informatique : on considère que c'est 100 %
 
   /* ===== GAIN BRUT D'UNE TÂCHE (non arrondi) ===== */
   M.brut = function (tache, C) {
@@ -17,30 +23,56 @@
   };
 
   /* ===== PROGRESSION =====
-   * Quotidienne : progression du jour logique seulement (elle ne rapporte qu'une fois par jour).
-   * Imprévu / bonus : progression cumulée depuis la création (un objectif peut s'étaler sur plusieurs jours).
-   * Chaque entrée du journal garde la progression APRÈS la saisie → on prend la dernière.
+   * Quotidienne : seulement les saisies du jour logique (elle ne rapporte qu'une fois par jour).
+   * Imprévu / bonus : toutes les saisies depuis la création, ou depuis `depuis` si la tâche a changé de nature.
    */
-  M.progression = function (tache, journal, jour) {
-    let p = 0;
-    for (const s of journal) {
-      if (s.tacheId !== tache.id) continue;
-      if (tache.type === 'quotidienne' && s.jour !== jour) continue;
-      p = s.progression;
-    }
-    return Math.min(1, p);
+  M.compte = function (tache, saisie, jour) {
+    if (saisie.tacheId !== tache.id) return false;
+    if (tache.type === 'quotidienne') return saisie.jour === jour;
+    return !tache.depuis || saisie.horodatage >= tache.depuis;
   };
 
-  // Gain d'une saisie = gain(après) − gain(avant) : la somme des saisies retombe exactement sur le gain complet
-  M.gainsSaisie = function (brut, avant, apres) {
-    const total = p => Math.round(brut * p);
-    return total(apres) - total(avant);
+  function finaliser(tache, somme, deja) {
+    const cible = tache.objectif ? tache.objectif.cible : 1;
+    const p = somme / cible;
+    return { somme, deja, progression: p >= PRESQUE_UN ? 1 : Math.max(0, p) };
+  }
+
+  // Bilan d'UNE tâche : {somme (quantité faite), deja (gain déjà reçu), progression 0…1}
+  M.bilan = function (tache, journal, jour) {
+    let somme = 0, deja = 0;
+    for (const s of journal) {
+      if (!M.compte(tache, s, jour)) continue;
+      somme += s.valeur || 0;
+      deja += s.gains?.xp || 0;
+    }
+    return finaliser(tache, somme, deja);
   };
+
+  // Bilans de TOUTES les tâches en un seul passage sur le journal (rapide même avec des milliers de saisies)
+  M.bilans = function (etat, jour) {
+    const acc = new Map(etat.taches.map(t => [t.id, { tache: t, somme: 0, deja: 0 }]));
+    for (const s of etat.journal) {
+      const a = acc.get(s.tacheId);
+      if (!a || !M.compte(a.tache, s, jour)) continue;
+      a.somme += s.valeur || 0;
+      a.deja += s.gains?.xp || 0;
+    }
+    const r = new Map();
+    for (const [id, a] of acc) r.set(id, finaliser(a.tache, a.somme, a.deja));
+    return r;
+  };
+
+  M.progression = (tache, journal, jour) => M.bilan(tache, journal, jour).progression;
+
+  // Une quotidienne est « faite » pour la journée ; un imprévu / bonus terminé est archivé
+  M.estFaite = (tache, bilan) => tache.type === 'quotidienne' ? bilan.progression >= 1 : !!tache.archivee;
 
   // Ce qu'il reste à gagner sur la tâche (affiché sur la carte : « +25 📜 »)
-  M.gainRestant = function (tache, journal, jour, C) {
-    return M.gainsSaisie(M.brut(tache, C), M.progression(tache, journal, jour), 1);
-  };
+  M.gainRestant = (tache, bilan, C) => Math.max(0, Math.round(M.brut(tache, C)) - bilan.deja);
+
+  // Quantité qu'il reste à faire pour un objectif chiffré
+  M.reste = (tache, bilan) => tache.objectif ? arrondi(Math.max(0, tache.objectif.cible - bilan.somme)) : 0;
 
   /* ===== NIVEAUX ===== */
   M.xpPourNiveau = (n, C) => Math.round(C.niveau.base * n ** C.niveau.exposant);
@@ -59,28 +91,29 @@
 
   /* ===== SAISIE =====
    * Modifie `etat` (à appeler dans modifier()). quantite = nombre saisi pour un objectif chiffré,
-   * ou null = « terminer » (cocher). ctx = {id, horodatage, jour}.
+   * ou null = « terminer » (cocher, ou « tout le reste »). ctx = {id, horodatage, jour}.
    * → {ok: true, gain, ressource, progression, terminee, niveauxGagnes} ou {ok: false, erreur}
    */
   M.saisir = function (etat, tacheId, quantite, ctx, C) {
     const tache = etat.taches.find(t => t.id === tacheId);
     if (!tache || tache.archivee) return { ok: false, erreur: 'Tâche introuvable.' };
     const categorie = etat.categories.find(c => c.id === tache.categorieId);
-    const avant = M.progression(tache, etat.journal, ctx.jour);
-    if (avant >= 1) return { ok: false, erreur: 'Déjà fait aujourd\'hui ✅' };
+    const b = M.bilan(tache, etat.journal, ctx.jour);
+    if (tache.type === 'quotidienne' && b.progression >= 1) return { ok: false, erreur: 'Déjà fait aujourd\'hui ✅' };
 
-    let apres, valeur;
+    const cible = tache.objectif ? tache.objectif.cible : 1;
+    let valeur, apres;
     if (quantite === null || quantite === undefined) {
+      valeur = arrondi(Math.max(0, cible - b.somme));
       apres = 1;
-      valeur = tache.objectif ? +(tache.objectif.cible * (1 - avant)).toFixed(4) : 1;
     } else {
       valeur = Number(quantite);
       if (!(valeur > 0) || !Number.isFinite(valeur)) return { ok: false, erreur: 'Entre un nombre plus grand que 0.' };
       if (!tache.objectif) return { ok: false, erreur: 'Cette tâche n\'a pas d\'objectif chiffré.' };
-      apres = Math.min(1, avant + valeur / tache.objectif.cible);
+      apres = finaliser(tache, b.somme + valeur, 0).progression;
     }
 
-    const gain = M.gainsSaisie(M.brut(tache, C), avant, apres);
+    const gain = Math.max(0, Math.round(M.brut(tache, C) * apres) - b.deja);
     const ressource = M.ressourceDe(categorie, C);
     etat.journal.push({
       id: ctx.id, tacheId, horodatage: ctx.horodatage, jour: ctx.jour, valeur,
@@ -100,25 +133,32 @@
   };
 
   /* ===== LISTES DU JOUR =====
-   * Quotidiennes prévues ce jour-là (faites ou non), imprévus par échéance, bonus. Tâches archivées exclues.
+   * Quotidiennes prévues ce jour-là (faites en bas), imprévus par échéance puis sans échéance, bonus.
+   * Tâches archivées exclues. Renvoie aussi les bilans (calculés une seule fois pour tout l'écran).
    */
+  M.ordreImprevus = function (a, b) {
+    if (a.echeance && b.echeance) return a.echeance.localeCompare(b.echeance) || parCreation(a, b);
+    if (a.echeance || b.echeance) return a.echeance ? -1 : 1;
+    return parCreation(a, b);
+  };
+  function parCreation(a, b) { return (a.creeLe || '').localeCompare(b.creeLe || ''); }
+
   M.listesDuJour = function (etat, jour, jourIso) {
+    const bilans = M.bilans(etat, jour);
     const actives = etat.taches.filter(t => !t.archivee);
-    const parCreation = (a, b) => (a.creeLe || '').localeCompare(b.creeLe || '');
     const quotidiennes = actives.filter(t => t.type === 'quotidienne');
     const prevues = quotidiennes.filter(t => (t.jours || []).includes(jourIso));
-    const fait = t => M.progression(t, etat.journal, jour) >= 1;
+    const fait = t => (bilans.get(t.id).progression >= 1 ? 1 : 0);
     return {
       quotidienne: prevues.sort((a, b) => fait(a) - fait(b) || parCreation(a, b)),
       autresJours: quotidiennes.length - prevues.length,
-      imprevu: actives.filter(t => t.type === 'imprevu').sort((a, b) => {
-        if (a.echeance && b.echeance) return a.echeance.localeCompare(b.echeance) || parCreation(a, b);
-        if (a.echeance || b.echeance) return a.echeance ? -1 : 1;
-        return parCreation(a, b);
-      }),
-      bonus: actives.filter(t => t.type === 'bonus').sort(parCreation)
+      imprevu: actives.filter(t => t.type === 'imprevu').sort(M.ordreImprevus),
+      bonus: actives.filter(t => t.type === 'bonus').sort(parCreation),
+      bilans
     };
   };
+
+  function arrondi(x) { return Math.round(x * 1e6) / 1e6; }
 
   if (typeof module !== 'undefined') module.exports = M; else racine.Moteur = M;
 })(typeof window !== 'undefined' ? window : globalThis);

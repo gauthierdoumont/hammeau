@@ -85,7 +85,7 @@ test('objectif d\'un imprévu : la progression continue d\'un jour à l\'autre',
   const e = etatAvec({ nom: 'Livre', objectif: { cible: 100, unite: 'pages' } });
   M.saisir(e, 't0', 40, ctx('2026-11-16'), C);
   assert.equal(M.progression(e.taches[0], e.journal, '2026-11-18'), 0.4);
-  assert.equal(M.gainRestant(e.taches[0], e.journal, '2026-11-18', C), 15);
+  assert.equal(M.gainRestant(e.taches[0], M.bilan(e.taches[0], e.journal, '2026-11-18'), C), 15);
 });
 
 test('saisie refusée : 0, négatif, texte, tâche inconnue — rien n\'est écrit', () => {
@@ -140,6 +140,72 @@ test('modifier une tâche : id, date et historique gardés ; supprimer garde l\'
   assert.equal(e.joueur.xpTotal, xp);
   assert.equal(M.listesDuJour(e, '2026-11-16', 1).imprevu.length, 0);
   assert.equal(S.verifier(e), true);
+});
+
+test('BUG corrigé : 10 saisies de 1 sur un objectif de 10 = 100 % (pas 99,9999 %)', () => {
+  const e = etatAvec({ nom: 'Méditer', objectif: { cible: 10, unite: 'minutes' } });
+  let r;
+  for (let i = 0; i < 10; i++) r = M.saisir(e, 't0', 1, ctx(), C);
+  assert.equal(r.progression, 1);
+  assert.equal(r.terminee, true);
+  assert.equal(e.taches[0].archivee, true);
+  const e2 = etatAvec({ nom: 'Eau', objectif: { cible: 1, unite: 'litre' } });
+  for (let i = 0; i < 10; i++) r = M.saisir(e2, 't0', 0.1, ctx(), C);
+  assert.equal(r.terminee, true);
+  assert.equal(e2.joueur.xpTotal, 25);
+});
+
+test('BUG corrigé : « tout le reste » termine vraiment, même après une saisie à virgule', () => {
+  const e = etatAvec({ nom: 'Lire', objectif: { cible: 1, unite: 'heure' } });
+  M.saisir(e, 't0', 0.006, ctx(), C);
+  const r = M.saisir(e, 't0', null, ctx(), C);
+  assert.equal(r.terminee, true);
+  assert.equal(e.joueur.xpTotal, 25);
+});
+
+test('BUG corrigé : une quotidienne cochée hier puis changée en imprévu redevient faisable', () => {
+  const e = etatAvec({ nom: 'Muscu', type: 'quotidienne', categorieId: 'muscu' });
+  M.saisir(e, 't0', null, ctx('2026-11-15'), C);
+  const r = T.modifierTache(e.taches[0], { nom: 'Muscu', categorieId: 'muscu', type: 'imprevu' }, e, C, '2026-11-16T09:00:00.000Z');
+  T.remplacerTache(e, r.tache);
+  const b = M.bilan(e.taches[0], e.journal, '2026-11-16');
+  assert.equal(b.progression, 0);
+  assert.equal(M.estFaite(e.taches[0], b), false);
+  assert.equal(M.saisir(e, 't0', null, ctx('2026-11-16'), C).gain, 25);
+  assert.equal(e.taches[0].archivee, true);
+});
+
+test('BUG corrigé : changer la cible après une saisie partielle garde les pages faites', () => {
+  const e = etatAvec({ nom: 'Lire', objectif: { cible: 20, unite: 'pages' } });
+  M.saisir(e, 't0', 10, ctx(), C);                                   // 10/20 → +13
+  T.remplacerTache(e, T.modifierTache(e.taches[0], { nom: 'Lire', categorieId: 'lecture', objectif: { cible: 10, unite: 'pages' } }, e, C, 'x').tache);
+  const b = M.bilan(e.taches[0], e.journal, '2026-11-16');
+  assert.equal(b.progression, 1);                                    // 10/10
+  assert.equal(M.estFaite(e.taches[0], b), false);                   // pas encore archivée : on peut la cocher
+  const r = M.saisir(e, 't0', null, ctx(), C);
+  assert.equal(r.gain, 12);                                          // le reste du gain complet
+  assert.equal(e.joueur.xpTotal, 25);
+});
+
+test('BUG corrigé : changer la taille en cours de route → total = gain de la nouvelle taille, jamais négatif', () => {
+  const e = etatAvec({ nom: 'Lire', objectif: { cible: 20, unite: 'pages' } });
+  M.saisir(e, 't0', 10, ctx(), C);                                   // +13 (moyenne)
+  T.remplacerTache(e, T.modifierTache(e.taches[0], { nom: 'Lire', categorieId: 'lecture', taille: 'grosse', objectif: { cible: 20, unite: 'pages' } }, e, C, 'x').tache);
+  assert.equal(M.saisir(e, 't0', null, ctx(), C).gain, 37);
+  assert.equal(e.joueur.xpTotal, 50);
+  const e2 = etatAvec({ nom: 'Lire', taille: 'grosse', objectif: { cible: 20, unite: 'pages' } });
+  M.saisir(e2, 't0', 10, ctx(), C);                                  // +25 (grosse)
+  T.remplacerTache(e2, T.modifierTache(e2.taches[0], { nom: 'Lire', categorieId: 'lecture', taille: 'petite', objectif: { cible: 20, unite: 'pages' } }, e2, C, 'x').tache);
+  assert.equal(M.saisir(e2, 't0', null, ctx(), C).gain, 0);          // rien n'est repris
+  assert.equal(e2.joueur.xpTotal, 25);
+});
+
+test('bilans en un passage = bilan tâche par tâche', () => {
+  const e = etatAvec({ nom: 'A', objectif: { cible: 20, unite: 'p' } }, { nom: 'B', type: 'quotidienne' }, { nom: 'C' });
+  M.saisir(e, 't0', 7, ctx(), C);
+  M.saisir(e, 't1', null, ctx('2026-11-15'), C);
+  const tous = M.bilans(e, '2026-11-16');
+  for (const t of e.taches) assert.deepEqual(tous.get(t.id), M.bilan(t, e.journal, '2026-11-16'));
 });
 
 test('jour logique : bascule à 4 h, heure d\'été et d\'hiver', () => {
