@@ -1,6 +1,6 @@
 {
   "name": "hameau",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Hameau — tes tâches de la vraie vie font grandir ton village (appli Android)",
   "private": true,
   "author": "Gauthier Doumont",
@@ -9,7 +9,8 @@
     "version-js": "node scripts/version.js",
     "icones": "node scripts/icone.js && npx @capacitor/assets generate --android --iconBackgroundColor \"#141a2e\" --iconBackgroundColorDark \"#141a2e\" --splashBackgroundColor \"#141a2e\" --splashBackgroundColorDark \"#141a2e\"",
     "sync": "npm run version-js && npx cap sync android",
-    "test": "node scripts/verifier.js"
+    "test": "node scripts/verifier.js && node --test \"tests/**/*.test.js\"",
+    "e2e": "node tests/e2e/parcours.mjs"
   },
   "repository": {
     "type": "git",

@@ -10,19 +10,19 @@
   <title>Hameau</title>
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="demarrage">
   <header class="entete">
     <h1 id="titre">Aujourd'hui</h1>
   </header>
 
   <main>
     <!-- Écran Aujourd'hui (accueil) -->
-    <section class="ecran actif" id="ecran-aujourdhui" data-titre="Aujourd'hui">
+    <section class="ecran" id="ecran-aujourdhui" data-titre="Aujourd'hui">
       <div class="carte accueil">
         <div class="accueil-emoji" aria-hidden="true">🏡</div>
         <h2>Bienvenue dans ton hameau</h2>
         <p>Chaque chose faite dans la vraie vie, même à moitié, fera grandir ton village.</p>
-        <p class="discret">Les tâches arrivent à la prochaine étape.</p>
+        <p class="discret">Les tâches arrivent bientôt.</p>
       </div>
     </section>
 
@@ -44,9 +44,23 @@
 
     <!-- Écran Réglages -->
     <section class="ecran" id="ecran-reglages" data-titre="Réglages">
-      <button class="ligne" data-aller="apropos">
-        <span>ℹ️ À propos</span><span aria-hidden="true">›</span>
-      </button>
+      <h3 class="intertitre">Mes données</h3>
+      <div class="groupe">
+        <button class="ligne" id="btn-exporter">
+          <span>📤 Exporter mes données<small id="info-dernier-export"></small></span><span aria-hidden="true">›</span>
+        </button>
+        <button class="ligne" id="btn-importer">
+          <span>📥 Importer un export</span><span aria-hidden="true">›</span>
+        </button>
+      </div>
+      <p class="discret aide">L'export crée un fichier à garder en lieu sûr (Drive, NAS, e-mail). Il te permet de tout récupérer, même après avoir changé de téléphone.</p>
+
+      <h3 class="intertitre">Hameau</h3>
+      <div class="groupe">
+        <button class="ligne" data-aller="apropos">
+          <span>ℹ️ À propos</span><span aria-hidden="true">›</span>
+        </button>
+      </div>
     </section>
 
     <!-- Sous-écran À propos (ouvert depuis Réglages) -->
@@ -57,20 +71,55 @@
           <dt>Version</dt><dd id="info-version">—</dd>
           <dt>Plateforme</dt><dd id="info-plateforme">—</dd>
           <dt>Stockage natif</dt><dd id="info-stockage">—</dd>
+          <dt>Taille des données</dt><dd id="info-taille">—</dd>
         </dl>
         <p class="signature">Créé par Gauthier Doumont</p>
+      </div>
+    </section>
+
+    <!-- Écran de récupération : les données enregistrées sont illisibles. Rien n'est effacé. -->
+    <section class="ecran" id="ecran-recuperation" data-titre="Hameau">
+      <div class="carte">
+        <h2>Tes données sont à l'abri</h2>
+        <p>Hameau n'arrive pas à lire tes données enregistrées. Rien n'a été effacé.</p>
+        <p class="discret">Choisis une solution :</p>
+        <div class="actions">
+          <button class="bouton principal" id="btn-secours">🛟 Essayer la copie de secours</button>
+          <button class="bouton" id="btn-importer-recup">📥 Importer un export</button>
+          <button class="bouton" id="btn-envoyer-brut">📤 Envoyer le texte pour analyse</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Écran : données venant d'une version plus récente de l'appli -->
+    <section class="ecran" id="ecran-trop-recent" data-titre="Hameau">
+      <div class="carte">
+        <h2>Une mise à jour t'attend</h2>
+        <p>Tes données viennent d'une version plus récente de Hameau. Mets l'appli à jour (avec Obtainium) pour les retrouver. Rien n'a été effacé.</p>
       </div>
     </section>
   </main>
 
   <nav class="onglets" aria-label="Navigation">
-    <button class="onglet actif" data-aller="aujourdhui"><span aria-hidden="true">☀️</span>Aujourd'hui</button>
+    <button class="onglet" data-aller="aujourdhui"><span aria-hidden="true">☀️</span>Aujourd'hui</button>
     <button class="onglet" data-aller="village"><span aria-hidden="true">🏘️</span>Village</button>
     <button class="onglet" data-aller="perso"><span aria-hidden="true">🧙</span>Perso</button>
     <button class="onglet" data-aller="reglages"><span aria-hidden="true">⚙️</span>Réglages</button>
   </nav>
 
+  <!-- Fenêtre de dialogue réutilisable (confirmations, messages) -->
+  <dialog id="dialogue">
+    <h2 id="dialogue-titre"></h2>
+    <div id="dialogue-texte"></div>
+    <div class="dialogue-boutons" id="dialogue-boutons"></div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <input type="file" id="fichier-import" accept=".json,application/json" hidden>
+
   <script src="version.js"></script>
+  <script src="config.js"></script>
+  <script src="stockage.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
