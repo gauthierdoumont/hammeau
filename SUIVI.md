@@ -1,12 +1,12 @@
 # Suivi — Hameau
 
 ## Où on en est
-- Version : 0.2.0 · Étape suivante : **1b** (clé de signature + 1er build, à faire quand Gauthier est sur son PC), puis 3 · Dernière session : 2026-11-15
+- Version : 0.3.0 · Étape suivante : **1b** (clé de signature + 1er build, à faire quand Gauthier est sur son PC), puis 4 · Dernière session : 2026-11-15
 
 ## Dernière session
-- Fait : étape 1a (squelette Android + workflow) puis étape 2 (modèle de données, `config.js`, stockage sûr, export/import, sauvegardes auto). 1b reportée : Gauthier n'était pas sur son PC.
-- Testé : `npm test` (15 tests données), `npm run e2e` (Playwright : navigation 360/412/1100 px hors ligne, export, rechargement, import, fichier étranger, données illisibles, version plus récente).
-- Non testé / à vérifier sur le téléphone : tout (1er APK à l'étape 1b) — en particulier l'export via la feuille de partage Android et le choix d'un fichier .json à l'import.
+- Fait : étapes 1a, 2 et 3 (charte Taverne, ajout express, Plus d'options, catégories perso). 1b reportée : Gauthier n'était pas sur son PC.
+- Testé : `npm test` (25 tests : données + tâches), `npm run e2e` (Playwright : navigation 360/412/1100 px hors ligne, export/import, récupération, ajout express, options, catégorie perso, doublon, bouton retour).
+- Non testé / à vérifier sur le téléphone : tout (1er APK à l'étape 1b) — en particulier : export via la feuille de partage, choix d'un .json à l'import, fenêtre d'ajout quand le clavier s'ouvre (adjustResize), sélecteur de date.
 
 ## Bugs connus
 - (aucun)
@@ -24,11 +24,15 @@
 | 2026-11-15 | Versions 0.x pendant la V1, 1.0.0 à l'étape 8 | La feuille de route prévoit la release v1.0.0 à l'étape 8 |
 | 2026-11-15 | Étape 2 faite avant 1b | Gauthier pas sur son PC, il l'a demandé |
 | 2026-11-15 | Familles et catégories de départ dans `config.js`, pas dans les données | Elles sont fixes ; seules les catégories (perso + compteurs) sont stockées |
+| 2026-11-15 | Charte graphique **A · Taverne** (Cinzel pour les titres) | Choix de Gauthier sur `docs/apercu-chartes.png` |
+| 2026-11-15 | Ajout express sans catégorie choisie → 🔁 Routine (puis la dernière utilisée) | Valeur dans `config.js` → `taches.defauts` |
 | 2026-11-15 | `joueur.xp` = XP dans le niveau en cours, `joueur.xpTotal` = cumul (champ ajouté) | Un changement de courbe ne fera jamais baisser un niveau |
 
 ## À faire plus tard (noté, hors étape)
 - Étape 5a : simulation de l'économie (`outils/simulation.js`, skill `moteur-recompenses`) — impossible avant le moteur de gains.
 - Étape 8 : Réglages → « Sauvegardes automatiques » (liste + Restaurer) et rappel doux d'export après 14 jours (valeur déjà dans `config.js`).
-- Étape 3-4 : choisir la charte graphique (skill `charte-appli`) quand les vrais écrans arrivent.
+- Étape 4 : toucher une tâche pour la modifier ou la supprimer (pas prévu dans la feuille de route, à proposer à Gauthier).
+- Étape 4 : afficher le gain prévu « +25 📜 » sur chaque carte (skill `charte-appli`).
+- Réglages → Mes catégories : renommer / changer l'emoji d'une catégorie perso.
 
 <sub>Créé par Gauthier Doumont</sub>

@@ -3,10 +3,10 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <meta name="author" content="Gauthier Doumont">
-  <meta name="color-scheme" content="dark light">
-  <meta name="theme-color" content="#141a2e">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#1B1714">
   <title>Hameau</title>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -18,12 +18,13 @@
   <main>
     <!-- Écran Aujourd'hui (accueil) -->
     <section class="ecran" id="ecran-aujourdhui" data-titre="Aujourd'hui">
-      <div class="carte accueil">
-        <div class="accueil-emoji" aria-hidden="true">🏡</div>
-        <h2>Bienvenue dans ton hameau</h2>
-        <p>Chaque chose faite dans la vraie vie, même à moitié, fera grandir ton village.</p>
-        <p class="discret">Les tâches arrivent bientôt.</p>
+      <div class="carte vide" id="aujourdhui-vide">
+        <div class="vide-emoji" aria-hidden="true">🏡</div>
+        <h2>Ton village attend ta première tâche</h2>
+        <p>Chaque chose faite dans la vraie vie, même à moitié, le fera grandir.</p>
+        <button class="bouton principal" data-action="ajouter">➕ Ajouter une tâche</button>
       </div>
+      <div id="listes"></div>
     </section>
 
     <!-- Écran Village (V2) -->
@@ -44,6 +45,13 @@
 
     <!-- Écran Réglages -->
     <section class="ecran" id="ecran-reglages" data-titre="Réglages">
+      <h3 class="intertitre">Mes tâches</h3>
+      <div class="groupe">
+        <button class="ligne" data-aller="categories">
+          <span>🗂️ Mes catégories<small id="info-nb-perso"></small></span><span aria-hidden="true">›</span>
+        </button>
+      </div>
+
       <h3 class="intertitre">Mes données</h3>
       <div class="groupe">
         <button class="ligne" id="btn-exporter">
@@ -63,6 +71,12 @@
       </div>
     </section>
 
+    <!-- Sous-écran Mes catégories (ouvert depuis Réglages) -->
+    <section class="ecran" id="ecran-categories" data-titre="Catégories" data-parent="reglages">
+      <button class="bouton principal large" data-action="nouvelle-categorie">➕ Nouvelle catégorie</button>
+      <div id="liste-categories"></div>
+    </section>
+
     <!-- Sous-écran À propos (ouvert depuis Réglages) -->
     <section class="ecran" id="ecran-apropos" data-titre="À propos" data-parent="reglages">
       <div class="carte">
@@ -73,6 +87,7 @@
           <dt>Stockage natif</dt><dd id="info-stockage">—</dd>
           <dt>Taille des données</dt><dd id="info-taille">—</dd>
         </dl>
+        <p class="discret">Police des titres : Cinzel (licence SIL Open Font).</p>
         <p class="signature">Créé par Gauthier Doumont</p>
       </div>
     </section>
@@ -100,12 +115,91 @@
     </section>
   </main>
 
+  <!-- Bouton + flottant : ajout express -->
+  <button class="fab" id="fab" data-action="ajouter" aria-label="Ajouter une tâche">+</button>
+
   <nav class="onglets" aria-label="Navigation">
     <button class="onglet" data-aller="aujourdhui"><span aria-hidden="true">☀️</span>Aujourd'hui</button>
     <button class="onglet" data-aller="village"><span aria-hidden="true">🏘️</span>Village</button>
     <button class="onglet" data-aller="perso"><span aria-hidden="true">🧙</span>Perso</button>
     <button class="onglet" data-aller="reglages"><span aria-hidden="true">⚙️</span>Réglages</button>
   </nav>
+
+  <!-- Feuille d'ajout express : nom + Enregistrer ; le reste est replié dans « Plus d'options » -->
+  <dialog class="feuille" id="feuille-ajout" aria-labelledby="ajout-titre">
+    <form id="form-ajout" method="dialog" novalidate>
+      <h2 id="ajout-titre">Nouvelle tâche</h2>
+      <input class="champ" id="ajout-nom" type="text" placeholder="Ex. : lire 20 pages" autocomplete="off"
+             enterkeyhint="done" maxlength="80" aria-label="Nom de la tâche">
+      <div class="ajout-resume">
+        <button type="button" class="pastille" id="ajout-categorie-choisie" aria-label="Changer de catégorie"></button>
+        <button type="button" class="lien" id="btn-options" aria-expanded="false">Plus d'options ▾</button>
+      </div>
+
+      <div id="options" hidden>
+        <h3 class="intertitre">Catégorie</h3>
+        <div id="grille-categories"></div>
+
+        <h3 class="intertitre">Type</h3>
+        <div class="segments" id="choix-type" role="radiogroup" aria-label="Type">
+          <button type="button" data-type="quotidienne">🔁 Quotidienne</button>
+          <button type="button" data-type="imprevu">⚡ Imprévu</button>
+          <button type="button" data-type="bonus">⭐ Bonus</button>
+        </div>
+        <div class="sous-options" data-pour="quotidienne">
+          <p class="discret">Les jours où elle revient :</p>
+          <div class="jours" id="choix-jours"></div>
+        </div>
+        <div class="sous-options" data-pour="imprevu">
+          <label class="etiquette-champ">Pour quand ? (facultatif)
+            <input class="champ" id="ajout-echeance" type="date">
+          </label>
+          <label class="case-a-cocher"><input type="checkbox" id="ajout-important"> Important</label>
+        </div>
+        <div class="sous-options" data-pour="bonus">
+          <p class="discret">Un petit plus, à faire quand tu en as envie.</p>
+        </div>
+
+        <h3 class="intertitre">Taille</h3>
+        <div class="segments" id="choix-taille" role="radiogroup" aria-label="Taille">
+          <button type="button" data-taille="petite">Petite</button>
+          <button type="button" data-taille="moyenne">Moyenne</button>
+          <button type="button" data-taille="grosse">Grosse</button>
+        </div>
+        <label class="case-a-cocher"><input type="checkbox" id="ajout-objectif"> Objectif chiffré</label>
+        <div class="objectif" id="zone-objectif" hidden>
+          <input class="champ" id="ajout-cible" type="text" inputmode="decimal" placeholder="20" aria-label="Objectif">
+          <input class="champ" id="ajout-unite" type="text" placeholder="pages" maxlength="20" aria-label="Unité">
+        </div>
+      </div>
+
+      <p class="erreur" id="ajout-erreur" role="alert"></p>
+      <div class="feuille-boutons">
+        <button type="button" class="bouton" data-fermer>Annuler</button>
+        <button type="submit" class="bouton principal" id="btn-enregistrer">Enregistrer</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Feuille : nouvelle catégorie perso -->
+  <dialog class="feuille" id="feuille-categorie" aria-labelledby="categorie-titre">
+    <form id="form-categorie" method="dialog" novalidate>
+      <h2 id="categorie-titre">Nouvelle catégorie</h2>
+      <div class="ligne-champs">
+        <input class="champ emoji" id="categorie-emoji" type="text" placeholder="🎸" autocomplete="off" aria-label="Emoji">
+        <input class="champ" id="categorie-nom" type="text" placeholder="Nom (ex. : Guitare)" maxlength="30" autocomplete="off"
+               enterkeyhint="done" aria-label="Nom de la catégorie">
+      </div>
+      <div class="emojis" id="emojis-suggeres"></div>
+      <h3 class="intertitre">Famille</h3>
+      <div class="familles" id="choix-famille"></div>
+      <p class="erreur" id="categorie-erreur" role="alert"></p>
+      <div class="feuille-boutons">
+        <button type="button" class="bouton" data-fermer>Annuler</button>
+        <button type="submit" class="bouton principal">Créer</button>
+      </div>
+    </form>
+  </dialog>
 
   <!-- Fenêtre de dialogue réutilisable (confirmations, messages) -->
   <dialog id="dialogue">
@@ -120,6 +214,7 @@
   <script src="version.js"></script>
   <script src="config.js"></script>
   <script src="stockage.js"></script>
+  <script src="taches.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

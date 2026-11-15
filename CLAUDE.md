@@ -167,7 +167,7 @@ Objectif d'équilibrage : **environ 4 mois** d'usage régulier pour tout monter 
 - [x] 1a. Squelette appli native (sans Electron) + workflow Android (~40 min)
 - [ ] 1b. Clé de signature + 4 secrets + 1er build + installation sur le Honor (~40 min)
 - [x] 2. Modèle de données, `config.js`, stockage, export/import JSON (~40 min)
-- [ ] 3. Familles et catégories + ajout express de tâche + « Plus d'options » + catégories perso (~45 min)
+- [x] 3. Familles et catégories + ajout express de tâche + « Plus d'options » + catégories perso (~45 min)
 - [ ] 4. Écran Aujourd'hui : listes par type, cocher, progression partielle, **XP + ressource de base + animation « +25 »** (~45 min)
 - 🔁 **Point de contrôle** : Gauthier l'utilise 2-3 jours, puis on ajuste.
 - [ ] 5a. Moteur complet : multiplicateurs, anti-farm, stats cumulées, niveaux, coffres (~45 min)

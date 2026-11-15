@@ -137,6 +137,104 @@ for (const largeur of [360, 412, 1100]) {
   await ctx.close();
 }
 
+/* 5. Étape 3 : ajout express, Plus d'options, catégorie perso */
+{
+  const { ctx, page, erreurs } = await nouvellePage(360);
+  const etatStocke = async () => JSON.parse(await lire(page));
+  verifier(await page.isVisible('#aujourdhui-vide'), 'écran vide encourageant au 1er lancement');
+  await page.screenshot({ path: 'tests/captures/etape3-vide.png' });
+
+  // Ajout express : nom + Entrée
+  await page.click('#fab');
+  await page.waitForSelector('#feuille-ajout[open]');
+  verifier(await page.evaluate(() => document.activeElement?.id) === 'ajout-nom', 'le champ nom a le focus');
+  verifier((await page.textContent('#ajout-categorie-choisie')).includes('Routine'), 'catégorie par défaut : Routine');
+  await pause(page); await page.screenshot({ path: 'tests/captures/etape3-ajout.png' });
+  await page.fill('#ajout-nom', 'Appeler le garage');
+  await page.press('#ajout-nom', 'Enter');
+  await pause(page);
+  verifier(!(await page.isVisible('#feuille-ajout')), 'feuille fermée après Enregistrer');
+  verifier(!(await page.isVisible('#aujourdhui-vide')), 'écran vide masqué');
+  let e = await etatStocke();
+  verifier(e.taches.length === 1 && e.taches[0].type === 'imprevu' && e.taches[0].taille === 'moyenne', 'tâche express : imprévu moyenne');
+  verifier((await page.textContent('#listes')).includes('Appeler le garage'), 'tâche affichée');
+
+  // Nom vide → message, la feuille reste ouverte
+  await page.click('#fab');
+  await page.click('#btn-enregistrer');
+  verifier((await page.textContent('#ajout-erreur')).includes('nom'), 'nom vide : message');
+  verifier(await page.isVisible('#feuille-ajout'), 'nom vide : feuille toujours ouverte');
+
+  // Plus d'options : Lecture, quotidienne du lundi au vendredi, objectif 20 pages
+  await page.fill('#ajout-nom', 'Lire');
+  await page.click('#btn-options');
+  await page.click('.tuile[data-categorie="lecture"]');
+  await page.click('#choix-type [data-type="quotidienne"]');
+  await page.click('#choix-jours [data-jour="6"]');
+  await page.click('#choix-jours [data-jour="7"]');
+  await page.check('#ajout-objectif');
+  await page.fill('#ajout-cible', '20');
+  await page.fill('#ajout-unite', 'pages');
+  await pause(page);
+  await page.screenshot({ path: 'tests/captures/etape3-options.png', fullPage: true });
+  verifier(!(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)), 'options : pas de défilement horizontal à 360 px');
+  await page.click('#btn-enregistrer');
+  await pause(page);
+  e = await etatStocke();
+  const lire20 = e.taches.find(t => t.nom === 'Lire');
+  verifier(lire20?.type === 'quotidienne' && lire20.jours.join() === '1,2,3,4,5' && lire20.objectif?.cible === 20, 'tâche avec options : ' + JSON.stringify(lire20));
+  verifier(e.reglages.derniereCategorie === 'lecture', 'dernière catégorie mémorisée');
+  verifier((await page.textContent('#listes')).includes('Objectif : 20 pages · lun, mar, mer, jeu, ven'), 'détails de la quotidienne');
+
+  // Catégorie perso depuis la feuille d'ajout, puis utilisée tout de suite
+  await page.click('#fab');
+  verifier((await page.textContent('#ajout-categorie-choisie')).includes('Lecture'), 'catégorie par défaut = dernière utilisée');
+  await page.click('#btn-options');
+  verifier((await page.textContent('#grille-categories')).includes('⭐ Favoris'), 'favoris affichés');
+  await page.click('.tuile[data-action="nouvelle-categorie"]');
+  await page.waitForSelector('#feuille-categorie[open]');
+  await page.click('#emojis-suggeres [data-emoji="🎸"]');
+  await page.fill('#categorie-nom', 'Guitare');
+  await page.click('#choix-famille [data-famille="creation"]');
+  await page.screenshot({ path: 'tests/captures/etape3-categorie.png' });
+  await page.click('#form-categorie .principal');
+  await pause(page);
+  verifier(!(await page.isVisible('#feuille-categorie')) && await page.isVisible('#feuille-ajout'), 'retour à la feuille d\'ajout');
+  verifier((await page.textContent('#ajout-categorie-choisie')).includes('🎸 Guitare'), 'nouvelle catégorie sélectionnée');
+  await page.fill('#ajout-nom', 'Gammes');
+  await page.click('#btn-enregistrer');
+  await pause(page);
+  e = await etatStocke();
+  const guitare = e.categories.find(c => c.nom === 'Guitare');
+  verifier(guitare?.perso && guitare.familleId === 'creation' && guitare.nbUtilisations === 1, 'catégorie perso enregistrée');
+
+  // Doublon refusé
+  await page.click('.onglet[data-aller="reglages"]');
+  await page.click('.ligne[data-aller="categories"]');
+  verifier((await page.textContent('#liste-categories')).includes('Guitare'), 'Réglages : catégorie perso listée');
+  await page.click('[data-action="nouvelle-categorie"]');
+  await page.fill('#categorie-emoji', '📚');
+  await page.fill('#categorie-nom', 'révision');
+  await page.click('#choix-famille [data-famille="esprit"]');
+  await page.click('#form-categorie .principal');
+  verifier((await page.textContent('#categorie-erreur')).includes('existe déjà'), 'doublon refusé');
+
+  // Bouton retour : ferme la feuille, puis remonte les écrans
+  await page.evaluate(() => retourEcranPrecedent());
+  verifier(!(await page.isVisible('#feuille-categorie')), 'retour : feuille fermée');
+  await page.evaluate(() => retourEcranPrecedent());
+  verifier(await page.textContent('#titre') === 'Réglages', 'retour : Catégories → Réglages');
+  verifier(!(await page.isVisible('#fab')), 'bouton + seulement sur Aujourd\'hui');
+
+  await page.click('.onglet[data-aller="aujourdhui"]');
+  await pause(page);
+  await page.screenshot({ path: 'tests/captures/etape3-listes.png', fullPage: true });
+  verifier(S_ok(e), 'état final valide');
+  verifier(!erreurs.length, 'erreurs console (étape 3) : ' + erreurs);
+  await ctx.close();
+}
+function S_ok(e) { return e.schemaVersion === 1 && new Set(e.taches.map(t => t.id)).size === e.taches.length; }
+
 await nav.close(); serveur.close();
-console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération');
+console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso');
 process.exit(echecs.length ? 1 : 0);

@@ -62,6 +62,18 @@ window.CONFIG = {
     { id: 'detente',      nom: 'Détente',          emoji: '🧘', familleId: 'repos' }
   ],
 
+  /* ===== Ajout de tâches ===== */
+  taches: {
+    defauts: { type: 'imprevu', taille: 'moyenne', categorie: 'routine' }, // ajout express : nom + Enregistrer
+    nomMax: 80,
+    uniteMax: 20
+  },
+  categories: {
+    nbFavoris: 6,          // ↑ = plus de catégories favorites en haut de la grille
+    nomMax: 30,
+    emojisSuggeres: ['🎸', '🎹', '🧩', '📷', '✍️', '🐶', '🌱', '🍳', '🚴', '🏊', '💊', '🧾', '💡', '🎯', '🙏', '⭐']
+  },
+
   /* ===== Gains (V1) ===== */
   tailles: { petite: 10, moyenne: 25, grosse: 50 },     // ↑ = plus d'XP et de ressources par tâche
   tailleObjectifParDefaut: 'moyenne',                   // taille utilisée pour un objectif chiffré

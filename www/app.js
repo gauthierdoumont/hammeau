@@ -4,7 +4,11 @@
 /* ===== CONFIG ===== */
 const C = window.CONFIG;
 const S = window.Stockage;
+const T = window.Taches;
 const CLE = S.CLE;
+const NOMS_TYPES = { quotidienne: '🔁 Quotidiennes', imprevu: '⚡ Imprévus', bonus: '⭐ Bonus' };
+const JOURS_COURTS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+const JOURS_NOMS = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'];
 
 /* ===== NATIF : Android via Capacitor, sinon navigateur (pour les tests) ===== */
 const NATIF = window.Capacitor?.isNativePlatform?.() === true;
@@ -13,6 +17,10 @@ const PL = NATIF ? (window.Capacitor.Plugins || {}) : {};
 /* ===== ÉTAT ===== */
 let etat = null;                    // données du joueur (une fois chargées)
 const historique = ['aujourdhui'];  // pile des écrans : le bouton retour Android la remonte
+let saisie = null;                  // tâche en cours d'ajout (feuille d'ajout)
+let origineCategorie = null;        // 'ajout' si la nouvelle catégorie est créée depuis la feuille d'ajout
+let familleCategorie = null;        // famille choisie pour la nouvelle catégorie
+let derniereAjoutee = null;         // id de la tâche à mettre en valeur
 
 /* ===== HORLOGE =====
  * Dans le navigateur, localStorage « debug_maintenant » permet de simuler une date (tests).
@@ -194,6 +202,136 @@ async function essayerCopieSecours() {
   }
 }
 
+/* ===== AJOUT DE TÂCHE (feuille d'ajout express) ===== */
+function ouvrirAjout() {
+  saisie = {
+    categorieId: T.categorieParDefaut(etat, C),
+    type: C.taches.defauts.type,
+    taille: C.taches.defauts.taille,
+    jours: [...T.TOUS_LES_JOURS],
+    objectif: false
+  };
+  const f = document.getElementById('form-ajout');
+  f.reset();
+  document.getElementById('options').hidden = true;
+  document.getElementById('btn-options').setAttribute('aria-expanded', 'false');
+  document.getElementById('btn-options').textContent = 'Plus d\'options ▾';
+  document.getElementById('ajout-erreur').textContent = '';
+  rendreAjout();
+  const dlg = document.getElementById('feuille-ajout');
+  dlg.showModal();
+  dlg.scrollTop = 0;
+  setTimeout(() => document.getElementById('ajout-nom').focus(), 60);
+}
+
+function basculerOptions(forcer) {
+  const zone = document.getElementById('options');
+  const ouvrir = forcer ?? zone.hidden;
+  zone.hidden = !ouvrir;
+  const btn = document.getElementById('btn-options');
+  btn.setAttribute('aria-expanded', String(ouvrir));
+  btn.textContent = ouvrir ? 'Moins d\'options ▴' : 'Plus d\'options ▾';
+}
+
+function rendreAjout() {
+  const cat = T.categorie(etat, saisie.categorieId);
+  const pastille = document.getElementById('ajout-categorie-choisie');
+  pastille.textContent = cat ? `${cat.emoji} ${cat.nom}` : 'Choisir une catégorie';
+  pastille.style.setProperty('--famille', cat ? `var(--${cat.familleId})` : '');
+
+  // Grille : favoris puis familles, et la tuile « Nouvelle »
+  const grille = document.getElementById('grille-categories');
+  const { favoris, parFamille } = T.grilleCategories(etat, C);
+  const blocs = [];
+  if (favoris.length) blocs.push(blocGrille('⭐ Favoris', favoris));
+  for (const { famille, categories } of parFamille) blocs.push(blocGrille(`${famille.emoji} ${famille.nom}`, categories));
+  const nouvelle = el('button', { type: 'button', class: 'tuile nouvelle-cat', 'data-action': 'nouvelle-categorie' });
+  nouvelle.append(el('span', {}, '＋'), 'Nouvelle');
+  const derniere = el('div', { class: 'grille' }, nouvelle);
+  grille.replaceChildren(...blocs, el('p', { class: 'grille-titre' }, '✨ Perso'), derniere);
+
+  for (const b of document.querySelectorAll('#choix-type button')) b.setAttribute('aria-checked', String(b.dataset.type === saisie.type));
+  for (const b of document.querySelectorAll('#choix-taille button')) b.setAttribute('aria-checked', String(b.dataset.taille === saisie.taille));
+  for (const z of document.querySelectorAll('.sous-options')) z.classList.toggle('visible', z.dataset.pour === saisie.type);
+  document.getElementById('choix-jours').replaceChildren(...JOURS_COURTS.map((j, i) => el('button', {
+    type: 'button', 'data-jour': i + 1, 'aria-pressed': String(saisie.jours.includes(i + 1)), 'aria-label': JOURS_NOMS[i]
+  }, j)));
+  document.getElementById('zone-objectif').hidden = !saisie.objectif;
+}
+
+function blocGrille(titre, categories) {
+  const frag = document.createDocumentFragment();
+  frag.append(el('p', { class: 'grille-titre' }, titre));
+  frag.append(el('div', { class: 'grille' }, ...categories.map(c => {
+    const b = el('button', { type: 'button', class: 'tuile' + (c.id === saisie.categorieId ? ' choisie' : ''), 'data-categorie': c.id });
+    b.style.setProperty('--famille', `var(--${c.familleId})`);
+    b.append(el('span', {}, c.emoji), c.nom);
+    return b;
+  })));
+  return frag;
+}
+
+function enregistrerTache() {
+  const val = (id) => document.getElementById(id).value;
+  const r = T.creerTache({
+    nom: val('ajout-nom'),
+    categorieId: saisie.categorieId,
+    type: saisie.type,
+    taille: saisie.taille,
+    jours: saisie.jours,
+    echeance: val('ajout-echeance') || undefined,
+    important: document.getElementById('ajout-important').checked,
+    objectif: saisie.objectif ? { cible: val('ajout-cible'), unite: val('ajout-unite') } : undefined
+  }, etat, C, S.nouvelId(), maintenant().toISOString());
+  if (!r.ok) {
+    document.getElementById('ajout-erreur').textContent = r.erreur;
+    // L'erreur concerne peut-être une option repliée : on déplie
+    if (!/nom de la tâche|Nom trop long/.test(r.erreur)) basculerOptions(true);
+    return;
+  }
+  derniereAjoutee = r.tache.id;
+  if (!modifier(e => T.ajouterTache(e, r.tache))) return;
+  document.getElementById('feuille-ajout').close();
+  if (historique[historique.length - 1] !== 'aujourdhui') aller('aujourdhui');
+  PL.Haptics?.impact({ style: 'LIGHT' }).catch(() => {});
+  toast('Tâche ajoutée ✅');
+}
+
+/* ===== NOUVELLE CATÉGORIE PERSO ===== */
+function ouvrirNouvelleCategorie(origine) {
+  origineCategorie = origine;
+  const catActuelle = origine === 'ajout' ? T.categorie(etat, saisie.categorieId) : null;
+  familleCategorie = catActuelle?.familleId ?? null;
+  document.getElementById('form-categorie').reset();
+  document.getElementById('categorie-erreur').textContent = '';
+  document.getElementById('emojis-suggeres').replaceChildren(...C.categories.emojisSuggeres.map(e =>
+    el('button', { type: 'button', 'data-emoji': e, 'aria-label': 'Emoji ' + e }, e)));
+  rendreFamilles();
+  document.getElementById('feuille-categorie').showModal();
+  setTimeout(() => document.getElementById('categorie-nom').focus(), 60);
+}
+
+function rendreFamilles() {
+  document.getElementById('choix-famille').replaceChildren(...C.familles.map(f => {
+    const b = el('button', { type: 'button', 'data-famille': f.id, role: 'radio', 'aria-checked': String(f.id === familleCategorie) }, `${f.emoji} ${f.nom}`);
+    b.style.setProperty('--famille', `var(--${f.id})`);
+    return b;
+  }));
+}
+
+function creerCategorie() {
+  const r = T.creerCategorie({
+    nom: document.getElementById('categorie-nom').value,
+    emoji: document.getElementById('categorie-emoji').value,
+    familleId: familleCategorie
+  }, etat, C, S.nouvelId());
+  if (!r.ok) { document.getElementById('categorie-erreur').textContent = r.erreur; return; }
+  if (!modifier(e => { e.categories.push(r.categorie); })) return;
+  document.getElementById('feuille-categorie').close();
+  if (origineCategorie === 'ajout') { saisie.categorieId = r.categorie.id; rendreAjout(); }
+  toast(`Catégorie ${r.categorie.emoji} ${r.categorie.nom} créée`);
+}
+
 /* ===== DÉMARRAGE =====
  * Piège n°1 : un texte illisible ne doit JAMAIS être remplacé par un état vide.
  */
@@ -227,6 +365,7 @@ function afficher(nom) {
   if (!ecran) return;
   document.querySelectorAll('.ecran').forEach(e => e.classList.toggle('actif', e === ecran));
   document.getElementById('titre').textContent = ecran.dataset.titre;
+  document.body.classList.toggle('sur-aujourdhui', nom === 'aujourdhui');
   // L'onglet allumé est celui de l'écran, ou de son parent (À propos → Réglages)
   const onglet = ecran.dataset.parent || nom;
   document.querySelectorAll('.onglet').forEach(b => b.classList.toggle('actif', b.dataset.aller === onglet));
@@ -236,8 +375,57 @@ function afficher(nom) {
 
 function rendre() {
   if (!etat) return;
+  rendreListes();
+  rendreCategories();
   const dernier = etat.reglages.dernierExport;
   document.getElementById('info-dernier-export').textContent = dernier ? 'Dernier export : ' + dateCourte(dernier) : 'Jamais exporté pour l\'instant';
+}
+
+function rendreListes() {
+  const listes = T.listes(etat);
+  const total = listes.quotidienne.length + listes.imprevu.length + listes.bonus.length;
+  document.getElementById('aujourdhui-vide').hidden = total > 0;
+  const blocs = [];
+  for (const type of T.TYPES) {
+    if (!listes[type].length) continue;
+    blocs.push(el('h3', { class: 'intertitre' }, NOMS_TYPES[type]));
+    for (const t of listes[type]) blocs.push(carteTache(t));
+  }
+  document.getElementById('listes').replaceChildren(...blocs);
+  derniereAjoutee = null;
+}
+
+function carteTache(t) {
+  const cat = T.categorie(etat, t.categorieId);
+  const details = [];
+  if (t.objectif) details.push(`Objectif : ${nombre(t.objectif.cible)} ${t.objectif.unite}`);
+  if (t.type === 'quotidienne') details.push(t.jours.length === 7 ? 'Tous les jours' : t.jours.map(j => JOURS_NOMS[j - 1]).join(', '));
+  if (t.echeance) details.push('Pour le ' + dateEcheance(t.echeance));
+  if (t.important) details.push('❗ Important');
+  const carte = el('div', { class: 'tache' + (t.id === derniereAjoutee ? ' nouvelle' : ''), 'data-tache': t.id });
+  carte.style.setProperty('--famille', cat ? `var(--${cat.familleId})` : '');
+  carte.append(
+    el('span', { class: 'tache-emoji', 'aria-hidden': 'true' }, cat?.emoji ?? '•'),
+    el('span', { class: 'tache-corps' }, el('span', { class: 'tache-nom' }, t.nom), details.length ? el('small', {}, details.join(' · ')) : '')
+  );
+  return carte;
+}
+
+function rendreCategories() {
+  const perso = etat.categories.filter(c => c.perso);
+  const depart = etat.categories.length - perso.length;
+  document.getElementById('info-nb-perso').textContent = `${depart} de départ · ${perso.length} perso`;
+  const liste = document.getElementById('liste-categories');
+  if (!perso.length) {
+    liste.replaceChildren(el('p', { class: 'discret aide' }, 'Crée tes propres catégories (guitare, jardinage…). Elles s\'ajoutent aux catégories de départ.'));
+    return;
+  }
+  liste.replaceChildren(el('h3', { class: 'intertitre' }, 'Mes catégories perso'), ...perso.map(c => {
+    const f = T.famille(c.familleId, C);
+    const ligne = el('div', { class: 'cat-ligne' }, el('span', { 'aria-hidden': 'true' }, c.emoji), el('span', {}, c.nom), el('small', {}, `${f.emoji} ${f.nom}`));
+    ligne.style.setProperty('--famille', `var(--${c.familleId})`);
+    return ligne;
+  }));
 }
 
 function aller(nom) {
@@ -251,8 +439,8 @@ function aller(nom) {
 
 // Renvoie false quand il n'y a plus rien à fermer (le bouton retour quitte alors l'appli)
 function retourEcranPrecedent() {
-  const dlg = document.getElementById('dialogue');
-  if (dlg.open) { dlg.close(''); return true; }
+  const ouverts = document.querySelectorAll('dialog[open]');
+  if (ouverts.length) { ouverts[ouverts.length - 1].close(); return true; }
   if (document.body.classList.contains('bloque') || historique.length <= 1) return false;
   historique.pop();
   afficher(historique[historique.length - 1]);
@@ -274,11 +462,9 @@ function dialogue(titre, html, boutons) {
   document.getElementById('dialogue-texte').innerHTML = html;
   const zone = document.getElementById('dialogue-boutons');
   zone.replaceChildren(...boutons.map((b, i) => {
-    const el = document.createElement('button');
-    el.className = 'bouton' + (b.principal ? ' principal' : '');
-    el.textContent = b.texte;
-    el.onclick = () => dlg.close(String(i));
-    return el;
+    const bouton = el('button', { class: 'bouton' + (b.principal ? ' principal' : '') }, b.texte);
+    bouton.onclick = () => dlg.close(String(i));
+    return bouton;
   }));
   return new Promise((ok) => {
     dlg.addEventListener('close', () => ok(dlg.returnValue === '' ? false : boutons[+dlg.returnValue].valeur), { once: true });
@@ -292,18 +478,61 @@ function message(titre, texte) {
 
 let minuteurToast;
 function toast(texte) {
-  const el = document.getElementById('toast');
-  el.textContent = texte;
-  el.classList.add('visible');
+  const t = document.getElementById('toast');
+  t.textContent = texte;
+  t.classList.add('visible');
   clearTimeout(minuteurToast);
-  minuteurToast = setTimeout(() => el.classList.remove('visible'), 2600);
+  minuteurToast = setTimeout(() => t.classList.remove('visible'), 2600);
 }
 
 /* ===== ÉVÉNEMENTS ===== */
 document.addEventListener('click', (e) => {
-  const cible = e.target.closest('[data-aller]');
-  if (cible) aller(cible.dataset.aller);
+  const cible = e.target.closest('[data-aller], [data-action], [data-fermer]');
+  if (!cible) return;
+  if (cible.dataset.aller) return aller(cible.dataset.aller);
+  if ('fermer' in cible.dataset) return cible.closest('dialog')?.close();
+  const action = cible.dataset.action;
+  if (action === 'ajouter' && etat) ouvrirAjout();
+  if (action === 'nouvelle-categorie' && etat) ouvrirNouvelleCategorie(cible.closest('#feuille-ajout') ? 'ajout' : 'reglages');
 });
+
+// Feuille d'ajout : choix dans la grille, type, taille, jours, objectif
+document.getElementById('feuille-ajout').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) return e.currentTarget.close();   // toucher le fond grisé = fermer
+  const b = e.target.closest('button');
+  if (!b || !saisie) return;
+  if (b.dataset.categorie) { saisie.categorieId = b.dataset.categorie; rendreAjout(); }
+  else if (b.dataset.type) { saisie.type = b.dataset.type; rendreAjout(); }
+  else if (b.dataset.taille) { saisie.taille = b.dataset.taille; rendreAjout(); }
+  else if (b.dataset.jour) {
+    const j = +b.dataset.jour;
+    saisie.jours = saisie.jours.includes(j) ? saisie.jours.filter(x => x !== j) : [...saisie.jours, j];
+    rendreAjout();
+  } else if (b.id === 'btn-options') basculerOptions();
+  else if (b.id === 'ajout-categorie-choisie') {
+    basculerOptions(true);
+    document.getElementById('grille-categories').querySelector('.choisie')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+});
+document.getElementById('ajout-objectif').addEventListener('change', (e) => {
+  saisie.objectif = e.target.checked;
+  if (saisie.objectif && saisie.taille === C.taches.defauts.taille) saisie.taille = C.tailleObjectifParDefaut;
+  rendreAjout();
+  if (saisie.objectif) document.getElementById('ajout-cible').focus();
+});
+document.getElementById('form-ajout').addEventListener('submit', (e) => { e.preventDefault(); enregistrerTache(); });
+document.getElementById('ajout-nom').addEventListener('input', () => { document.getElementById('ajout-erreur').textContent = ''; });
+
+// Feuille « nouvelle catégorie »
+document.getElementById('feuille-categorie').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) return e.currentTarget.close();
+  const b = e.target.closest('button');
+  if (b?.dataset.emoji) document.getElementById('categorie-emoji').value = b.dataset.emoji;
+  if (b?.dataset.famille) { familleCategorie = b.dataset.famille; rendreFamilles(); }
+});
+document.getElementById('form-categorie').addEventListener('submit', (e) => { e.preventDefault(); creerCategorie(); });
+
+// Données
 document.getElementById('btn-exporter').addEventListener('click', exporter);
 document.getElementById('btn-importer').addEventListener('click', choisirFichierImport);
 document.getElementById('btn-importer-recup').addEventListener('click', choisirFichierImport);
@@ -319,9 +548,21 @@ document.getElementById('fichier-import').addEventListener('change', (e) => {
 PL.App?.addListener('backButton', () => { if (!retourEcranPrecedent()) PL.App.exitApp(); });
 
 /* ===== UTILITAIRES ===== */
+// Crée un élément ; le texte passe toujours par textContent (les noms saisis ne sont jamais interprétés comme du HTML)
+function el(balise, attributs = {}, ...enfants) {
+  const n = document.createElement(balise);
+  for (const [k, v] of Object.entries(attributs)) n.setAttribute(k, v);
+  n.append(...enfants.filter(x => x !== '' && x != null));
+  return n;
+}
 function dateCourte(iso) {
   return new Date(iso).toLocaleDateString('fr-BE', { timeZone: C.jour.fuseau, day: 'numeric', month: 'long', year: 'numeric' });
 }
+function dateEcheance(jour) {           // « 20 nov. » (jour AAAA-MM-JJ, sans fuseau : c'est une date de calendrier)
+  const [a, m, j] = jour.split('-').map(Number);
+  return new Date(Date.UTC(a, m - 1, j)).toLocaleDateString('fr-BE', { timeZone: 'UTC', day: 'numeric', month: 'short' });
+}
+function nombre(n) { return Number(n).toLocaleString('fr-BE'); }
 function descriptionResume(r) {
   const s = (n, mot) => `${n} ${mot}${n > 1 ? 's' : ''}`;
   return `Niveau ${r.niveau} · ${s(r.taches, 'tâche')} · ${s(r.saisies, 'saisie')}`;
