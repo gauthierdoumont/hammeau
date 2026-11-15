@@ -1,0 +1,53 @@
+# Hameau — compile l'appli Android (.apk) signée et publie une Release — Créé par Gauthier Doumont
+name: Construire l'appli
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**.md']
+  workflow_dispatch:
+permissions:
+  contents: write
+defaults:
+  run:
+    shell: bash
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-java@v6
+        with: { distribution: temurin, java-version: '21' }
+      - uses: android-actions/setup-android@v4
+      - id: v
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+      - run: npm ci
+      - run: npm test
+      - run: npm run version-js && npx cap sync android
+      - name: Clé de signature
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KS" ]; then echo "::error::Secrets de signature absents (ANDROID_KEYSTORE_BASE64…) — voir README"; exit 1; fi
+          echo "$KS" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          echo "KEYSTORE_PATH=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+      - name: Compiler l'APK
+        working-directory: android
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          APP_VERSION: ${{ steps.v.outputs.version }}
+        run: chmod +x gradlew && ./gradlew assembleRelease --stacktrace
+      - name: Renommer l'APK
+        run: |
+          mkdir sortie
+          cp android/app/build/outputs/apk/release/app-release.apk "sortie/hameau-android-${{ steps.v.outputs.version }}.apk"
+      - uses: softprops/action-gh-release@v3
+        with:
+          tag_name: v${{ steps.v.outputs.version }}-build.${{ github.run_number }}
+          name: Hameau ${{ steps.v.outputs.version }} (build ${{ github.run_number }})
+          body: "Android : télécharge le fichier .apk ci-dessous, ou mets à jour avec Obtainium. — Créé par Gauthier Doumont"
+          files: sortie/*.apk
+          make_latest: true

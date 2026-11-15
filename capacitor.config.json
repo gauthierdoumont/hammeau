@@ -1,0 +1,8 @@
+{
+  "appId": "be.gauthierdoumont.hameau",
+  "appName": "Hameau",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#141a2e"
+  }
+}

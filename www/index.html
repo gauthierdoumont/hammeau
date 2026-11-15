@@ -1,0 +1,76 @@
+<!doctype html>
+<!-- Hameau — tes tâches de la vraie vie font grandir ton village — Créé par Gauthier Doumont -->
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="author" content="Gauthier Doumont">
+  <meta name="color-scheme" content="dark light">
+  <meta name="theme-color" content="#141a2e">
+  <title>Hameau</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="entete">
+    <h1 id="titre">Aujourd'hui</h1>
+  </header>
+
+  <main>
+    <!-- Écran Aujourd'hui (accueil) -->
+    <section class="ecran actif" id="ecran-aujourdhui" data-titre="Aujourd'hui">
+      <div class="carte accueil">
+        <div class="accueil-emoji" aria-hidden="true">🏡</div>
+        <h2>Bienvenue dans ton hameau</h2>
+        <p>Chaque chose faite dans la vraie vie, même à moitié, fera grandir ton village.</p>
+        <p class="discret">Les tâches arrivent à la prochaine étape.</p>
+      </div>
+    </section>
+
+    <!-- Écran Village (V2) -->
+    <section class="ecran" id="ecran-village" data-titre="Village">
+      <div class="carte">
+        <h2>Le village</h2>
+        <p>Il se construira ici, avec tes ressources. Surprise !</p>
+      </div>
+    </section>
+
+    <!-- Écran Perso -->
+    <section class="ecran" id="ecran-perso" data-titre="Perso">
+      <div class="carte">
+        <h2>Le chef du village</h2>
+        <p>Niveau, stats et série apparaîtront ici.</p>
+      </div>
+    </section>
+
+    <!-- Écran Réglages -->
+    <section class="ecran" id="ecran-reglages" data-titre="Réglages">
+      <button class="ligne" data-aller="apropos">
+        <span>ℹ️ À propos</span><span aria-hidden="true">›</span>
+      </button>
+    </section>
+
+    <!-- Sous-écran À propos (ouvert depuis Réglages) -->
+    <section class="ecran" id="ecran-apropos" data-titre="À propos" data-parent="reglages">
+      <div class="carte">
+        <h2>Hameau</h2>
+        <dl class="infos">
+          <dt>Version</dt><dd id="info-version">—</dd>
+          <dt>Plateforme</dt><dd id="info-plateforme">—</dd>
+          <dt>Stockage natif</dt><dd id="info-stockage">—</dd>
+        </dl>
+        <p class="signature">Créé par Gauthier Doumont</p>
+      </div>
+    </section>
+  </main>
+
+  <nav class="onglets" aria-label="Navigation">
+    <button class="onglet actif" data-aller="aujourdhui"><span aria-hidden="true">☀️</span>Aujourd'hui</button>
+    <button class="onglet" data-aller="village"><span aria-hidden="true">🏘️</span>Village</button>
+    <button class="onglet" data-aller="perso"><span aria-hidden="true">🧙</span>Perso</button>
+    <button class="onglet" data-aller="reglages"><span aria-hidden="true">⚙️</span>Réglages</button>
+  </nav>
+
+  <script src="version.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

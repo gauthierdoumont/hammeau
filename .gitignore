@@ -1,0 +1,10 @@
+# Hameau — fichiers à ne jamais mettre dans le dépôt public — Créé par Gauthier Doumont
+node_modules/
+dist/
+*.keystore
+*.jks
+*.b64
+*.pem
+.env*
+perso/
+tests/captures/

@@ -1,0 +1,106 @@
+/* Hameau — styles (mobile d'abord, mode sombre) — Créé par Gauthier Doumont */
+
+/* ===== COULEURS ===== */
+:root {
+  --fond: #141a2e;
+  --surface: #1f2742;
+  --surface-2: #29335a;
+  --texte: #eef1fa;
+  --texte-doux: #a9b2cf;
+  --accent: #ffd166;
+  --bord: #34406b;
+  /* Bords de l'écran (encoche, barre de navigation Android) */
+  --haut: env(safe-area-inset-top, var(--safe-area-inset-top, 0px));
+  --bas: env(safe-area-inset-bottom, var(--safe-area-inset-bottom, 0px));
+  --gauche: env(safe-area-inset-left, 0px);
+  --droite: env(safe-area-inset-right, 0px);
+  --hauteur-onglets: 64px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --fond: #f4f1ea;
+    --surface: #ffffff;
+    --surface-2: #ece6d8;
+    --texte: #1d2233;
+    --texte-doux: #5a6178;
+    --accent: #c98a00;
+    --bord: #ddd5c4;
+  }
+}
+
+/* ===== BASE ===== */
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--fond);
+  color: var(--texte);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.45;
+  -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
+}
+button { font: inherit; color: inherit; }
+
+/* ===== EN-TÊTE ===== */
+.entete {
+  position: sticky; top: 0; z-index: 2;
+  padding: calc(var(--haut) + 12px) calc(var(--droite) + 16px) 12px calc(var(--gauche) + 16px);
+  background: var(--fond);
+}
+.entete h1 { max-width: 868px; margin: 0 auto; font-size: 1.5rem; }
+
+/* ===== ÉCRANS ===== */
+main {
+  max-width: 900px; margin: 0 auto;
+  padding: 0 calc(var(--droite) + 16px) calc(var(--bas) + var(--hauteur-onglets) + 24px) calc(var(--gauche) + 16px);
+}
+.ecran { display: none; }
+.ecran.actif { display: block; animation: apparition .18s ease-out; }
+@keyframes apparition { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+.carte {
+  background: var(--surface);
+  border: 1px solid var(--bord);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 12px;
+}
+.carte h2 { margin: 0 0 8px; font-size: 1.2rem; }
+.carte p { margin: 0 0 8px; }
+.discret { color: var(--texte-doux); font-size: .9rem; }
+
+.accueil { text-align: center; padding: 32px 20px; }
+.accueil-emoji { font-size: 3.5rem; line-height: 1; margin-bottom: 12px; }
+
+.ligne {
+  display: flex; justify-content: space-between; align-items: center;
+  width: 100%; min-height: 56px; padding: 0 16px;
+  background: var(--surface); border: 1px solid var(--bord); border-radius: 14px;
+  text-align: left; cursor: pointer;
+}
+.ligne:active { background: var(--surface-2); }
+
+.infos { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 12px 0; }
+.infos dt { color: var(--texte-doux); }
+.infos dd { margin: 0; text-align: right; }
+.signature { color: var(--texte-doux); font-size: .8rem; text-align: center; margin-top: 16px !important; }
+
+/* ===== BARRE D'ONGLETS ===== */
+.onglets {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 3;
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  padding: 0 var(--droite) var(--bas) var(--gauche);
+  background: var(--surface);
+  border-top: 1px solid var(--bord);
+}
+.onglet {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-height: var(--hauteur-onglets);
+  background: none; border: 0; cursor: pointer;
+  color: var(--texte-doux); font-size: .75rem;
+}
+.onglet span { font-size: 1.35rem; line-height: 1; filter: grayscale(.6); opacity: .8; }
+.onglet.actif { color: var(--accent); font-weight: 600; }
+.onglet.actif span { filter: none; opacity: 1; }

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Hameau</string>
+    <string name="title_activity_main">Hameau</string>
+    <string name="package_name">be.gauthierdoumont.hameau</string>
+    <string name="custom_url_scheme">be.gauthierdoumont.hameau</string>
+</resources>
