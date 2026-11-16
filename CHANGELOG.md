@@ -1,5 +1,9 @@
 # Journal des versions — Hameau
 
+## 1.7.4 — 2026-11-16 · Agenda à l'abri des règles impossibles
+- 🛡️ Une répétition impossible dans un agenda (ex. « tous les 30 février ») ne fige plus l'appli : elle est lue comme
+  un seul événement, et tout le reste de l'agenda s'affiche normalement.
+
 ## 1.7.3 — 2026-11-16 · Agenda : répétitions lues pareil partout
 - 📅 Les événements qui se répètent sont lus de la même façon sur ton téléphone, sur GitHub et dans les tests,
   quelle que soit la vitesse de la machine (avant : une répétition rare pouvait manquer sur un téléphone lent).

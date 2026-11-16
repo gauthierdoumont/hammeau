@@ -174,6 +174,22 @@
     }
   }
 
+  /* Règle IMPOSSIBLE : aucun jour demandé (BYMONTHDAY) n'existe dans les mois demandés (BYMONTH), ex. « le 30 février ».
+   * ical.js tournerait alors SANS FIN dans un seul next() (DAILY, HOURLY…) : l'appli se figerait à chaque ouverture.
+   * Une telle répétition n'a que son DTSTART (ce que donne ical.js pour MONTHLY / YEARLY) : lue comme un événement simple.
+   */
+  const JOURS_MAX = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  Cal.regleImpossible = function (vevent) {
+    const regles = vevent.getAllProperties('rrule').map(p => p.getFirstValue());
+    if (!regles.length) return false;
+    return regles.every(r => {
+      const jours = r.parts?.BYMONTHDAY;
+      if (!jours?.length) return false;
+      const mois = r.parts.BYMONTH?.length ? r.parts.BYMONTH : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+      return !mois.some(m => jours.some(j => j !== 0 && Math.abs(j) <= (JOURS_MAX[m - 1] || 0)));
+    });
+  };
+
   Cal.lireEvenements = function (txt, debut, fin, ICAL, garder = null, debutSerie = null) {
     const comp = new ICAL.Component(ICAL.parse(txt));
     comp.getAllSubcomponents('vtimezone').forEach(tz => ICAL.TimezoneService.register(tz));
@@ -213,7 +229,7 @@
       if (estException && origines.has(uid)) continue;   // lue avec son origine
       // Exceptions du MÊME uid seulement (sans cette liste, ical.js relie celles de TOUS les événements du fichier)
       const ev = new ICAL.Event(v, { exceptions: estException ? [] : exceptions.filter(x => x.getFirstPropertyValue('uid') === uid) });
-      if (!ev.isRecurring()) { ajouter(ev.startDate, ev.endDate, ev); continue; }
+      if (!ev.isRecurring() || Cal.regleImpossible(v)) { ajouter(ev.startDate, ev.endDate, ev); continue; }
       const depuis = debutSerie?.(uid, texte(ev.summary)) || debut;
       try { repetition(ev, debut, fin, ajouter, ICAL, depuis); } catch { /* règle illisible : le reste de l'agenda est gardé */ }
     }

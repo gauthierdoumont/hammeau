@@ -471,3 +471,32 @@ test('le résultat ne dépend PAS de la vitesse de la machine : plafond en nombr
   Date.now = () => (faux += 50);
   try { assert.equal(Cal.construireCache(enorme, LUNDI, C, ICAL).evenements.length, r1); } finally { Date.now = vraiNow; }
 });
+
+test('règle IMPOSSIBLE (« le 30 février » tous les jours ou toutes les heures) : jamais d\'appli figée, le reste de l\'agenda est lu', () => {
+  // Dans un processus à part, avec un délai maximal : si ical.js tournait sans fin, le test échoue au lieu de bloquer GitHub
+  const { spawnSync } = require('node:child_process');
+  const script = `
+    globalThis.window = globalThis;
+    require(${JSON.stringify(path.join(__dirname, '..', 'www', 'config.js'))});
+    const ICAL = require(${JSON.stringify(path.join(__dirname, '..', 'www', 'lib', 'ical.min.js'))});
+    const Cal = require(${JSON.stringify(path.join(__dirname, '..', 'www', 'calendrier.js'))});
+    const sortie = [];
+    for (const regle of ['FREQ=DAILY;BYMONTH=2;BYMONTHDAY=30', 'FREQ=HOURLY;BYMONTH=2;BYMONTHDAY=30', 'FREQ=DAILY;BYMONTH=4,6;BYMONTHDAY=31,-31']) {
+      const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0',
+        'BEGIN:VEVENT', 'UID:i@exemple.invalid', 'DTSTAMP:20260101T000000Z', 'DTSTART:20261117T080000Z', 'DURATION:PT1H', 'RRULE:' + regle, 'SUMMARY:Impossible', 'END:VEVENT',
+        'BEGIN:VEVENT', 'UID:ok@exemple.invalid', 'DTSTAMP:20260101T000000Z', 'DTSTART:20261118T100000Z', 'DURATION:PT1H', 'SUMMARY:Normal', 'END:VEVENT', 'END:VCALENDAR'].join('\\r\\n');
+      sortie.push(Cal.construireCache(ics, new Date('2026-11-16T09:00:00Z'), globalThis.CONFIG, ICAL).evenements.map(e => e.titre).join(','));
+    }
+    console.log(JSON.stringify(sortie));`;
+  const r = spawnSync(process.execPath, ['-e', script], { timeout: 20000, encoding: 'utf8' });
+  assert.equal(r.signal, null, 'figé : délai dépassé');
+  assert.equal(r.status, 0, r.stderr);
+  // Seul le DTSTART de la règle impossible reste (comme ical.js pour MONTHLY / YEARLY), et l'autre événement est bien lu
+  assert.deepEqual(JSON.parse(r.stdout), ['Impossible,Normal', 'Impossible,Normal', 'Impossible,Normal']);
+  // Une règle possible (29 février, 30 mars) n'est pas touchée
+  const V = (regle) => new ICAL.Component(ICAL.parse(agendaTz(['UID:p@exemple.invalid', 'DTSTART:20250101T100000Z', 'RRULE:' + regle, 'SUMMARY:P']))).getFirstSubcomponent('vevent');
+  assert.equal(Cal.regleImpossible(V('FREQ=DAILY;BYMONTH=2;BYMONTHDAY=29')), false);
+  assert.equal(Cal.regleImpossible(V('FREQ=DAILY;BYMONTH=2,3;BYMONTHDAY=30')), false);
+  assert.equal(Cal.regleImpossible(V('FREQ=WEEKLY;BYDAY=MO')), false);
+  assert.equal(Cal.regleImpossible(V('FREQ=DAILY;BYMONTH=2;BYMONTHDAY=30')), true);
+});
