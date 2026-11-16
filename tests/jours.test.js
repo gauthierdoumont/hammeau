@@ -140,6 +140,62 @@ test('pause rétroactive : les pénalités depuis la date choisie sont annulées
   assert.equal(r3.etat.joueur.pause.actif, false);
 });
 
+test('rien à traiter (tick de la minute) : même objet rendu, rien de changé, pas de copie', () => {
+  const e = etatDe('2026-11-15', { nom: 'Lire', type: 'quotidienne' });
+  e.etat.evenements = [{ jour: '2026-11-14', type: 'joker', avant: { serie: 2, joker: 1 } }];
+  const r = D.rattraper(e, a('2026-11-16'), C);
+  assert.equal(r.change, false);
+  assert.equal(r.jours, 0);
+  assert.equal(r.etat, e, 'même objet : « Annuler » reste possible dans l\'appli');
+  // Le matin, « hier » est encore ouvert : toujours rien à faire
+  assert.equal(D.rattraper(e, a('2026-11-17', '09:00'), C).change, false);
+  // Après midi, le 16 est traité : nouvel état
+  const r2 = D.rattraper(e, a('2026-11-17'), C);
+  assert.equal(r2.change, true);
+  assert.notEqual(r2.etat, e);
+  assert.equal(r2.etat.etat.dernierJourTraite, '2026-11-16');
+  // Pause finie mais pas encore rangée, ou vieil événement à oublier : il y a quelque chose à faire
+  const p = etatDe('2026-11-15');
+  p.joueur.pause = { actif: true, depuis: '2026-11-10', jusqua: '2026-11-15' };
+  assert.equal(D.rattraper(p, a('2026-11-16'), C).change, true);
+  const v = etatDe('2026-11-15');
+  v.etat.evenements = [{ jour: '2026-11-01', type: 'joker', avant: { serie: 1, joker: 1 } }];
+  const rv = D.rattraper(v, a('2026-11-16'), C);
+  assert.equal(rv.change, true);
+  assert.equal(rv.etat.etat.evenements.length, 0);
+});
+
+test('reprendre puis relancer une pause le même matin : la veille reste couverte', () => {
+  const e = etatDe('2026-11-12', { nom: 'Lire', type: 'quotidienne' });
+  e.joueur.pause = { actif: true, depuis: '2026-11-13', jusqua: null };
+  const matin = a('2026-11-17', '09:00');                // « hier » (le 16) pas encore traité
+  const r1 = D.rattraper(e, matin, C);
+  assert.equal(r1.etat.etat.dernierJourTraite, '2026-11-15');
+  const fin = D.finirPause(r1.etat, matin, C);           // reprise : pause jusqu'au 16
+  assert.equal(fin.joueur.pause.jusqua, '2026-11-16');
+  const re = D.activerPause(fin, '2026-11-17', a('2026-11-17', '09:30'), C);   // nouvelle pause aujourd'hui
+  assert.equal(re.ok, true);
+  assert.equal(re.etat.joueur.pause.depuis, '2026-11-13', 'l\'ancienne pause est prolongée, pas écrasée');
+  const midi = D.rattraper(re.etat, a('2026-11-17'), C); // le 16 est traité : couvert
+  assert.equal(midi.etat.joueur.moral, C.moral.depart);
+  // Ancienne pause entièrement traitée : la nouvelle commence bien à la date choisie
+  const fin2 = D.finirPause(r1.etat, a('2026-11-16'), C);   // jusqu'au 15, déjà traité
+  assert.equal(D.activerPause(fin2, '2026-11-16', a('2026-11-16'), C).etat.joueur.pause.depuis, '2026-11-16');
+});
+
+test('événements gardés : autant de jours que la pause rétroactive permet (config.js)', () => {
+  const C10 = { ...C, pause: { ...C.pause, retroJoursMax: 10 } };
+  const e = etatDe('2026-11-05', { nom: 'Lire', type: 'quotidienne' });
+  const r = D.rattraper(e, a('2026-11-16'), C10);        // du 6 au 15 : 10 jours de moral −5
+  assert.equal(r.etat.etat.evenements.filter(v => v.type === 'moral').length, 10);
+  const p = D.activerPause(r.etat, '2026-11-06', a('2026-11-16'), C10);
+  assert.equal(p.ok, true);
+  assert.equal(p.etat.joueur.moral, C.moral.depart, 'tout est rendu, même 10 jours en arrière');
+  // Avec la config de l'appli (7 jours) : seuls les 8 derniers jours restent annulables
+  const r7 = D.rattraper(e, a('2026-11-16'), C);
+  assert.equal(r7.etat.etat.evenements.filter(v => v.type === 'moral').length, C.pause.retroJoursMax + 1);
+});
+
 test('incendie : une seule fois par tâche ; bâtiment endommagé, ou perte de 20 % (max 50) sans village', () => {
   // Sans bâtiment : perte de ressource
   const e = etatDe('2026-11-14', { nom: 'Dossier', categorieId: 'papiers', echeance: '2026-11-14', important: true });

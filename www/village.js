@@ -352,6 +352,8 @@
         if (this.placement) this.majPlacement();
       }
       effacerBatiment({ images, effets }) {
+        // Halo et ⚠️ tournent en boucle (repeat: -1) : on les arrête d'abord, sinon ils animeraient des objets détruits
+        this.tweens.killTweensOf([...images, ...effets]);
         images.forEach(o => o.destroy());
         effets.forEach(o => o.destroy());
       }

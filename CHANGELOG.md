@@ -1,5 +1,15 @@
 # Journal des versions — Hameau
 
+## 1.2.1 — 2026-11-16 · Corrections (vérification)
+- ↩️ « Annuler » marche à nouveau pendant ses 5 s, même si l'appli fait sa petite vérification de la minute entre-temps.
+- 📥 Importer un vieil export ne fait plus payer les jours déjà comptés sur le téléphone (même règle que « Restaurer »).
+- ☕ Reprendre puis relancer une pause le même matin : la veille reste couverte par la pause.
+- ✅ Cocher deux fois une tâche « fait hier » affiche « Déjà noté pour hier ✅ » (et plus « aujourd'hui »).
+- 🔧 Dans « Construire », un bâtiment abîmé explique quoi faire : « À réparer d'abord : touche « Voir » ».
+- 🏰 Village : les animations d'un bâtiment remplacé s'arrêtent bien (moins de travail pour le téléphone).
+- 🧰 Coulisses : une seule porte pour remplacer toutes les données d'un coup ; seuil d'humeur 😊 et bornes du moral
+  dans `config.js` ; durée de garde des événements tirée de la pause rétroactive ; colonnes de la simulation tirées de la Mairie.
+
 ## 1.2.0 — 2026-11-16 · Agenda
 - 📅 **Mon agenda** (Réglages) : colle l'adresse secrète iCal de ton Google Agenda, Hameau lit tes événements
   (cours qui se répètent, changements d'heure, cours déplacés ou annulés, journées entières).

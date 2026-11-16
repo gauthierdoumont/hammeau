@@ -32,6 +32,7 @@
     if (p.bloque === 'mairie') return p.action === 'construire' ? '🔒 Construis d\'abord la Mairie' : `🔒 Monte la Mairie au niveau ${p.requis}`;
     if (p.bloque === 'niveauJoueur') return `🔒 Demande le niveau ${p.requis} de chef`;
     if (p.bloque === 'max') return '⭐ Niveau maximum atteint';
+    if (p.bloque === 'endommage') return '🔧 À réparer d\'abord : touche « Voir » pour le remettre sur pied';   // carte grisée sinon muette
     return '';
   }
   // Pastilles de coût : vert si assez, rouge doux + « il manque » sinon

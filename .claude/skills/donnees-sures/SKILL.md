@@ -121,3 +121,5 @@ Fixtures dans `tests/fixtures/` : **fictives uniquement** (dépôt public), une 
 - [ ] Après installation : il vérifie niveau, série et ressources, puis le confirme
 
 *Skill créé par Gauthier Doumont*
+
+<sub>Créé par Gauthier Doumont</sub>

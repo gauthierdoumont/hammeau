@@ -321,6 +321,20 @@ function S_ok(e) { return e.schemaVersion === 2 && new Set(e.taches.map(t => t.i
   await pause(page);
   verifier(await page.locator(`[data-tache="${garage}"]`).count() === 1, 'Annuler la suppression');
 
+  // « Annuler » juste après le tick de la minute (aucun jour à traiter) : l'annulation marche toujours
+  await ajouter('Arroser les plantes');
+  const plantes = await idDe('Arroser les plantes');
+  const xpPlantes = (await etatStocke()).joueur.xpTotal;
+  await page.click(`[data-cocher="${plantes}"]`);
+  await page.waitForTimeout(200);
+  const refAvantTick = await page.evaluate(() => { window.__ref = etat; verifierNouveauJour(); return etat === window.__ref; });
+  verifier(refAvantTick, 'tick sans jour à traiter : état inchangé (même objet)');
+  await page.click('#toast-action');
+  await pause(page);
+  verifier((await page.textContent('#toast-texte')).includes('Annulé'), 'Annuler après le tick : annulé, pas « trop tard »');
+  e = await etatStocke();
+  verifier(e.joueur.xpTotal === xpPlantes && !e.taches.find(t => t.id === plantes).archivee, 'Annuler après le tick : tout revient comme avant');
+
   // Montée de niveau
   await page.evaluate(() => { etat.joueur.xp = 95; });
   await page.click(`[data-cocher="${garage}"]`);

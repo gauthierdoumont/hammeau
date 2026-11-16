@@ -82,7 +82,8 @@ function sauver(e) {
   return true;
 }
 
-// Seule porte d'écriture : une erreur dans l'action ou la vérification → rien n'est sauvé
+// Porte d'écriture des modifications : une erreur dans l'action ou la vérification → rien n'est sauvé
+// (pour remplacer tout l'état d'un coup : remplacerEtat, juste en dessous ; nulle part ailleurs on n'écrit « etat = »)
 function modifier(action) {
   const copie = structuredClone(etat);
   try {
@@ -98,18 +99,27 @@ function modifier(action) {
   rendre();
   return true;
 }
+// Seconde (et dernière) porte d'écriture : remplacer TOUT l'état d'un coup (rattrapage des jours, « Annuler »,
+// import, restauration, récupération, démarrage). Même règle que modifier() : vérifié d'abord ; si la vérification
+// lève une erreur, rien n'est changé ni sauvé (l'appelant choisit le message). verifier: false uniquement pour un état
+// déjà vérifié (ex. l'état d'avant une coche). Toute autre écriture passe par modifier().
+function remplacerEtat(nouvel, { verifier = true, redessiner = true } = {}) {
+  if (verifier) S.verifier(nouvel, C);
+  etat = nouvel;
+  sauver(etat);
+  if (redessiner) rendre();
+}
 // Erreur à montrer telle quelle (ex. « Déjà fait aujourd'hui ✅ »)
 function refus(texte) { const x = new Error(texte); x.pourUtilisateur = texte; return x; }
 
 // « Annuler » : revient à l'état d'avant, seulement si rien n'a changé entre-temps
+// (le rattrapage des jours ne remplace l'état que s'il a vraiment changé : un simple tick ne bloque pas « Annuler »)
 function proposerAnnulation(texte, avant) {
   const apres = etat;
   toast(texte, {
     texte: 'Annuler', delai: 5000, action: () => {
       if (etat !== apres) return toast('Trop tard pour annuler.');
-      etat = avant;
-      sauver(etat);
-      rendre();
+      remplacerEtat(avant, { verifier: false });   // « avant » était l'état courant, déjà vérifié
       toast('Annulé ↩️');
     }
   });
@@ -204,9 +214,7 @@ async function restaurerSauvegarde(nom) {
       [{ texte: 'Annuler', valeur: false }, { texte: 'Restaurer', valeur: true, principal: true }]);
     if (!ok) return;
     await sauvegardeAvant('restauration', lireBrut());
-    etat = r.etat;
-    sauver(etat);
-    rendre();
+    remplacerEtat(r.etat);
     rendreSauvegardes();
     toast('Copie restaurée ✅');
   } catch (x) {
@@ -502,8 +510,7 @@ async function importerFichier(fichier) {
     [{ texte: 'Annuler', valeur: false }, { texte: 'Remplacer', valeur: true, principal: true }]);
   if (!ok) return;
   await sauvegardeAvant('import', lireBrut());
-  etat = r.etat;
-  sauver(etat);
+  remplacerEtat(r.etat, { redessiner: false });
   document.body.classList.remove('bloque');
   historique.length = 1;
   afficher('aujourdhui');
@@ -520,8 +527,7 @@ async function essayerCopieSecours() {
     const d = value && value !== brutIllisible ? S.decider(value, C) : null;
     if (!d || d.type !== 'ok') return message('Pas de copie utilisable', 'La copie de secours est absente ou abîmée elle aussi. Essaie d\'importer ton dernier export.');
     await sauvegardeAvant('illisible', brutIllisible);   // on garde aussi le texte illisible, au cas où
-    etat = d.etat;
-    sauver(etat);
+    remplacerEtat(d.etat, { redessiner: false });
     document.body.classList.remove('bloque');
     afficher('aujourdhui');
     rendre();
@@ -726,12 +732,13 @@ function fermerProchaine() {
 }
 
 /* ===== JOURS : rattrapage, retour d'absence, veille, pause (étape 6) ===== */
-// Applique le rattrapage à l'état ; renvoie le message de retour à afficher (ou null)
-function rattraperJours() {
+// Applique le rattrapage à l'état ; renvoie le message de retour à afficher (ou null).
+// Rien de neuf (cas de presque chaque minute) → l'état n'est pas remplacé : « Annuler » reste possible.
+function rattraperJours({ redessiner = true } = {}) {
   try {
     const r = Jours.rattraper(etat, maintenant(), C, hasard());
-    S.verifier(r.etat, C);
-    etat = r.etat;
+    if (!r.change) return null;
+    remplacerEtat(r.etat, { redessiner });
     const nomBatiment = (id) => {
       const b = etat.village?.batiments.find(x => x.id === id);
       const def = b && window.CATALOGUE_VILLAGE?.batiments[b.type];
@@ -768,7 +775,7 @@ function cocherHier(tacheId) {
   const avant = etat;
   let r;
   const ok = modifier(e => {
-    r = M.saisir(e, tacheId, null, { id: S.nouvelId(), horodatage: maintenant().toISOString(), jour: hier, rng: hasard() }, C);
+    r = M.saisir(e, tacheId, null, { id: S.nouvelId(), horodatage: maintenant().toISOString(), jour: hier, rng: hasard(), veille: true }, C);
     if (!r.ok) throw refus(r.erreur);
   });
   if (!ok) return;
@@ -1036,9 +1043,8 @@ async function demarrer() {
     return afficher('trop-recent');
   }
   if (d.aMigrer) await sauvegardeAvant('migration-v' + S.SCHEMA, brut);
-  etat = d.etat;
-  const retour = rattraperJours();      // jours écoulés depuis la dernière ouverture (avant le 1er affichage)
-  sauver(etat);
+  remplacerEtat(d.etat, { verifier: false, redessiner: false });   // déjà vérifié par S.decider ; sauvé (migration, 1er lancement)
+  const retour = rattraperJours({ redessiner: false });            // jours écoulés depuis la dernière ouverture (avant le 1er affichage)
   afficher('aujourdhui');
   rendre();
   sauvegardeHebdo();
@@ -1130,7 +1136,7 @@ function rendrePerso() {
   document.getElementById('perso-serie').textContent = j.serie.jours;
   document.getElementById('perso-joker').textContent = j.serie.joker > 0 ? '🃏 joker dispo cette semaine' : '🃏 joker utilisé (revient lundi)';
   document.getElementById('perso-moral').textContent = j.moral;
-  document.getElementById('perso-humeur').textContent = j.moral >= 70 ? '😊' : j.moral >= C.moral.seuilTriste ? '🙂' : '😌';
+  document.getElementById('perso-humeur').textContent = j.moral >= C.moral.seuilContent ? '😊' : j.moral >= C.moral.seuilTriste ? '🙂' : '😌';
   document.getElementById('perso-moral-jauge').style.width = `${j.moral}%`;
   rendreHistorique();
   document.getElementById('perso-niveau').textContent = j.niveau;
@@ -1470,10 +1476,9 @@ PL.App?.addListener('backButton', () => { if (!retourEcranPrecedent()) PL.App.ex
 // on redessine pour que les quotidiennes d'hier ne restent pas « faites »
 function verifierNouveauJour() {
   if (!etat || document.body.classList.contains('bloque')) return;
-  const avant = etat.etat.dernierJourTraite;
-  const retour = rattraperJours();
-  if (etat.etat.dernierJourTraite !== avant) sauver(etat);
-  if (jourActuel() !== jourAffiche || retour || etat.etat.dernierJourTraite !== avant) rendre();
+  const avant = etat;
+  const retour = rattraperJours({ redessiner: false });   // ne sauve que si quelque chose a changé
+  if (etat !== avant || jourActuel() !== jourAffiche) rendre();
   if (retour) afficherRetour(retour);
 }
 PL.App?.addListener('resume', () => {

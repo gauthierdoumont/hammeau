@@ -91,7 +91,7 @@ window.CONFIG = {
   coffre: { chance: 0.1, nbRessources: 2, min: 10, max: 30, gemmesMin: 1, gemmesMax: 3 }, // chance ↑ = coffres plus fréquents
 
   /* ===== Moral, jours, pénalités ===== */
-  moral: { depart: 80, min: 0, max: 100, parTache: 1, quotidienneNonFaite: -5, seuilTriste: 40 },
+  moral: { depart: 80, min: 0, max: 100, parTache: 1, quotidienneNonFaite: -5, seuilTriste: 40, seuilContent: 70 }, // seuilContent : humeur 😊 dès ce moral
   jour: { fuseau: 'Europe/Brussels', heureBascule: 4, heureClotureVeille: 12 }, // bascule ↑ = la journée finit plus tard la nuit
   pause: { retroJoursMax: 7 },                          // ↑ = pause activable plus loin dans le passé
   incendie: { part: 0.2, max: 50 },                     // V1 : part de la ressource perdue (plafonnée à max)
