@@ -1,7 +1,7 @@
 # Suivi — Hameau
 
 ## Où on en est
-- Version : 1.3.0 · Données : **schéma v3** · Prochaine session : suivre **CLAUDE.md §2** dans l'ordre (16 → 17 → 18 → 19 → 1b) · Dernière session : 2026-11-16
+- Version : 1.4.0 · Données : **schéma v3** · Prochaine session : suivre **CLAUDE.md §2** dans l'ordre (17 → 18 → 19 → 1b) · Dernière session : 2026-11-16
 
 ## Dernière session
 - Fait : 2.0 rééquilibrage (v0.7.1, tests de coûts calculés depuis `CONFIG`) puis étape 8 (v1.0.0) : Sons / Vibrations,
@@ -12,12 +12,14 @@
   cache J−1 à J+120, `CapacitorHttp.get()` explicite ; navigateur : `localStorage.debug_ics` = texte d'un agenda (tests).
 - Étape 15b (v1.3.0) : « Cours du jour » + « J'y étais » (`M.jYEtais`, saisie du journal `tacheId: null` + `cours`),
   examens marqués à la main (`agenda.examens`) → **migration v3** + `tests/fixtures/etat-v3.json`.
+- Étape 16 (v1.4.0) : surprises du jour (`www/surprises.js`, hasard injecté) ; fête et défi de tempête calculés DANS le moteur
+  (`M.bonusFete`, `M.releverDefi`) ; `etat.etat.surprise` = champ facultatif complété (pas de migration).
 - Vérification par sous-agents (vérificateur → correcteur) : 10 corrections fusionnées en v1.2.1 (Annuler après le tick de 60 s,
   import sans rejouer les jours, pause relancée le même matin, `remplacerEtat()` seule porte de remplacement complet, valeurs → config).
 - Simulation 2.0 (200 j, 20 graines, médianes) : tout au niveau 5 → régulier 125 j, intense 62 j, léger > 200 j.
 - Check-list `appli-native` : navigateur 360/412/1100 px OK, hors ligne OK, export/import OK, appId inchangé, pas de server.url,
   aucun secret. Reste : workflow ✅ + Release (impossible avant la 1b, clé de signature).
-- Testé : `npm test` (122), `npm run e2e` (15 sections, plugin de notifications simulé, agenda d'exemple), `node outils/simulation.js`.
+- Testé : `npm test` (129), `npm run e2e` (16 sections, plugin de notifications simulé, agenda d'exemple), `node outils/simulation.js`.
 - Non testé / à vérifier sur le téléphone : tout (1er APK à la 1b), dont l'ouverture de la page GitHub par `@capacitor/browser`,
   l'arrivée des rappels à l'heure (optimisation de batterie MagicOS à désactiver pour Hameau) et la petite icône,
   la lecture du vrai Google Agenda (impossible à tester ici : le navigateur bloque).
@@ -70,6 +72,7 @@
 | 2026-11-16 | Agenda : l'adresse n'est jamais réaffichée (champ vide « Adresse enregistrée ✅ ») ; le cache des événements, lui, est dans l'export | Secret protégé ; l'export reste complet hors ligne |
 | 2026-11-16 | « J'y étais » = gain d'une tâche Cours (moyenne, multiplicateur quotidienne) ; saisie du journal sans tâche | Compte pour la journée et la série comme une tâche |
 | 2026-11-16 | Cours du jour = tous les événements à heure fixe du jour ; journées entières en simple ligne 📌 | Tout est centralisé dans Google Agenda |
+| 2026-11-16 | Surprises : marchand (échange ×1,5 facultatif), tempête = défi 3 tâches → +30 bois +30 pierre, fête +20 % ; 30 %/jour, rien en pause | Le hasard ne donne que des bonus |
 | 2026-11-15 | `joueur.xp` = XP dans le niveau en cours, `joueur.xpTotal` = cumul (champ ajouté) | Un changement de courbe ne fera jamais baisser un niveau |
 
 ## À faire plus tard (noté, hors étape)

@@ -12,6 +12,7 @@ const J = window.Temps;
 const MAJ = window.MisesAJour;
 const N = window.Notifications;
 const Cal = window.Calendrier;
+const Sur = window.Surprises;
 const CLE = S.CLE;
 const NOMS_TYPES = { quotidienne: '🔁 Quotidiennes', imprevu: '⚡ Imprévus', bonus: '⭐ Bonus' };
 const JOURS_COURTS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
@@ -687,12 +688,65 @@ function retourGain(depart, r, avant, texteFini) {
   vibrer(r.terminee ? 'MEDIUM' : 'LIGHT');
   window.Sons?.jouer(r.terminee ? 'pieces' : 'valide');
   let texte = texteFini;
+  if (r.defi) texte = 'Tempête passée, le hameau a tenu bon ! ' + listeRessources(r.defi) + ' 🌈';
   if (r.coffre) texte = 'Un coffre ! 🎁';
   if (r.niveauxGagnes) texte = `Niveau ${etat.joueur.niveau} atteint ! 🎉`;
   proposerAnnulation(texte, avant);
   // Les grands moments arrivent juste après le « +25 » qui s'envole
   if (r.coffre) celebrer({ type: 'coffre', coffre: r.coffre });
   if (r.niveauxGagnes) celebrer({ type: 'niveau', niveau: etat.joueur.niveau, gagnes: r.niveauxGagnes });
+}
+
+/* ===== SURPRISE DU JOUR (étape 16) : marchand, tempête (défi), fête — toujours un bonus ===== */
+const nomRes = (id) => C.ressources.find(r => r.id === id);
+function listeRessources(o) { return Object.entries(o).map(([r, q]) => `+${nombre(q)} ${nomRes(r)?.emoji || ''}`).join(' '); }
+// Un tirage par jour logique (au démarrage et quand la journée change) ; hasard injecté (debug_hasard dans le navigateur)
+function tirerSurprise() {
+  if (!etat || document.body.classList.contains('bloque')) return;
+  const jour = jourActuel();
+  if (Sur.aTirer(etat, jour)) modifier(e => { Sur.tirer(e, jour, C, hasard()); });
+}
+function rendreSurprise() {
+  const s = Sur.duJour(etat, jourActuel());
+  const zone = document.getElementById('surprise');
+  zone.hidden = !s || s.fini === 'decline';
+  if (zone.hidden) return;
+  let icone = '', titre = '', detail = '', jauge = null, boutons = false;
+  if (s.type === 'marchand') {
+    icone = '🧳';
+    if (s.fini === 'echange') { titre = 'Bonne affaire !'; detail = `Le marchand t'a laissé ${nombre(s.quantiteRecue)} ${nomRes(s.recoit).emoji}. À la prochaine !`; }
+    else {
+      titre = 'Un marchand ambulant passe au hameau';
+      detail = `Il t'offre ${nombre(s.quantiteRecue)} ${nomRes(s.recoit).emoji} ${nomRes(s.recoit).nom.toLowerCase()} contre ${nombre(s.quantiteDonnee)} ${nomRes(s.donne).emoji} ${nomRes(s.donne).nom.toLowerCase()}.`;
+      boutons = true;
+    }
+  } else if (s.type === 'tempete') {
+    const fait = Math.min(s.cible, Sur.avancement(etat, s.jour));
+    if (s.fini) { icone = '🌈'; titre = 'Le hameau a tenu bon !'; detail = 'Récompense reçue : ' + listeRessources(s.recompense); }
+    else {
+      icone = '⛈️'; titre = 'Une tempête approche !';
+      detail = `Termine ${s.cible} tâches aujourd'hui pour mettre le hameau à l'abri : ${listeRessources(s.recompense)} (${fait} / ${s.cible})`;
+      jauge = fait / s.cible;
+    }
+  } else if (s.type === 'fete') {
+    const f = C.familles.find(x => x.id === s.famille);
+    icone = '🎉'; titre = 'Jour de fête au hameau !';
+    detail = `Les tâches ${f.emoji} ${f.nom} rapportent +${Math.round(s.bonus * 100)} % aujourd'hui.`;
+  }
+  document.getElementById('surprise-icone').textContent = icone;
+  document.getElementById('surprise-titre').textContent = titre;
+  document.getElementById('surprise-detail').textContent = detail;
+  document.getElementById('surprise-jauge-zone').hidden = jauge === null;
+  if (jauge !== null) document.getElementById('surprise-jauge').style.width = `${Math.round(jauge * 100)}%`;
+  document.getElementById('surprise-boutons').hidden = !boutons;
+}
+function echangerMarchand() {
+  const jour = jourActuel();
+  const ok = modifier(e => { const r = Sur.echanger(e, jour); if (!r.ok) throw refus(r.erreur); });
+  if (!ok) return;
+  window.Sons?.jouer('pieces');
+  vibrer('MEDIUM');
+  toast('Échange fait 🤝');
 }
 
 /* ===== COURS DU JOUR (étape 15b) =====
@@ -1110,6 +1164,7 @@ async function demarrer() {
   const retour = rattraperJours({ redessiner: false });            // jours écoulés depuis la dernière ouverture (avant le 1er affichage)
   afficher('aujourdhui');
   rendre();
+  tirerSurprise();                      // surprise du jour (bonus), une fois par jour logique
   sauvegardeHebdo();
   if (retour) await afficherRetour(retour);
   // Rappels : proposés seulement quand il y a déjà une tâche (sinon rien d'utile à rappeler)
@@ -1143,6 +1198,7 @@ function rendre() {
   rendreListes();
   rendreCategories();
   rendreCours();
+  rendreSurprise();
   rendreHier();
   rendrePause();
   rendreProchaine();
@@ -1514,6 +1570,13 @@ document.getElementById('btn-mises-a-jour').addEventListener('click', () => veri
 document.getElementById('btn-rappel-export').addEventListener('click', exporter);
 document.getElementById('btn-rappel-plus-tard').addEventListener('click', () => { rappelExportCache = true; rendreReglages(); });
 
+// Surprise du jour : marchand
+document.getElementById('btn-surprise-oui').addEventListener('click', echangerMarchand);
+document.getElementById('btn-surprise-non').addEventListener('click', () => {
+  const jour = jourActuel();
+  if (modifier(e => Sur.decliner(e, jour))) toast('Le marchand reprend la route 👋');
+});
+
 // Cours du jour : « J'y étais », marquage d'examen
 document.getElementById('liste-cours').addEventListener('click', (e) => {
   const b = e.target.closest('[data-jy-etais], [data-examen-cle]');
@@ -1552,6 +1615,7 @@ function verifierNouveauJour() {
   if (!etat || document.body.classList.contains('bloque')) return;
   const avant = etat;
   const retour = rattraperJours({ redessiner: false });   // ne sauve que si quelque chose a changé
+  tirerSurprise();                                         // nouvelle journée → nouvelle surprise possible (ne change rien sinon)
   if (etat !== avant || jourActuel() !== jourAffiche) rendre();
   if (retour) afficherRetour(retour);
 }

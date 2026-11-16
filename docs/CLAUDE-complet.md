@@ -192,7 +192,7 @@ Objectif d'équilibrage : **environ 4 mois** d'usage régulier pour tout monter 
 - [x] 15b. Affichage des cours dans Aujourd'hui + « J'y étais » → Savoir (~40 min)
 
 ### V4 — Le fun à long terme
-- [ ] 16. Événements aléatoires (marchand ambulant, tempête…) (~45 min)
+- [x] 16. Événements aléatoires (marchand ambulant, tempête…) (~45 min)
 - [ ] 17. Examens = boss (repérés par mot-clé, compte à rebours, révisions = dégâts) (~45 min)
 - [ ] 18. Bilan hebdomadaire avec graphiques de progression (~45 min)
 - [ ] 19. Import de l'historique de l'app muscu → XP automatique (~45 min)

@@ -17,7 +17,7 @@
    *              « J'y étais » (v3) : tacheId null + cours (uid|début de l'occurrence) + titre
    * agenda       {examens {cle: true = examen | false = pas un examen}} (v3 ; sans entrée → selon le titre)
    * joueur       xp = XP gagnée dans le niveau en cours (xpTotal = cumul, ne baisse jamais)
-   * etat         {dernierJourTraite}
+   * etat         {dernierJourTraite, evenements[], surprise?{jour, type, …}} (surprise : champ facultatif, complété)
    * village      {batiments[{id, type, niveau 1-5, x, y (case de grille), endommage, construitLe}], extensions, decorations[]}
    * reglages     icsUrl n'est JAMAIS exportée
    */
@@ -41,7 +41,7 @@
         serie: { jours: 0, joker: C.serie.jokersParSemaine },
         pause: { actif: false, depuis: null, jusqua: null }
       },
-      etat: { dernierJourTraite: null, evenements: [] },   // evenements : pénalités récentes, annulables par une pause
+      etat: { dernierJourTraite: null, evenements: [], surprise: null },   // evenements : pénalités récentes, annulables par une pause ; surprise du jour (bonus)
       village: { batiments: [], extensions: 0, decorations: [] },
       agenda: { examens: {} },
       reglages: {

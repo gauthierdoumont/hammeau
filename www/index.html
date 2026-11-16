@@ -40,6 +40,19 @@
         <h3 class="intertitre">🎓 Cours du jour</h3>
         <div id="liste-cours"></div>
       </div>
+      <!-- Surprise du jour (bonus seulement) : marchand, tempête = défi, fête -->
+      <div class="surprise" id="surprise" hidden>
+        <span class="surprise-icone" id="surprise-icone" aria-hidden="true"></span>
+        <div class="surprise-texte">
+          <b id="surprise-titre"></b>
+          <span id="surprise-detail"></span>
+          <span class="chantier-jauge" id="surprise-jauge-zone" hidden><i id="surprise-jauge"></i></span>
+          <div class="surprise-boutons" id="surprise-boutons" hidden>
+            <button type="button" class="bouton" id="btn-surprise-non">Non merci</button>
+            <button type="button" class="bouton principal" id="btn-surprise-oui">Échanger</button>
+          </div>
+        </div>
+      </div>
       <!-- Le matin : ce qui reste d'hier (saisie de la veille jusqu'à midi) -->
       <div class="hier" id="hier" hidden>
         <h3 class="intertitre">↩️ Hier, jusqu'à midi</h3>
@@ -621,6 +634,7 @@
   <script src="village-geo.js"></script>
   <script src="mises-a-jour.js"></script>
   <script src="notifications.js"></script>
+  <script src="surprises.js"></script>
   <script src="lib/ical.min.js"></script>
   <script src="calendrier.js"></script>
   <script src="sons.js"></script>

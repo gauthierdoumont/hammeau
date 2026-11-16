@@ -132,6 +132,15 @@ window.CONFIG = {
   },
 
   /* ===== Données ===== */
+  /* ===== Surprises du jour (V4) : le hasard ne donne QUE des bonus ===== */
+  surprises: {
+    chance: 0.3,                                   // chance d'une surprise par jour ; ↑ = plus souvent
+    poids: { marchand: 1, tempete: 1, fete: 1 },   // ↑ = ce type sort plus souvent
+    marchand: { lot: 30, taux: 1.5 },              // donne `lot` de ta ressource la plus abondante, reçois lot × taux de la plus rare
+    tempete: { taches: 3, recompense: { bois: 30, pierre: 30 } },   // défi du jour : N tâches terminées → récompense
+    fete: { bonus: 0.2 }                           // une famille au hasard : +20 % de gains aujourd'hui
+  },
+
   /* ===== Cours de l'agenda : « J'y étais » (V3) ===== */
   cours: { categorieId: 'cours', taille: 'moyenne', type: 'quotidienne' },   // gain d'une présence ; taille ↑ = plus de 📜
 

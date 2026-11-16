@@ -30,7 +30,28 @@
     const batiment = 1 + M.bonusFamille(etat, familleId, C);
     const repos = familleId === 'repos' ? C.repos.facteurXp : 1;
     const antiFarm = M.terminesDuJour(etat.journal, jour) >= C.antiFarm.seuil ? C.antiFarm.facteur : 1;
-    return { type, serie, batiment, repos, antiFarm, total: type * serie * batiment * repos * antiFarm };
+    const fete = 1 + M.bonusFete(etat, jour, familleId);
+    return { type, serie, batiment, repos, antiFarm, fete, total: type * serie * batiment * repos * antiFarm * fete };
+  };
+
+  /* ===== SURPRISES DU JOUR (étape 16, voir surprises.js) =====
+   * Lues ICI, comme le bonus des bâtiments : aucune façon de cocher ne peut oublier la fête ni le défi.
+   */
+  const surpriseDuJour = (etat, jour) => {
+    const s = etat.etat?.surprise;
+    return s && s.jour === jour && s.type ? s : null;
+  };
+  M.bonusFete = (etat, jour, familleId) => {
+    const s = surpriseDuJour(etat, jour);
+    return s?.type === 'fete' && familleId && s.famille === familleId ? s.bonus : 0;
+  };
+  // Tempête : défi relevé dès `cible` tâches terminées ce jour-là → récompense, une seule fois. → récompense ou null
+  M.releverDefi = function (etat, jour) {
+    const s = surpriseDuJour(etat, jour);
+    if (s?.type !== 'tempete' || s.fini || M.terminesDuJour(etat.journal, jour) < s.cible) return null;
+    for (const [r, q] of Object.entries(s.recompense)) etat.joueur.ressources[r] = (etat.joueur.ressources[r] || 0) + q;
+    s.fini = 'releve';
+    return s.recompense;
   };
 
   /* ===== COFFRE (10 % de chance quand une tâche passe à 100 %) ===== */
@@ -173,7 +194,8 @@
     const niv = crediter(etat, gain, ressource, categorie ? familleId : null, coffre, terminee && b.progression < 1, C);
 
     if (terminee && tache.type !== 'quotidienne') { tache.archivee = true; tache.termineeLe = ctx.horodatage; }
-    return { ok: true, gain, ressource, progression: apres, terminee, niveauxGagnes: niv.niveauxGagnes, multiplicateurs: mult, coffre };
+    const defi = M.releverDefi(etat, ctx.jour);
+    return { ok: true, gain, ressource, progression: apres, terminee, niveauxGagnes: niv.niveauxGagnes, multiplicateurs: mult, coffre, defi };
   };
 
   // Ajoute un gain au joueur (XP, niveau, ressource, stats, coffre, moral). Partagé par saisir et jYEtais.
@@ -224,7 +246,8 @@
     if (coffre) entree.coffre = coffre;
     etat.journal.push(entree);
     const niv = crediter(etat, gain, ressource, categorie?.familleId ?? null, coffre, true, C);
-    return { ok: true, gain, ressource, progression: 1, terminee: true, niveauxGagnes: niv.niveauxGagnes, multiplicateurs: mult, coffre };
+    const defi = M.releverDefi(etat, ctx.jour);
+    return { ok: true, gain, ressource, progression: 1, terminee: true, niveauxGagnes: niv.niveauxGagnes, multiplicateurs: mult, coffre, defi };
   };
 
   /* ===== LISTES DU JOUR =====

@@ -826,6 +826,52 @@ function S_ok(e) { return e.schemaVersion === SCHEMA && new Set(e.taches.map(t =
   await ctx.close();
 }
 
+/* 16. Étape 16 : surprises du jour (marchand, tempête = défi, fête) — toujours un bonus */
+{
+  const { ctx, page, erreurs, externes } = await nouvellePage(412);
+  verifier(await page.isHidden('#surprise'), 'hasard « jamais » : pas de surprise');
+  verifier(await page.evaluate(() => Appli.etat().etat.surprise?.jour === '2026-11-16'), 'tirage du jour fait (une fois)');
+  // Tirage réel avec le hasard forcé : pas de ressources → pas de marchand → tempête
+  await page.evaluate(() => { localStorage.setItem('debug_hasard', 'toujours'); Appli.modifier(e => { e.etat.surprise = null; }); tirerSurprise(); });
+  verifier(await page.evaluate(() => Appli.etat().etat.surprise.type) === 'tempete', 'tirage réel : tempête');
+  await page.evaluate(() => localStorage.setItem('debug_hasard', 'jamais'));
+  // Tempête : 3 tâches terminées → récompense
+  await page.evaluate(() => Appli.modifier(e => {
+    for (const id of ['t1', 't2', 't3']) Taches.ajouterTache(e, Taches.creerTache({ nom: 'Défi ' + id, categorieId: 'menage' }, e, CONFIG, id, '2026-11-15T08:00:00.000Z').tache);
+  }));
+  verifier((await page.textContent('#surprise')).includes('0 / 3'), 'tempête : 0 / 3');
+  const boisAvant = await page.evaluate(() => Appli.etat().joueur.ressources.bois);
+  for (const id of ['t1', 't2', 't3']) { await page.click(`[data-cocher="${id}"]`); await page.waitForTimeout(250); }
+  let e = await page.evaluate(() => Appli.etat());
+  verifier(e.etat.surprise.fini === 'releve', 'tempête : défi relevé');
+  verifier((await page.textContent('#toast-texte')).includes('Tempête passée'), 'message de victoire : ' + await page.textContent('#toast-texte'));
+  verifier((await page.textContent('#surprise')).includes('Le hameau a tenu bon'), 'carte : le hameau a tenu bon');
+  verifier(e.joueur.ressources.bois > boisAvant + 30, 'récompense de bois reçue');
+  // Marchand : échange avantageux
+  await page.evaluate(() => Appli.modifier(x => { x.joueur.ressources.bois = 100; x.joueur.ressources.savoir = 0; x.etat.surprise = { jour: '2026-11-16', type: 'marchand', donne: 'bois', recoit: 'savoir', quantiteDonnee: 30, quantiteRecue: 45 }; }));
+  verifier((await page.textContent('#surprise-detail')).includes('45 📜') && await page.isVisible('#btn-surprise-oui'), 'offre du marchand');
+  await page.screenshot({ path: 'tests/captures/etape16-marchand.png' });
+  await page.click('#btn-surprise-oui');
+  await page.waitForTimeout(250);
+  e = await page.evaluate(() => Appli.etat());
+  verifier(e.joueur.ressources.bois === 70 && e.joueur.ressources.savoir === 45, 'échange fait : ' + e.joueur.ressources.bois + ' / ' + e.joueur.ressources.savoir);
+  verifier((await page.textContent('#surprise')).includes('Bonne affaire') && await page.isHidden('#surprise-boutons'), 'marchand reparti');
+  // « Non merci » : carte cachée, rien ne change
+  await page.evaluate(() => Appli.modifier(x => { x.etat.surprise = { jour: '2026-11-16', type: 'marchand', donne: 'bois', recoit: 'or', quantiteDonnee: 30, quantiteRecue: 45 }; }));
+  await page.click('#btn-surprise-non');
+  await page.waitForTimeout(200);
+  verifier(await page.isHidden('#surprise') && (await page.evaluate(() => Appli.etat().joueur.ressources.bois)) === 70, 'non merci : rien ne change');
+  // Fête : +20 % pour la famille
+  await page.evaluate(() => Appli.modifier(x => { x.etat.surprise = { jour: '2026-11-16', type: 'fete', famille: 'discipline', bonus: 0.2 }; }));
+  verifier((await page.textContent('#surprise-detail')).includes('+20 %') && (await page.textContent('#surprise-detail')).includes('Discipline'), 'jour de fête annoncé');
+  const texteSurprise = await page.textContent('#surprise');
+  verifier(!/\b(raté|échec|seulement|oublié|paresse|tu dois|perdu|perte)\b/i.test(texteSurprise), 'aucun mot négatif');
+  verifier(!(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)), 'surprise : pas de défilement horizontal');
+  verifier(!externes.length, 'ressources externes (surprises) : ' + externes);
+  verifier(!erreurs.length, 'erreurs console (surprises) : ' + erreurs);
+  await ctx.close();
+}
+
 await nav.close(); serveur.close();
-console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso, cocher, village, construction, décorations, agrandir, réparer, coffre, fête, jours, prochaine action, perso, réglages, sauvegardes, rappel d\'export, mises à jour, rappels, agenda, cours du jour');
+console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso, cocher, village, construction, décorations, agrandir, réparer, coffre, fête, jours, prochaine action, perso, réglages, sauvegardes, rappel d\'export, mises à jour, rappels, agenda, cours du jour, surprises');
 process.exit(echecs.length ? 1 : 0);

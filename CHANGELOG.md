@@ -1,5 +1,12 @@
 # Journal des versions — Hameau
 
+## 1.4.0 — 2026-11-16 · Surprises du jour
+- 🎲 Environ un jour sur trois, une **surprise** sur Aujourd'hui — toujours un bonus, jamais une perte :
+  - 🧳 **Marchand ambulant** : ta ressource la plus abondante contre la plus rare, avec un bonus de 50 % (« Non merci » ne coûte rien).
+  - ⛈️ **Tempête** : un défi — termine 3 tâches dans la journée et le hameau reçoit +30 🪵 +30 🪨. Pas relevé ? Il ne se passe rien.
+  - 🎉 **Jour de fête** : les tâches d'une famille rapportent +20 % toute la journée.
+- Rien pendant une pause. Réglages du hasard dans `config.js`.
+
 ## 1.3.0 — 2026-11-16 · Cours du jour
 - 🎓 **Cours du jour** en haut d'Aujourd'hui (lus dans ton agenda, même hors ligne) : heure, lieu, et les journées spéciales (📌 congé…).
 - ✋ **« J'y étais »** dès l'heure de début : +25 📜 Savoir (comme une tâche de la catégorie Cours, avec série et Bibliothèque),
