@@ -5,6 +5,7 @@
 | Graphismes du village (pack « Sketch Town » + « Sketch Town Expansion ») | `www/assets/village/village.png` (atlas : pièces choisies, réduites de moitié par `outils/preparer-village.js`) + `LICENCE-pack.txt` | Kenney (www.kenney.nl) | Creative Commons Zero (CC0 1.0) — domaine public, crédit apprécié |
 | Sons courts (pose, marteau, fanfare, pièces, clic, validation) | `www/assets/sons/*.ogg` (6 fichiers renommés, non modifiés) + `LICENCE-sons.txt` | Kenney (www.kenney.nl) — packs « Impact Sounds », « RPG Audio », « Music Jingles », « Interface Sounds » | Creative Commons Zero (CC0 1.0) |
 | Moteur du village Phaser 3.90.0 | `www/lib/phaser.min.js` (copie non modifiée) | Phaser Studio Inc. (phaser.io) | MIT |
+| Lecture de l'agenda : ical.js 2.2.1 | `www/lib/ical.min.js` (copie non modifiée de `dist/ical.es5.min.cjs`) | Philipp Kewisch et contributeurs (https://github.com/kewisch/ical.js) | Mozilla Public License 2.0 (https://mozilla.org/MPL/2.0/) — fichier inchangé, source disponible sur le dépôt d'origine |
 | Police Cinzel (titres, graisse 700) | `www/fonts/cinzel-latin-700-normal.woff2` | The Cinzel Project Authors (https://github.com/NDISCOVER/Cinzel), via Fontsource | SIL Open Font License 1.1 (texte complet ci-dessous) |
 
 Le code de Hameau lui-même est créé par Gauthier Doumont.

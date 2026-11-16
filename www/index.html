@@ -156,6 +156,20 @@
         </button>
       </div>
 
+      <h3 class="intertitre">Agenda</h3>
+      <div class="groupe">
+        <button class="ligne" data-aller="agenda">
+          <span class="ligne-icone" data-teinte="pro" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <rect class="plein" x="3.5" y="5" width="17" height="15" rx="2"/>
+              <rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M8 3v4M16 3v4M8 13h2M14 13h2M8 16.5h2"/>
+            </svg>
+          </span>
+          <span class="ligne-texte">Mon agenda<small id="info-agenda">Pas encore relié</small></span>
+          <svg class="chevron" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="m9.5 6 6 6-6 6"/></svg>
+        </button>
+      </div>
+
       <h3 class="intertitre">Rappels</h3>
       <div class="groupe">
         <div class="ligne">
@@ -299,6 +313,43 @@
       <div id="liste-categories"></div>
     </section>
 
+    <!-- Sous-écran Agenda (ouvert depuis Réglages) : adresse secrète iCal de Google Agenda -->
+    <section class="ecran" id="ecran-agenda" data-titre="Agenda" data-parent="reglages">
+      <p class="discret aide">Hameau lit ton Google Agenda pour montrer tes cours du jour. Sur ordinateur, dans Google Agenda :
+        ⚙️ Paramètres → clique sur ton agenda → « Adresse secrète au format iCal » → copie-la ici.
+        Elle reste sur ce téléphone : jamais dans l'export.</p>
+      <form class="carte agenda-form" id="form-agenda" autocomplete="off" novalidate>
+        <label class="etiquette-champ" for="agenda-adresse">Adresse secrète (iCal)
+          <input class="champ" id="agenda-adresse" type="url" inputmode="url" spellcheck="false" autocapitalize="off"
+                 placeholder="https://calendar.google.com/…/basic.ics">
+        </label>
+        <p class="erreur" id="agenda-erreur" role="alert"></p>
+        <div class="actions">
+          <button type="submit" class="bouton principal" id="btn-agenda-enregistrer">Relier mon agenda</button>
+        </div>
+      </form>
+      <div class="agenda-relie" id="agenda-relie" hidden>
+        <div class="groupe">
+          <button class="ligne" id="btn-agenda-actualiser">
+            <span class="ligne-icone" data-teinte="discipline" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20">
+                <path d="M19.5 12a7.5 7.5 0 0 1-13 5.1M4.5 12a7.5 7.5 0 0 1 13-5.1M17.5 3.5v3.4h-3.4M6.5 20.5v-3.4h3.4"/>
+              </svg>
+            </span>
+            <span class="ligne-texte">Actualiser<small id="agenda-etat"></small></span>
+          </button>
+          <button class="ligne" id="btn-agenda-retirer">
+            <span class="ligne-icone" data-teinte="corps" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20"><path d="M6 6l12 12M18 6 6 18"/></svg>
+            </span>
+            <span class="ligne-texte">Retirer l'agenda<small>Efface l'adresse et les événements gardés</small></span>
+          </button>
+        </div>
+        <h3 class="intertitre">Les prochains jours</h3>
+        <div class="groupe" id="agenda-apercu"></div>
+      </div>
+    </section>
+
     <!-- Sous-écran Sauvegardes automatiques (ouvert depuis Réglages) -->
     <section class="ecran" id="ecran-sauvegardes" data-titre="Sauvegardes" data-parent="reglages">
       <p class="discret aide">Hameau garde tout seul une copie par semaine et une copie avant chaque opération délicate (import, mise à jour, restauration). Elles restent sur ce téléphone : pour changer de téléphone, utilise l'export.</p>
@@ -329,6 +380,7 @@
           <li><b>Sons</b> — Kenney (kenney.nl), domaine public (CC0).</li>
           <li><b>Moteur du village</b> — Phaser (phaser.io), licence MIT.</li>
           <li><b>Police des titres</b> — Cinzel, licence SIL Open Font.</li>
+          <li><b>Lecture de l'agenda</b> — ical.js, licence MPL 2.0.</li>
         </ul>
         <p class="signature">Créé par Gauthier Doumont</p>
       </div>
@@ -564,6 +616,8 @@
   <script src="village-geo.js"></script>
   <script src="mises-a-jour.js"></script>
   <script src="notifications.js"></script>
+  <script src="lib/ical.min.js"></script>
+  <script src="calendrier.js"></script>
   <script src="sons.js"></script>
   <script src="village.js"></script>
   <script src="village-ui.js"></script>

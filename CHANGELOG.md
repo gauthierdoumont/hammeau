@@ -1,5 +1,12 @@
 # Journal des versions — Hameau
 
+## 1.2.0 — 2026-11-16 · Agenda
+- 📅 **Mon agenda** (Réglages) : colle l'adresse secrète iCal de ton Google Agenda, Hameau lit tes événements
+  (cours qui se répètent, changements d'heure, cours déplacés ou annulés, journées entières).
+- Aperçu des 7 prochains jours ; les examens sont repérés tout seuls (examen, exam, interro, test) 🎯.
+- Hors ligne : la dernière version gardée reste affichée (« Hors ligne — version gardée à 10:42 »). Actualisé à l'ouverture et avec « Actualiser ».
+- L'adresse reste sur le téléphone : jamais réaffichée, jamais dans l'export ni dans les journaux.
+
 ## 1.1.0 — 2026-11-16 · Rappels
 - 🔔 **Rappels** : le matin ton programme du jour, le soir s'il reste des quotidiennes (« Plus que 2 quotidiennes et ta série passe à 6 jours 🔥 »),
   et la veille d'une échéance. Jamais de reproche, rien pendant une pause.

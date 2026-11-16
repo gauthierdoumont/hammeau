@@ -1,2 +1,2 @@
 // Généré par scripts/version.js — Créé par Gauthier Doumont
-window.APP_VERSION = "1.1.0";
+window.APP_VERSION = "1.2.0";

@@ -143,6 +143,15 @@ window.CONFIG = {
     propositionsMax: 2         // propositions d'activer les rappels au total (jamais d'insistance)
   },
 
+  /* ===== Agenda iCal (V3) ===== */
+  calendrier: {
+    joursAvant: 1,             // événements gardés en mémoire avant aujourd'hui
+    joursApres: 120,           // … et après (≈ un quadrimestre)
+    actualiserMinutes: 60,     // à l'ouverture, on recharge si le cache a plus que ça ; ↓ = plus de données mobiles
+    delaiSecondes: 15,         // attente maximale du téléchargement
+    apercuJours: 7             // Réglages → Agenda : événements montrés en aperçu
+  },
+
   donnees: {
     rappelExportJours: 14,   // rappel doux d'export après ce nombre de jours
     sauvegardesHebdo: 4,     // copies automatiques hebdomadaires gardées

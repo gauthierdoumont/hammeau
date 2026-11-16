@@ -11,6 +11,7 @@ const Jours = window.Jours;
 const J = window.Temps;
 const MAJ = window.MisesAJour;
 const N = window.Notifications;
+const Cal = window.Calendrier;
 const CLE = S.CLE;
 const NOMS_TYPES = { quotidienne: '🔁 Quotidiennes', imprevu: '⚡ Imprévus', bonus: '⭐ Bonus' };
 const JOURS_COURTS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
@@ -355,6 +356,118 @@ function changerRappel(cle, defaut) {
   if (interrupteur.checked) proposerRappels(false).catch(console.error);
 }
 
+/* ===== AGENDA (iCal) =====
+ * Téléchargement par CapacitorHttp.get() EXPLICITE (pas activé globalement : ça casserait le chargeur de Phaser).
+ * L'adresse secrète n'est jamais affichée, journalisée ni exportée. Les erreurs n'affichent jamais l'adresse.
+ */
+let agendaEnCours = false;
+let agendaHorsLigne = false;            // dernier essai sans réponse : on montre la version gardée, avec sa date
+async function telechargerAgenda(adresse) {
+  if (!NATIF) {   // navigateur (tests) : CORS bloque ; « debug_ics » = texte d'un agenda d'exemple
+    try { const d = localStorage.getItem('debug_ics'); if (d) return d; } catch {}
+    throw refus('L\'agenda se lit dans l\'appli installée sur le téléphone.');
+  }
+  const http = PL.CapacitorHttp;
+  if (!http) throw refus('Lecture de l\'agenda indisponible sur cet appareil.');
+  const ms = C.calendrier.delaiSecondes * 1000;
+  let r;
+  try { r = await http.get({ url: adresse, responseType: 'text', connectTimeout: ms, readTimeout: ms }); }
+  catch { throw refus('Pas de connexion pour l\'instant : la dernière version gardée reste affichée.'); }
+  const txt = String(r?.data ?? '');
+  if (r.status !== 200 || !Cal.estAgenda(txt)) throw refus('Cet agenda ne s\'ouvre pas : vérifie que c\'est bien l\'adresse secrète au format iCal.');
+  return txt;
+}
+function lireAgenda(txt) {
+  try { return Cal.construireCache(txt, maintenant(), C, window.ICAL); }
+  catch { throw refus('Cet agenda est illisible : vérifie l\'adresse (format iCal).'); }
+}
+async function actualiserAgenda(silencieux) {
+  const adresse = etat?.reglages.icsUrl;
+  if (!adresse || agendaEnCours) return;
+  agendaEnCours = true;
+  rendreAgenda();
+  try {
+    const cache = lireAgenda(await telechargerAgenda(adresse));
+    agendaHorsLigne = false;
+    modifier(x => { x.reglages.calendrierCache = cache; });
+    if (!silencieux) toast(`Agenda à jour 📅 ${cache.evenements.length} événements`);
+  } catch (x) {
+    console.error('Agenda :', x?.name || 'erreur');          // jamais le message brut (il pourrait contenir l'adresse)
+    agendaHorsLigne = true;
+    if (!silencieux) toast(x.pourUtilisateur || 'Agenda indisponible pour l\'instant.');
+  } finally {
+    agendaEnCours = false;
+    rendreAgenda();
+  }
+}
+async function relierAgenda() {
+  const champ = document.getElementById('agenda-adresse');
+  const erreur = document.getElementById('agenda-erreur');
+  const adresse = Cal.nettoyerAdresse(champ.value);
+  if (!adresse) { erreur.textContent = 'Colle l\'adresse complète : elle commence par https:// (ou webcal://).'; return; }
+  erreur.textContent = '';
+  const bouton = document.getElementById('btn-agenda-enregistrer');
+  bouton.disabled = true; bouton.textContent = 'Lecture…';
+  try {
+    const cache = lireAgenda(await telechargerAgenda(adresse));
+    agendaHorsLigne = false;
+    if (!modifier(x => { x.reglages.icsUrl = adresse; x.reglages.calendrierCache = cache; })) return;
+    champ.value = '';
+    toast(`Agenda relié 📅 ${cache.evenements.length} événements`);
+  } catch (x) {
+    console.error('Agenda :', x?.name || 'erreur');
+    erreur.textContent = x.pourUtilisateur || 'Cet agenda ne s\'ouvre pas pour l\'instant.';
+  } finally {
+    bouton.disabled = false;
+    rendreAgenda();
+  }
+}
+async function retirerAgenda() {
+  const ok = await dialogue('Retirer l\'agenda ?', '<p>L\'adresse et les événements gardés sont effacés de ce téléphone. Ton Google Agenda, lui, ne change pas.</p>',
+    [{ texte: 'Annuler', valeur: false }, { texte: 'Retirer', valeur: true, principal: true }]);
+  if (!ok) return;
+  agendaHorsLigne = false;
+  modifier(x => { x.reglages.icsUrl = ''; x.reglages.calendrierCache = null; });
+  toast('Agenda retiré');
+}
+function heureCourte(iso) {
+  return new Date(iso).toLocaleTimeString('fr-BE', { timeZone: C.jour.fuseau, hour: '2-digit', minute: '2-digit' });
+}
+function etatAgenda() {
+  const r = etat.reglages, cache = r.calendrierCache;
+  if (!r.icsUrl) return 'Pas encore relié';
+  if (agendaEnCours) return 'Actualisation…';
+  if (!cache?.chargeLe) return 'Relié';
+  const charge = new Date(cache.chargeLe);
+  const memeJour = jourCivil(charge) === jourCivil(maintenant());
+  const quand = memeJour ? 'à ' + heureCourte(cache.chargeLe) : 'le ' + charge.toLocaleDateString('fr-BE', { timeZone: C.jour.fuseau, day: 'numeric', month: 'numeric' });
+  return (agendaHorsLigne ? 'Hors ligne — version gardée ' : 'Mis à jour ') + quand;
+}
+function rendreAgenda() {
+  if (!etat) return;
+  const relie = !!etat.reglages.icsUrl;
+  document.getElementById('info-agenda').textContent = etatAgenda();
+  document.getElementById('agenda-relie').hidden = !relie;
+  document.getElementById('agenda-etat').textContent = etatAgenda();
+  const bouton = document.getElementById('btn-agenda-enregistrer');
+  if (!bouton.disabled) bouton.textContent = relie ? 'Changer d\'adresse' : 'Relier mon agenda';
+  document.getElementById('agenda-adresse').placeholder = relie ? 'Adresse enregistrée ✅ (colle-en une autre pour changer)' : 'https://calendar.google.com/…/basic.ics';
+  if (!relie) return;
+  // Aperçu : les prochains jours, groupés par jour
+  const aujourdhui = jourActuel();
+  const blocs = [];
+  for (let i = 0; i < C.calendrier.apercuJours; i++) {
+    const jour = J.ajouterJours(aujourdhui, i);
+    const evs = Cal.duJour(etat.reglages.calendrierCache, jour, C);
+    if (!evs.length) continue;
+    blocs.push(el('div', { class: 'agenda-jour' }, i === 0 ? 'Aujourd\'hui' : i === 1 ? 'Demain' : dateEcheanceLongue(jour).replace(/ \d{4}$/, '')));
+    for (const ev of evs) blocs.push(el('div', { class: 'agenda-ev' },
+      el('span', { class: 'agenda-heure' }, ev.journee ? 'journée' : heureCourte(ev.debut)),
+      el('span', { class: 'agenda-titre' }, ev.titre, Cal.estExamen(ev.titre) ? el('span', { class: 'etiquette-examen' }, ' 🎯 examen') : '', ev.lieu ? el('small', {}, ev.lieu) : '')));
+  }
+  document.getElementById('agenda-apercu').replaceChildren(...(blocs.length ? blocs : [el('p', { class: 'sauvegardes-vide' }, 'Rien dans ton agenda ces prochains jours. Profite ! 🌿')]));
+}
+
 /* ===== RÉGLAGES : sons, vibrations, rappels, rappel d'export ===== */
 let rappelExportCache = false;    // « ✕ » : caché jusqu'à la prochaine ouverture de l'appli (jamais d'insistance)
 function rendreReglages() {
@@ -367,6 +480,7 @@ function rendreReglages() {
     champ.disabled = !actif;
     document.getElementById(id + '-actif').checked = actif;
   }
+  rendreAgenda();
   document.getElementById('rappel-export').hidden = rappelExportCache || !S.rappelExport(etat, maintenant().toISOString(), C);
 }
 
@@ -932,6 +1046,7 @@ async function demarrer() {
   // Rappels : proposés seulement quand il y a déjà une tâche (sinon rien d'utile à rappeler)
   if (etat.taches.some(t => !t.archivee)) await proposerRappels(true).catch(console.error);
   replanifierBientot();
+  if (etat.reglages.icsUrl && Cal.aActualiser(etat.reglages.calendrierCache, maintenant(), C)) actualiserAgenda(true);
 }
 
 /* ===== RENDU ===== */
@@ -1329,6 +1444,12 @@ document.getElementById('btn-mises-a-jour').addEventListener('click', () => veri
 document.getElementById('btn-rappel-export').addEventListener('click', exporter);
 document.getElementById('btn-rappel-plus-tard').addEventListener('click', () => { rappelExportCache = true; rendreReglages(); });
 
+// Agenda
+document.getElementById('form-agenda').addEventListener('submit', (e) => { e.preventDefault(); relierAgenda(); });
+document.getElementById('agenda-adresse').addEventListener('input', () => { document.getElementById('agenda-erreur').textContent = ''; });
+document.getElementById('btn-agenda-actualiser').addEventListener('click', () => actualiserAgenda(false));
+document.getElementById('btn-agenda-retirer').addEventListener('click', retirerAgenda);
+
 // Rappels : heures, interrupteurs, test ; toucher une notification → écran Aujourd'hui
 document.getElementById('notif-matin-actif').addEventListener('change', () => changerRappel('notifMatin', C.notifications.matinDefaut));
 document.getElementById('notif-soir-actif').addEventListener('change', () => changerRappel('notifSoir', C.notifications.soirDefaut));
@@ -1355,7 +1476,10 @@ function verifierNouveauJour() {
   if (jourActuel() !== jourAffiche || retour || etat.etat.dernierJourTraite !== avant) rendre();
   if (retour) afficherRetour(retour);
 }
-PL.App?.addListener('resume', () => { verifierNouveauJour(); sauvegardeHebdo(); replanifierBientot(); });
+PL.App?.addListener('resume', () => {
+  verifierNouveauJour(); sauvegardeHebdo(); replanifierBientot();
+  if (etat && Cal.aActualiser(etat.reglages.calendrierCache, maintenant(), C)) actualiserAgenda(true);
+});
 document.addEventListener('visibilitychange', () => { if (!document.hidden) verifierNouveauJour(); });
 setInterval(verifierNouveauJour, 60 * 1000);
 

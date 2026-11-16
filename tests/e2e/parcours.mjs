@@ -716,6 +716,57 @@ function S_ok(e) { return e.schemaVersion === 2 && new Set(e.taches.map(t => t.i
   await ctx.close();
 }
 
+/* 14. Étape 15a : agenda iCal (fichier d'exemple FICTIF injecté par « debug_ics » : le navigateur bloque l'accès réel) */
+{
+  const { ctx, page, erreurs, externes } = await nouvellePage(412);
+  const SECRET = 'https://agenda.exemple.invalid/adresse-secrete-fictive/basic.ics';
+  const consoleTout = [];
+  page.on('console', m => consoleTout.push(m.text()));
+  await page.evaluate(ics => localStorage.setItem('debug_ics', ics), fs.readFileSync('tests/exemple.ics', 'utf8'));
+  await page.click('.onglet[data-aller="reglages"]');
+  verifier((await page.textContent('#info-agenda')) === 'Pas encore relié', 'agenda pas encore relié');
+  await page.click('.ligne[data-aller="agenda"]');
+  verifier(await page.isHidden('#agenda-relie'), 'rien à actualiser avant de relier');
+  await page.fill('#agenda-adresse', 'mon agenda');
+  await page.click('#btn-agenda-enregistrer');
+  verifier((await page.textContent('#agenda-erreur')).includes('https://'), 'adresse invalide : explication');
+  await page.fill('#agenda-adresse', SECRET.replace('https://', 'webcal://'));
+  await page.click('#btn-agenda-enregistrer');
+  await page.waitForTimeout(400);
+  let e = await page.evaluate(() => Appli.etat().reglages);
+  verifier(e.icsUrl === SECRET, 'adresse enregistrée (webcal → https)');
+  verifier(e.calendrierCache?.evenements.length >= 4 && e.calendrierCache.chargeLe, 'événements gardés en cache : ' + e.calendrierCache?.evenements.length);
+  verifier((await page.inputValue('#agenda-adresse')) === '', 'adresse jamais réaffichée');
+  const apercu = await page.textContent('#agenda-apercu');
+  verifier(apercu.includes("Aujourd'hui") && apercu.includes('08:30') && apercu.includes('Cours de comptabilité'), 'cours du jour dans l\'aperçu');
+  verifier(apercu.includes('Interrogation Consolidation') && apercu.includes('🎯 examen') && !apercu.includes('Réunion annulée'), 'examen repéré, annulé ignoré');
+  verifier((await page.textContent('#agenda-etat')).startsWith('Mis à jour à'), 'état : mis à jour');
+  await page.screenshot({ path: 'tests/captures/etape15a-agenda.png', fullPage: true });
+  // Export : jamais l'adresse
+  await page.click('.onglet[data-aller="reglages"]');
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#btn-exporter')]);
+  const exporte = fs.readFileSync(await dl.path(), 'utf8');
+  verifier(!exporte.includes('adresse-secrete-fictive') && exporte.includes('Interrogation Consolidation'), 'export : cache oui, adresse jamais');
+  // Hors ligne : la version gardée reste, avec un message neutre
+  await page.evaluate(() => localStorage.removeItem('debug_ics'));
+  await page.click('.ligne[data-aller="agenda"]');
+  await page.click('#btn-agenda-actualiser');
+  await page.waitForTimeout(300);
+  verifier((await page.textContent('#agenda-etat')).startsWith('Hors ligne — version gardée'), 'hors ligne : version gardée');
+  verifier((await page.textContent('#agenda-apercu')).includes('Cours de comptabilité'), 'hors ligne : cours toujours affichés');
+  // Retirer
+  await page.click('#btn-agenda-retirer');
+  await page.click('#dialogue-boutons .principal');
+  await page.waitForTimeout(300);
+  e = await page.evaluate(() => Appli.etat().reglages);
+  verifier(e.icsUrl === '' && e.calendrierCache === null, 'agenda retiré');
+  verifier(!consoleTout.some(t => t.includes('adresse-secrete-fictive')) && !(await lire(page)).includes('debug') , 'adresse absente des journaux');
+  verifier(!(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)), 'Agenda : pas de défilement horizontal');
+  verifier(!externes.length, 'ressources externes (agenda) : ' + externes);
+  verifier(!erreurs.filter(x => !/^Agenda :/.test(x)).length, 'erreurs console (agenda) : ' + erreurs);
+  await ctx.close();
+}
+
 await nav.close(); serveur.close();
-console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso, cocher, village, construction, décorations, agrandir, réparer, coffre, fête, jours, prochaine action, perso, réglages, sauvegardes, rappel d\'export, mises à jour, rappels');
+console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso, cocher, village, construction, décorations, agrandir, réparer, coffre, fête, jours, prochaine action, perso, réglages, sauvegardes, rappel d\'export, mises à jour, rappels, agenda');
 process.exit(echecs.length ? 1 : 0);

@@ -105,7 +105,7 @@
 - [x] 1a · [x] 2 · [x] 3 · [x] 4 · [x] 5a · [x] 5b · [x] 6 · [x] 7 · [x] 9 · [x] 10 · [x] 11 · [x] 12 · [x] 13
 - [x] 8. Réglages, À propos, vérification des mises à jour, check-list, v1.0.0
 - [x] 14. Notifications locales
-- [ ] 15a. Lecture iCal
+- [x] 15a. Lecture iCal
 - [ ] 15b. Cours du jour + « J'y étais » + examens
 - [ ] 16. Événements aléatoires · [ ] 17. Examens = boss · [ ] 18. Bilan hebdomadaire · [ ] 19. Import muscu
 - [ ] 1b. Clé de signature + 4 secrets + 1er build + installation sur le Honor — **en tout dernier**

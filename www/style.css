@@ -199,6 +199,20 @@ label.ligne { cursor: pointer; }
 .ligne-texte label { display: block; cursor: pointer; }
 .champ.heure { display: block; width: auto; min-height: 40px; margin-top: 8px; padding: 6px 10px; font-size: 1rem; color: var(--texte); }
 .champ.heure:disabled { opacity: .45; }
+/* Agenda : formulaire de l'adresse, aperçu des prochains jours */
+[data-teinte="pro"] { --teinte: var(--pro); }
+#ecran-agenda .aide { margin: 0 4px 14px; }
+#ecran-agenda .intertitre { display: flex; align-items: center; gap: 10px; margin: 22px 4px 10px; color: var(--accent); font-size: .875rem; letter-spacing: .08em; }
+#ecran-agenda .intertitre::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--or-bord), transparent); }
+.agenda-form { margin-bottom: 14px; }
+.agenda-form .actions { margin-top: 4px; }
+.agenda-jour { padding: 10px 14px 4px; color: var(--accent); font-weight: 700; font-size: .875rem; }
+.agenda-ev { display: flex; gap: 12px; align-items: baseline; padding: 6px 14px; }
+.agenda-ev:last-child { padding-bottom: 12px; }
+.agenda-heure { flex: none; width: 3.4em; color: var(--texte-doux); font-variant-numeric: tabular-nums; font-size: .875rem; }
+.agenda-titre { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.agenda-titre small { display: block; color: var(--texte-doux); font-size: .8rem; }
+.etiquette-examen { color: var(--corps); font-weight: 700; font-size: .8rem; white-space: nowrap; }
 /* Liste des sauvegardes automatiques */
 #ecran-sauvegardes .aide { margin: 0 4px 14px; }
 .sauvegarde .ligne-texte b { font-weight: 600; }
