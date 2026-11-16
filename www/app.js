@@ -392,6 +392,45 @@ function cocher(tacheId, quantite = null) {
   return true;
 }
 
+/* ===== PROCHAINE ACTION (étape 7) ===== */
+const ignoreesProchaine = new Set();      // « Pas maintenant » : en mémoire seulement (pas sauvegardé)
+let prochaineId = null;
+function rendreProchaine() {
+  const jour = jourActuel();
+  const candidats = M.candidatsProchaineAction(etat, jour, J.jourIso(jour));
+  document.getElementById('prochaine').hidden = !candidats.length;
+  if (!candidats.length) fermerProchaine();
+  else if (prochaineId && !candidats.some(t => t.id === prochaineId)) montrerProchaine();   // faite entre-temps → suivante
+}
+function montrerProchaine() {
+  const jour = jourActuel();
+  let t = M.prochaineAction(etat, jour, J.jourIso(jour), ignoreesProchaine);
+  if (!t && ignoreesProchaine.size) { ignoreesProchaine.clear(); t = M.prochaineAction(etat, jour, J.jourIso(jour)); }   // tour complet → on recommence
+  if (!t) { fermerProchaine(); return; }
+  prochaineId = t.id;
+  const cat = T.categorie(etat, t.categorieId);
+  const res = M.ressourceDe(cat, C);
+  const bilan = M.bilan(t, etat.journal, jour);
+  const gain = M.gainRestant(t, bilan, C, M.multiplicateurs(t, etat, C, jour, cat?.familleId).total);
+  const details = [];
+  if (t.echeance) details.push('Pour le ' + dateEcheance(t.echeance));
+  if (t.objectif) details.push(`${nombre(Math.min(bilan.somme, t.objectif.cible))} / ${nombre(t.objectif.cible)} ${t.objectif.unite}`);
+  const carte = el('div', { class: 'prochaine-contenu' },
+    el('span', { class: 'prochaine-emoji', 'aria-hidden': 'true' }, cat?.emoji ?? '•'),
+    el('span', { class: 'tache-texte' }, el('b', {}, t.nom), details.length ? el('small', {}, details.join(' · ')) : ''),
+    el('span', { class: 'gain' }, `+${gain} ${res ? C.ressources.find(r => r.id === res).emoji : 'XP'}`));
+  carte.style.setProperty('--famille', cat ? `var(--${cat.familleId})` : '');
+  document.getElementById('prochaine-tache').replaceChildren(carte);
+  document.getElementById('prochaine-carte').hidden = false;
+  document.getElementById('btn-prochaine').hidden = true;
+  document.getElementById('btn-c-est-fait').textContent = t.objectif ? '➕ J\'avance' : '✅ C\'est fait';
+}
+function fermerProchaine() {
+  prochaineId = null;
+  document.getElementById('prochaine-carte').hidden = true;
+  document.getElementById('btn-prochaine').hidden = false;
+}
+
 /* ===== JOURS : rattrapage, retour d'absence, veille, pause (étape 6) ===== */
 // Applique le rattrapage à l'état ; renvoie le message de retour à afficher (ou null)
 function rattraperJours() {
@@ -737,6 +776,7 @@ function rendre() {
   rendreCategories();
   rendreHier();
   rendrePause();
+  rendreProchaine();
   window.VillageUI?.rendre(etat);
   if (document.getElementById('ecran-perso').classList.contains('actif')) rendrePerso();
   rendreSousTitre(historique[historique.length - 1]);
@@ -784,9 +824,15 @@ function rendreChantier() {
     : 'Il manque ' + manques.slice(0, 3).map(([r, q]) => `${nombre(q)} ${C.ressources.find(x => x.id === r).emoji}`).join(' · ') + (manques.length > 3 ? ' …' : '');
 }
 
-// Écran Perso : le chef, ses talents (stats) et son hameau
+// Écran Perso : le chef, sa série, son moral, ses talents (stats), son hameau, ses 7 derniers jours
 function rendrePerso() {
   const j = etat.joueur, besoin = M.xpPourNiveau(j.niveau, C);
+  document.getElementById('perso-serie').textContent = j.serie.jours;
+  document.getElementById('perso-joker').textContent = j.serie.joker > 0 ? '🃏 joker dispo cette semaine' : '🃏 joker utilisé (revient lundi)';
+  document.getElementById('perso-moral').textContent = j.moral;
+  document.getElementById('perso-humeur').textContent = j.moral >= 70 ? '😊' : j.moral >= C.moral.seuilTriste ? '🙂' : '😌';
+  document.getElementById('perso-moral-jauge').style.width = `${j.moral}%`;
+  rendreHistorique();
   document.getElementById('perso-niveau').textContent = j.niveau;
   document.getElementById('perso-xp').textContent = `Niveau ${j.niveau} · ${nombre(j.xp)} / ${nombre(besoin)} XP · ${nombre(j.xpTotal)} XP en tout`;
   document.getElementById('perso-jauge').style.width = `${Math.min(100, (j.xp / besoin) * 100)}%`;
@@ -810,6 +856,33 @@ function rendrePerso() {
   document.getElementById('perso-village').replaceChildren(bats.length
     ? el('div', { class: 'perso-bats' }, ...bats.filter(b => CV.batiments[b.type]).map(b => el('span', { class: 'perso-bat' }, `${CV.batiments[b.type].emoji} ${CV.batiments[b.type].nom}`, el('small', {}, ` niv. ${b.niveau}`))))
     : el('p', { class: 'discret' }, 'Ton hameau attend sa Mairie : chaque tâche t\'en rapproche.'));
+}
+
+// Historique simple : les 7 derniers jours logiques (jamais de reproche : un jour vide est un « jour calme »)
+function rendreHistorique() {
+  const auj = jourActuel();
+  const parJour = new Map();
+  for (const s of etat.journal) {
+    if (!parJour.has(s.jour)) parJour.set(s.jour, []);
+    parJour.get(s.jour).push(s);
+  }
+  document.getElementById('perso-historique').replaceChildren(...Array.from({ length: 7 }, (_, i) => {
+    const jour = J.ajouterJours(auj, -i);
+    const saisies = parJour.get(jour) || [];
+    const xp = saisies.reduce((a, s) => a + (s.gains?.xp || 0), 0);
+    const finies = saisies.filter(s => s.progression >= 1).length;
+    const emojis = [...new Set(saisies.map(s => T.categorie(etat, etat.taches.find(t => t.id === s.tacheId)?.categorieId)?.emoji).filter(Boolean))].slice(0, 6);
+    const nom = i === 0 ? 'Aujourd\'hui' : i === 1 ? 'Hier' : dateJourCourt(jour);
+    const pause = Jours.enPause(etat.joueur, jour);
+    return el('div', { class: 'histo-jour' + (saisies.length ? '' : ' calme') },
+      el('span', { class: 'histo-nom' }, nom),
+      el('span', { class: 'histo-emojis', 'aria-hidden': 'true' }, saisies.length ? emojis.join(' ') : pause ? '⏸️' : '🌙'),
+      el('span', { class: 'histo-chiffres' }, saisies.length ? `${finies} ✅ · +${nombre(xp)} XP` : pause ? 'En pause' : 'Jour calme'));
+  }));
+}
+function dateJourCourt(jour) {
+  const [a, m, j] = jour.split('-').map(Number);
+  return new Date(Date.UTC(a, m - 1, j)).toLocaleDateString('fr-BE', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' });
 }
 
 // Sous-titre de l'en-tête sur Aujourd'hui : la date et un petit mot selon l'heure
@@ -1014,6 +1087,14 @@ document.getElementById('ajout-objectif').addEventListener('change', (e) => {
 document.getElementById('form-ajout').addEventListener('submit', (e) => { e.preventDefault(); enregistrerTache(); });
 document.getElementById('btn-supprimer').addEventListener('click', supprimerTacheEditee);
 document.getElementById('btn-pause').addEventListener('click', gererPause);
+document.getElementById('btn-prochaine').addEventListener('click', () => { window.Sons?.jouer('clic'); montrerProchaine(); });
+document.getElementById('btn-pas-maintenant').addEventListener('click', () => { if (prochaineId) ignoreesProchaine.add(prochaineId); montrerProchaine(); });
+document.getElementById('btn-c-est-fait').addEventListener('click', () => {
+  const t = etat.taches.find(x => x.id === prochaineId);
+  if (!t) return fermerProchaine();
+  if (t.objectif) return ouvrirSaisie(t.id);
+  if (cocher(t.id)) fermerProchaine();
+});
 document.getElementById('btn-reprendre').addEventListener('click', reprendre);
 
 // Feuille de saisie d'un objectif chiffré

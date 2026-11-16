@@ -217,6 +217,28 @@
     };
   };
 
+  /* ===== PROCHAINE ACTION (étape 7, CLAUDE.md §7) =====
+   * UNE seule tâche, dans cet ordre : imprévu avec échéance (la plus proche) → quotidienne prévue non faite
+   * (la plus petite) → imprévu sans échéance (le plus ancien) → bonus (le plus ancien).
+   * ignorees = Set d'ids écartés par « Pas maintenant » ; tout écarté → on recommence au début.
+   */
+  const ORDRE_TAILLE = { petite: 0, moyenne: 1, grosse: 2 };
+  M.candidatsProchaineAction = function (etat, jour, jourIso) {
+    const actives = etat.taches.filter(t => !t.archivee);
+    const pasFaite = t => M.progression(t, etat.journal, jour) < 1;
+    const avecEcheance = actives.filter(t => t.type === 'imprevu' && t.echeance)
+      .sort((a, b) => a.echeance.localeCompare(b.echeance) || parCreation(a, b));
+    const quotidiennes = actives.filter(t => t.type === 'quotidienne' && (t.jours || []).includes(jourIso) && pasFaite(t))
+      .sort((a, b) => (ORDRE_TAILLE[a.taille] ?? 1) - (ORDRE_TAILLE[b.taille] ?? 1) || parCreation(a, b));
+    const sansEcheance = actives.filter(t => t.type === 'imprevu' && !t.echeance).sort(parCreation);
+    const bonus = actives.filter(t => t.type === 'bonus').sort(parCreation);
+    return [...avecEcheance, ...quotidiennes, ...sansEcheance, ...bonus];
+  };
+  M.prochaineAction = function (etat, jour, jourIso, ignorees = new Set()) {
+    const candidats = M.candidatsProchaineAction(etat, jour, jourIso);
+    return candidats.find(t => !ignorees.has(t.id)) || null;
+  };
+
   function arrondi(x) { return Math.round(x * 1e6) / 1e6; }
 
   if (typeof module !== 'undefined') module.exports = M; else racine.Moteur = M;

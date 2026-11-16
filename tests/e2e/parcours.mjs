@@ -536,6 +536,35 @@ function S_ok(e) { return e.schemaVersion === 2 && new Set(e.taches.map(t => t.i
   await ctx.close();
 }
 
+/* 11. Étape 7 : Prochaine action (ordre, Pas maintenant, C'est fait) + écran Perso */
+{
+  const { ctx, page, erreurs } = await nouvellePage(412);
+  await page.evaluate(() => Appli.modifier(e => {
+    const aj = (s, id) => Taches.ajouterTache(e, Taches.creerTache({ categorieId: 'lecture', ...s }, e, CONFIG, id, '2026-11-0' + id.length + 'T08:00:00.000Z').tache);
+    aj({ nom: 'Rendre le rapport', categorieId: 'stage', echeance: '2026-11-18' }, 'r');
+    aj({ nom: 'Étirements', categorieId: 'muscu', type: 'quotidienne', taille: 'petite' }, 'qq');
+    aj({ nom: 'Nanoblock', categorieId: 'nanoblocks', type: 'bonus' }, 'bbb');
+  }));
+  await page.click('#btn-prochaine');
+  verifier((await page.textContent('#prochaine-tache')).includes('Rendre le rapport'), "1re proposition : l'échéance");
+  await page.click('#btn-pas-maintenant');
+  verifier((await page.textContent('#prochaine-tache')).includes('Étirements'), 'puis la petite quotidienne');
+  await page.screenshot({ path: 'tests/captures/etape7-prochaine.png' });
+  await page.click('#btn-c-est-fait');
+  await page.waitForTimeout(400);
+  verifier(await page.evaluate(() => Appli.etat().journal.some(s => s.tacheId === 'qq')), "« C'est fait » coche la tâche");
+  verifier(await page.isHidden('#prochaine-carte'), 'carte refermée');
+  await page.waitForTimeout(800);
+  await page.click('.onglet[data-aller="perso"]');
+  await pause(page);
+  verifier((await page.textContent('#perso-historique')).includes("Aujourd'hui") && (await page.textContent('#perso-historique')).includes('1 ✅'), 'historique du jour');
+  verifier(/\d/.test(await page.textContent('#perso-serie')) && (await page.textContent('#perso-moral')) === '81', 'série et moral affichés');
+  await page.screenshot({ path: 'tests/captures/etape7-perso.png', fullPage: true });
+  verifier(!(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)), 'Perso : pas de défilement horizontal');
+  verifier(!erreurs.length, 'erreurs console (étape 7) : ' + erreurs);
+  await ctx.close();
+}
+
 await nav.close(); serveur.close();
-console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso, cocher, village, construction, décorations, agrandir, réparer, coffre, fête, jours');
+console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso, cocher, village, construction, décorations, agrandir, réparer, coffre, fête, jours, prochaine action, perso');
 process.exit(echecs.length ? 1 : 0);

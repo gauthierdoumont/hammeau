@@ -799,3 +799,43 @@ body.village-placement-actif .village-construire { display: none; }
 .hier .tache { opacity: .92; border-style: dashed; border-left-style: solid; }
 #ecran-aujourdhui .hier .intertitre { color: var(--texte-doux); }
 select.champ { appearance: none; -webkit-appearance: none; color: var(--texte); }
+
+/* ===== ÉTAPE 7 : Prochaine action, Perso (série, moral, historique) ===== */
+.prochaine { margin-bottom: 8px; }
+.bouton-prochaine {
+  width: 100%; min-height: 50px; border-radius: var(--rayon-menu); font-family: var(--police-titre); font-weight: 700; font-size: 1.05rem;
+  color: var(--lisere); background: linear-gradient(180deg, var(--surface-2), var(--surface)); border: 1px solid var(--or-bord);
+  box-shadow: inset 0 1px 0 var(--or-filet), 0 4px 12px var(--assombri);
+}
+.bouton-prochaine:active { transform: scale(.98); }
+.prochaine-carte {
+  padding: 12px; border-radius: var(--rayon-menu); border: 1px solid var(--or-bord);
+  background: radial-gradient(circle at 0 0, var(--or-voile), transparent 60%), var(--surface);
+  box-shadow: 0 0 18px var(--lueur); animation: surgit .35s cubic-bezier(.2, 1.4, .4, 1);
+}
+.prochaine-carte > small { color: var(--accent); font-weight: 700; text-transform: uppercase; letter-spacing: .08em; font-size: .75rem; }
+.prochaine-contenu { display: flex; align-items: center; gap: 12px; margin: 10px 0 12px; padding-left: 10px; border-left: 4px solid var(--famille, var(--accent)); }
+.prochaine-emoji { font-size: 1.8rem; }
+.prochaine-contenu b { display: block; font-size: 1.1rem; }
+.prochaine-contenu small { color: var(--texte-doux); }
+.prochaine-boutons { display: flex; gap: 8px; }
+.prochaine-boutons .bouton { flex: 1; }
+.prochaine-boutons .principal { flex: 1.4; }
+
+.perso-duo { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.mini-carte { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 14px 10px; text-align: center; margin: 0; }
+.mini-carte .gros { font-size: 1.6rem; }
+.mini-carte .gros b { font-family: var(--police-titre); color: var(--lisere); }
+.mini-carte small { font-size: .8rem; }
+.jauge.moral { width: 100%; height: 8px; margin-top: 6px; }
+.jauge.moral i { background: linear-gradient(90deg, var(--corps), var(--social)); }
+.jauge.moral i::after { animation: none; }
+.historique { display: flex; flex-direction: column; gap: 6px; }
+.histo-jour {
+  display: grid; grid-template-columns: 7.5em 1fr auto; align-items: center; gap: 8px; padding: 10px 12px;
+  border-radius: var(--rayon); background: var(--surface); border: 1px solid var(--bord);
+}
+.histo-jour.calme { opacity: .7; }
+.histo-nom { font-weight: 600; text-transform: capitalize; }
+.histo-emojis { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.histo-chiffres { color: var(--texte-doux); font-size: .875rem; white-space: nowrap; }

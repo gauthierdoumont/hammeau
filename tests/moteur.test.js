@@ -294,3 +294,26 @@ test('coffre : 10 % des tâches terminées, 2 ressources (10 à 30) + 1 à 3 gem
   assert.equal(M.saisir(e, 't0', 5, { ...ctx(), rng: () => 0 }, C).coffre, null);
   assert.equal(M.saisir(etatAvec({ nom: 'X' }), 't0', null, ctx(), C).coffre, null);
 });
+
+/* ===== Étape 7 : Prochaine action ===== */
+test('prochaine action : échéance la plus proche → petite quotidienne → imprévu le plus ancien → bonus', () => {
+  const e = S.etatInitial(C);
+  const aj = (s, id, creeLe) => T.ajouterTache(e, T.creerTache({ categorieId: 'lecture', ...s }, e, C, id, creeLe).tache);
+  aj({ nom: 'Bonus', type: 'bonus' }, 'b', '2026-11-01');
+  aj({ nom: 'Vieux imprévu', type: 'imprevu' }, 'i1', '2026-11-02');
+  aj({ nom: 'Récent imprévu', type: 'imprevu' }, 'i2', '2026-11-10');
+  aj({ nom: 'Grosse quoti', type: 'quotidienne', taille: 'grosse' }, 'q1', '2026-11-01');
+  aj({ nom: 'Petite quoti', type: 'quotidienne', taille: 'petite' }, 'q2', '2026-11-05');
+  aj({ nom: 'Pas lundi', type: 'quotidienne', taille: 'petite', jours: [2] }, 'q3', '2026-11-01');
+  aj({ nom: 'Échéance loin', echeance: '2026-12-01' }, 'e1', '2026-11-03');
+  aj({ nom: 'Échéance proche', echeance: '2026-11-18' }, 'e2', '2026-11-04');
+  const jour = '2026-11-16', iso = 1;
+  assert.deepEqual(M.candidatsProchaineAction(e, jour, iso).map(t => t.id), ['e2', 'e1', 'q2', 'q1', 'i1', 'i2', 'b']);
+  // « Pas maintenant » → la suivante ; tout écarté → null (l'appli recommence au début)
+  const ignorees = new Set(['e2']);
+  assert.equal(M.prochaineAction(e, jour, iso, ignorees).id, 'e1');
+  assert.equal(M.prochaineAction(e, jour, iso, new Set(['e2', 'e1', 'q2', 'q1', 'i1', 'i2', 'b'])), null);
+  // Une quotidienne faite aujourd'hui sort de la liste
+  M.saisir(e, 'q2', null, { id: 'x', horodatage: 'x', jour }, C);
+  assert.ok(!M.candidatsProchaineAction(e, jour, iso).some(t => t.id === 'q2'));
+});

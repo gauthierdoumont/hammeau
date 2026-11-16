@@ -51,6 +51,18 @@
         </span>
         <span class="chantier-chevron" aria-hidden="true">›</span>
       </button>
+      <!-- Prochaine action : une seule tâche proposée -->
+      <div class="prochaine" id="prochaine" hidden>
+        <button type="button" class="bouton-prochaine" id="btn-prochaine">⚡ Prochaine action</button>
+        <div class="prochaine-carte" id="prochaine-carte" hidden>
+          <small>Et si tu faisais…</small>
+          <div class="prochaine-tache" id="prochaine-tache"></div>
+          <div class="prochaine-boutons">
+            <button type="button" class="bouton" id="btn-pas-maintenant">Pas maintenant</button>
+            <button type="button" class="bouton principal" id="btn-c-est-fait">✅ C'est fait</button>
+          </div>
+        </div>
+      </div>
       <div class="carte vide" id="aujourdhui-vide">
         <div class="vide-emoji" id="vide-emoji" aria-hidden="true">🏡</div>
         <h2 id="vide-titre">Ton village attend ta première tâche</h2>
@@ -98,11 +110,24 @@
         <p class="discret" id="perso-xp"></p>
         <div class="jauge"><i id="perso-jauge"></i></div>
       </div>
+      <div class="perso-duo">
+        <div class="carte mini-carte">
+          <span class="gros">🔥 <b id="perso-serie">0</b></span>
+          <small>jours de série</small>
+          <small class="discret" id="perso-joker"></small>
+        </div>
+        <div class="carte mini-carte">
+          <span class="gros"><span id="perso-humeur">😊</span> <b id="perso-moral">80</b></span>
+          <small>moral</small>
+          <div class="jauge moral"><i id="perso-moral-jauge"></i></div>
+        </div>
+      </div>
       <h3 class="intertitre">Tes talents</h3>
       <div class="stats" id="perso-stats"></div>
       <h3 class="intertitre">Ton hameau</h3>
       <div class="carte" id="perso-village"></div>
-      <p class="discret aide">Série, moral et historique arrivent bientôt.</p>
+      <h3 class="intertitre">Ces 7 derniers jours</h3>
+      <div class="historique" id="perso-historique"></div>
     </section>
 
     <!-- Écran Réglages -->
