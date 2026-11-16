@@ -132,6 +132,9 @@ window.CONFIG = {
   },
 
   /* ===== Données ===== */
+  /* ===== Cours de l'agenda : « J'y étais » (V3) ===== */
+  cours: { categorieId: 'cours', taille: 'moyenne', type: 'quotidienne' },   // gain d'une présence ; taille ↑ = plus de 📜
+
   /* ===== Rappels (notifications locales, V3) ===== */
   notifications: {
     matinDefaut: '08:00',      // heure proposée quand on rallume le rappel du matin

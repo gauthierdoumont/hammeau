@@ -892,3 +892,23 @@ select.champ { appearance: none; -webkit-appearance: none; color: var(--texte); 
 .histo-nom { font-weight: 600; text-transform: capitalize; }
 .histo-emojis { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .histo-chiffres { color: var(--texte-doux); font-size: .875rem; white-space: nowrap; }
+
+/* ===== ÉTAPE 15b : Cours du jour (agenda) ===== */
+.cours-jour { margin-bottom: 8px; }
+.cours {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 8px; padding: 10px 10px 10px 12px;
+  background: var(--surface); border: 1px solid var(--bord); border-left: 4px solid var(--esprit); border-radius: var(--rayon-menu);
+  box-shadow: inset 0 1px 0 var(--or-filet);
+}
+.cours.examen { border-left-color: var(--corps); }
+.cours.fait { opacity: .7; }
+.cours-heure { flex: none; width: 3.3em; display: flex; flex-direction: column; font-variant-numeric: tabular-nums; }
+.cours-heure b { font-size: 1rem; }
+.cours-heure small { color: var(--texte-doux); font-size: .8rem; }
+.cours-texte { flex: 1; min-width: 0; background: none; border: 0; padding: 4px 0; text-align: left; color: var(--texte); font-weight: 600; overflow-wrap: anywhere; min-height: var(--toucher); }
+.cours-texte small { display: block; color: var(--texte-doux); font-weight: 400; font-size: .8rem; margin-top: 2px; }
+.cours-action { flex: none; }
+.cours-action .bouton { min-height: 44px; padding: 0 12px; white-space: nowrap; }
+.cours-attente { color: var(--texte-doux); font-size: .85rem; white-space: nowrap; }
+.cours-fait { color: var(--discipline); font-weight: 700; font-size: .9rem; white-space: nowrap; }
+.cours-journee { margin: 0 4px 8px; color: var(--texte-doux); font-size: .875rem; }

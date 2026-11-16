@@ -1,5 +1,12 @@
 # Journal des versions — Hameau
 
+## 1.3.0 — 2026-11-16 · Cours du jour
+- 🎓 **Cours du jour** en haut d'Aujourd'hui (lus dans ton agenda, même hors ligne) : heure, lieu, et les journées spéciales (📌 congé…).
+- ✋ **« J'y étais »** dès l'heure de début : +25 📜 Savoir (comme une tâche de la catégorie Cours, avec série et Bibliothèque),
+  une seule fois par cours. « Annuler » pendant 5 s, comme d'habitude.
+- 🎯 Examens repérés tout seuls par le titre ; touche le titre d'un cours pour dire toi-même « examen » ou « pas un examen ».
+- 💾 Données version 3 (examens marqués à la main), avec copie de sécurité automatique avant la mise à jour.
+
 ## 1.2.1 — 2026-11-16 · Corrections (vérification)
 - ↩️ « Annuler » marche à nouveau pendant ses 5 s, même si l'appli fait sa petite vérification de la minute entre-temps.
 - 📥 Importer un vieil export ne fait plus payer les jours déjà comptés sur le téléphone (même règle que « Restaurer »).

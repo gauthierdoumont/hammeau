@@ -170,12 +170,19 @@
     };
     if (coffre) entree.coffre = coffre;
     etat.journal.push(entree);
+    const niv = crediter(etat, gain, ressource, categorie ? familleId : null, coffre, terminee && b.progression < 1, C);
 
+    if (terminee && tache.type !== 'quotidienne') { tache.archivee = true; tache.termineeLe = ctx.horodatage; }
+    return { ok: true, gain, ressource, progression: apres, terminee, niveauxGagnes: niv.niveauxGagnes, multiplicateurs: mult, coffre };
+  };
+
+  // Ajoute un gain au joueur (XP, niveau, ressource, stats, coffre, moral). Partagé par saisir et jYEtais.
+  function crediter(etat, gain, ressource, familleId, coffre, vientDeFinir, C) {
     const j = etat.joueur;
     const niv = M.ajouterXp(j.xp, j.niveau, gain, C);
     j.xp = niv.xp; j.niveau = niv.niveau; j.xpTotal += gain;
     if (ressource) j.ressources[ressource] += gain;
-    if (categorie) j.gagneTotal[categorie.familleId] = (j.gagneTotal[categorie.familleId] || 0) + gain;
+    if (familleId) j.gagneTotal[familleId] = (j.gagneTotal[familleId] || 0) + gain;
     j.stats = { ...j.stats, ...M.stats(j.gagneTotal, C) };
     // Coffre : ressources + gemmes (bonus de hasard : n'entre pas dans les stats, qui mesurent l'effort réel)
     if (coffre) {
@@ -183,13 +190,41 @@
       j.ressources.gemmes += coffre.gemmes;
     }
     // Moral : +1 par tâche terminée, +5 pour une tâche Repos (plafond 100)
-    if (terminee && b.progression < 1) {
+    if (vientDeFinir) {
       const plus = familleId === 'repos' ? C.repos.moral : C.moral.parTache;
       j.moral = Math.min(C.moral.max, j.moral + plus);
     }
+    return niv;
+  }
 
-    if (terminee && tache.type !== 'quotidienne') { tache.archivee = true; tache.termineeLe = ctx.horodatage; }
-    return { ok: true, gain, ressource, progression: apres, terminee, niveauxGagnes: niv.niveauxGagnes, multiplicateurs: mult, coffre };
+  /* ===== « J'Y ÉTAIS » (étape 15b) : présence à un cours de l'agenda =====
+   * Une seule fois par occurrence (cle = uid|début), et seulement après l'heure de début (ctx.horodatage).
+   * Gain = celui d'une tâche de la catégorie Cours (C.cours : taille et type), avec série, bâtiment et anti-farm.
+   * ev = {cle, titre, debut (ISO)} ; ctx = {id, horodatage, jour, rng?}
+   * Saisie du journal : tacheId null + cours (cle) + titre → compte pour la journée (XP, série) comme une tâche.
+   */
+  M.dejaPresent = (journal, cle) => journal.some(s => s.cours === cle);
+  M.gainCours = function (etat, jour, C) {
+    const categorie = etat.categories.find(c => c.id === C.cours.categorieId);
+    const virtuelle = { type: C.cours.type, taille: C.cours.taille };
+    return { categorie, mult: M.multiplicateurs(virtuelle, etat, C, jour, categorie?.familleId), virtuelle };
+  };
+  M.jYEtais = function (etat, ev, ctx, C) {
+    if (!ev?.cle) return { ok: false, erreur: 'Cours introuvable.' };
+    if (M.dejaPresent(etat.journal, ev.cle)) return { ok: false, erreur: 'Déjà noté ✅' };
+    if (Date.parse(ctx.horodatage) < Date.parse(ev.debut)) return { ok: false, erreur: 'Ce cours n\'a pas encore commencé ⏳' };
+    const { categorie, mult, virtuelle } = M.gainCours(etat, ctx.jour, C);
+    const gain = Math.max(0, Math.round(M.brut(virtuelle, C, mult.total)));
+    const ressource = M.ressourceDe(categorie, C);
+    const coffre = M.tirerCoffre(ctx.rng, C);
+    const entree = {
+      id: ctx.id, tacheId: null, cours: ev.cle, titre: String(ev.titre || '').slice(0, 120), horodatage: ctx.horodatage, jour: ctx.jour,
+      valeur: 1, progression: 1, gains: { xp: gain, ressource, quantite: ressource ? gain : 0 }
+    };
+    if (coffre) entree.coffre = coffre;
+    etat.journal.push(entree);
+    const niv = crediter(etat, gain, ressource, categorie?.familleId ?? null, coffre, true, C);
+    return { ok: true, gain, ressource, progression: 1, terminee: true, niveauxGagnes: niv.niveauxGagnes, multiplicateurs: mult, coffre };
   };
 
   /* ===== LISTES DU JOUR =====

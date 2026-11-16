@@ -83,5 +83,16 @@
   const sansAccents = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
   Cal.estExamen = (titre) => /\b(examens?|exams?|interro\w*|tests?)\b/.test(sansAccents(titre));
 
+  // Le marquage manuel (agenda.examens[cle] = true / false) passe avant le titre
+  Cal.estExamenMarque = function (ev, examens) {
+    const m = examens?.[Cal.cle(ev)];
+    return typeof m === 'boolean' ? m : Cal.estExamen(ev.titre);
+  };
+
+  // « Cours du jour » : événements à heure fixe du jour logique (les journées entières sont à part), triés
+  Cal.coursDuJour = (cache, jour, C) => Cal.duJour(cache, jour, C).filter(ev => !ev.journee);
+  Cal.journeesDuJour = (cache, jour, C) => Cal.duJour(cache, jour, C).filter(ev => ev.journee);
+  Cal.commence = (ev, instant) => instant.getTime() >= Date.parse(ev.debut);
+
   if (typeof module !== 'undefined') module.exports = Cal; else racine.Calendrier = Cal;
 })(typeof window !== 'undefined' ? window : globalThis);

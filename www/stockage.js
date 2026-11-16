@@ -7,13 +7,15 @@
   const S = {};
 
   S.CLE = 'hameau_v1';   // clé de stockage : ne change jamais
-  S.SCHEMA = 2;          // version de la structure des données (2 = ajout du village)
+  S.SCHEMA = 3;          // version de la structure des données (2 = village, 3 = agenda : examens marqués à la main)
 
-  /* ===== MODÈLE (schemaVersion 2) =====
+  /* ===== MODÈLE (schemaVersion 3) =====
    * categories[] {id, nom, emoji, familleId, perso, nbUtilisations}
    * taches[]     {id, nom, categorieId, type, taille, objectif?{cible, unite}, jours?[1-7], echeance?, important?,
    *               incendieApplique, creeLe, termineeLe?, archivee}
    * journal[]    {id, tacheId, horodatage, jour, valeur, progression, gains{xp, ressource, quantite}}
+   *              « J'y étais » (v3) : tacheId null + cours (uid|début de l'occurrence) + titre
+   * agenda       {examens {cle: true = examen | false = pas un examen}} (v3 ; sans entrée → selon le titre)
    * joueur       xp = XP gagnée dans le niveau en cours (xpTotal = cumul, ne baisse jamais)
    * etat         {dernierJourTraite}
    * village      {batiments[{id, type, niveau 1-5, x, y (case de grille), endommage, construitLe}], extensions, decorations[]}
@@ -41,6 +43,7 @@
       },
       etat: { dernierJourTraite: null, evenements: [] },   // evenements : pénalités récentes, annulables par une pause
       village: { batiments: [], extensions: 0, decorations: [] },
+      agenda: { examens: {} },
       reglages: {
         notifMatin: '08:00',
         notifSoir: '20:00',
@@ -60,6 +63,8 @@
   S.MIGRATIONS = {
     // v2 : le village arrive (vide). Rien d'autre ne change.
     2: e => { e.village ??= { batiments: [], extensions: 0, decorations: [] }; return e; },
+    // v3 : l'agenda (examens marqués à la main). Les présences « J'y étais » sont des saisies du journal.
+    3: e => { e.agenda ??= { examens: {} }; return e; },
   };
 
   S.migrer = function (e) {
@@ -124,6 +129,17 @@
         if (!Number.isInteger(d.x) || !Number.isInteger(d.y)) err('village : case de décoration invalide');
       }
       if (!Number.isInteger(e.village.extensions) || e.village.extensions < 0 || (C && e.village.extensions > C.extensions.max)) err('village : extensions');
+    }
+    if (e.agenda !== undefined) {
+      if (!estObjet(e.agenda) || !estObjet(e.agenda.examens)) err('agenda');
+      else for (const v of Object.values(e.agenda.examens)) if (typeof v !== 'boolean') err('agenda : marquage d\'examen invalide');
+    }
+    const presences = new Set();
+    for (const s of e.journal) {
+      if (!estObjet(s) || s.cours === undefined) continue;
+      if (typeof s.cours !== 'string' || !s.cours || s.tacheId !== null) err('journal : présence à un cours invalide');
+      if (presences.has(s.cours)) err('journal : présence notée deux fois');
+      presences.add(s.cours);
     }
     for (const k of ['categories', 'taches', 'journal']) {
       const vus = new Set();

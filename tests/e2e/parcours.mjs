@@ -15,6 +15,7 @@ const serveur = http.createServer((req, res) => {
 }).listen(PORT);
 const URL_APPLI = `http://localhost:${PORT}/`;
 const CLE = 'hameau_v1';
+const SCHEMA = 3;   // version actuelle de la structure des données (www/stockage.js)
 const FIXTURE = 'tests/fixtures/etat-v1.json';
 
 const nav = await chromium.launch();
@@ -74,7 +75,7 @@ for (const largeur of [360, 412, 1100]) {
 {
   const { ctx, page, erreurs } = await nouvellePage();
   const initial = JSON.parse(await lire(page));
-  verifier(initial?.schemaVersion === 2 && initial.categories.length === 33, '1er lancement : état créé');
+  verifier(initial?.schemaVersion === SCHEMA && initial.categories.length === 33, '1er lancement : état créé');
 
   await page.click('.onglet[data-aller="reglages"]');
   const [telechargement] = await Promise.all([page.waitForEvent('download'), page.click('#btn-exporter')]);
@@ -238,7 +239,7 @@ for (const largeur of [360, 412, 1100]) {
   verifier(!erreurs.length, 'erreurs console (étape 3) : ' + erreurs);
   await ctx.close();
 }
-function S_ok(e) { return e.schemaVersion === 2 && new Set(e.taches.map(t => t.id)).size === e.taches.length; }
+function S_ok(e) { return e.schemaVersion === SCHEMA && new Set(e.taches.map(t => t.id)).size === e.taches.length; }
 
 /* 6. Étape 4 : cocher, progression partielle, gains, animation, Annuler, modifier, supprimer, niveau */
 {
@@ -431,7 +432,7 @@ function S_ok(e) { return e.schemaVersion === 2 && new Set(e.taches.map(t => t.i
   verifier(e.village.batiments.length === 1 && e.village.batiments[0].type === 'mairie', 'Mairie construite');
   verifier(e.joueur.ressources.bois === 300 - prix.m1 && e.joueur.ressources.savoir === 300 - prix.m1, `coût payé (${prix.m1} de chaque)`);
   const stocke = JSON.parse(await lire(page));
-  verifier(stocke.schemaVersion === 2 && stocke.village.batiments.length === 1, 'village sauvegardé');
+  verifier(stocke.schemaVersion === SCHEMA && stocke.village.batiments.length === 1, 'village sauvegardé');
   // Placement refusé sur une case occupée (le puits)
   await page.click('#btn-construire');
   await page.click('[data-construire="taverne"]');
@@ -782,6 +783,49 @@ function S_ok(e) { return e.schemaVersion === 2 && new Set(e.taches.map(t => t.i
   await ctx.close();
 }
 
+/* 15. Étape 15b : Cours du jour sur Aujourd'hui, « J'y étais » (une fois), examen marqué à la main (agenda FICTIF) */
+{
+  const { ctx, page, erreurs, externes } = await nouvellePage(412);
+  await page.evaluate(ics => localStorage.setItem('debug_ics', ics), fs.readFileSync('tests/exemple.ics', 'utf8'));
+  verifier(await page.isHidden('#cours-jour'), 'pas d\'agenda : pas de section Cours');
+  await page.click('.onglet[data-aller="reglages"]');
+  await page.click('.ligne[data-aller="agenda"]');
+  await page.fill('#agenda-adresse', 'https://agenda.exemple.invalid/adresse-fictive/basic.ics');
+  await page.click('#btn-agenda-enregistrer');
+  await page.waitForTimeout(300);
+  await page.click('.onglet[data-aller="aujourdhui"]');
+  await pause(page);
+  verifier(await page.isVisible('#cours-jour'), 'section « Cours du jour » visible');
+  const texte = await page.textContent('#liste-cours');
+  verifier(texte.includes('08:30') && texte.includes('Cours de comptabilité') && texte.includes('Local 204'), 'cours du lundi affiché : ' + texte);
+  // Il est 10 h : le cours de 8 h 30 a commencé → « J'y étais »
+  const savoirAvant = await page.evaluate(() => Appli.etat().joueur.ressources.savoir);
+  await page.click('[data-jy-etais]');
+  await page.waitForTimeout(500);
+  let e = await page.evaluate(() => Appli.etat());
+  verifier(e.joueur.ressources.savoir - savoirAvant === 25 && e.journal.some(s => s.cours && s.tacheId === null), 'présence : +25 📜 : ' + (e.joueur.ressources.savoir - savoirAvant));
+  verifier((await page.textContent('#liste-cours')).includes('✅ Noté') && await page.locator('[data-jy-etais]').count() === 0, 'une seule fois par occurrence');
+  await page.screenshot({ path: 'tests/captures/etape15b-cours.png' });
+  await page.reload(); await pause(page);
+  verifier((await page.textContent('#liste-cours')).includes('✅ Noté'), 'présence gardée après redémarrage');
+  // Marquer à la main : examen, puis retour au titre
+  await page.click('[data-examen-cle]');
+  await page.click('#dialogue-boutons .principal');
+  await page.waitForTimeout(300);
+  verifier(await page.locator('.cours.examen').count() === 1 && (await page.textContent('#liste-cours')).includes('🎯 examen'), 'marqué examen à la main');
+  e = await page.evaluate(() => Appli.etat());
+  verifier(Object.values(e.agenda.examens).includes(true), 'marquage enregistré');
+  await page.click('[data-examen-cle]');
+  await page.click('#dialogue-boutons .bouton:first-child');
+  await page.waitForTimeout(300);
+  verifier(await page.locator('.cours.examen').count() === 0 && !Object.keys((await page.evaluate(() => Appli.etat())).agenda.examens).length, 'retour au titre');
+  verifier((await page.textContent('#perso-historique').catch(() => '')) !== null, 'perso accessible');
+  verifier(!(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)), 'Cours du jour : pas de défilement horizontal');
+  verifier(!externes.length, 'ressources externes (cours) : ' + externes);
+  verifier(!erreurs.length, 'erreurs console (cours) : ' + erreurs);
+  await ctx.close();
+}
+
 await nav.close(); serveur.close();
-console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso, cocher, village, construction, décorations, agrandir, réparer, coffre, fête, jours, prochaine action, perso, réglages, sauvegardes, rappel d\'export, mises à jour, rappels, agenda');
+console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso, cocher, village, construction, décorations, agrandir, réparer, coffre, fête, jours, prochaine action, perso, réglages, sauvegardes, rappel d\'export, mises à jour, rappels, agenda, cours du jour');
 process.exit(echecs.length ? 1 : 0);

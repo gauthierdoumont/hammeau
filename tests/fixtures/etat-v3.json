@@ -1,0 +1,452 @@
+{
+  "schemaVersion": 3,
+  "categories": [
+    {
+      "id": "cours",
+      "nom": "Cours",
+      "emoji": "🎓",
+      "familleId": "esprit",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "syntheses",
+      "nom": "Synthèses",
+      "emoji": "📝",
+      "familleId": "esprit",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "revision",
+      "nom": "Révision",
+      "emoji": "📚",
+      "familleId": "esprit",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "lecture",
+      "nom": "Lecture",
+      "emoji": "📖",
+      "familleId": "esprit",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "journal",
+      "nom": "Journal du matin",
+      "emoji": "📰",
+      "familleId": "esprit",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "langues",
+      "nom": "Langues",
+      "emoji": "🗣️",
+      "familleId": "esprit",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "muscu",
+      "nom": "Muscu",
+      "emoji": "🏋️",
+      "familleId": "corps",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "course",
+      "nom": "Course",
+      "emoji": "🏃",
+      "familleId": "corps",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "basket",
+      "nom": "Basket",
+      "emoji": "🏀",
+      "familleId": "corps",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "sommeil",
+      "nom": "Sommeil",
+      "emoji": "😴",
+      "familleId": "corps",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "alimentation",
+      "nom": "Alimentation",
+      "emoji": "🥗",
+      "familleId": "corps",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "nanoblocks",
+      "nom": "Nanoblocks",
+      "emoji": "🧱",
+      "familleId": "creation",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "booknook",
+      "nom": "Booknook",
+      "emoji": "🏠",
+      "familleId": "creation",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "code",
+      "nom": "Projets code",
+      "emoji": "💻",
+      "familleId": "creation",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "mods",
+      "nom": "Mods / jeux",
+      "emoji": "⛏️",
+      "familleId": "creation",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "creatif",
+      "nom": "Créatif divers",
+      "emoji": "🎨",
+      "familleId": "creation",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "amis",
+      "nom": "Amis",
+      "emoji": "👫",
+      "familleId": "social",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "couple",
+      "nom": "Couple",
+      "emoji": "❤️",
+      "familleId": "social",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "famille",
+      "nom": "Famille",
+      "emoji": "👨‍👩‍👦",
+      "familleId": "social",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "sorties",
+      "nom": "Sorties",
+      "emoji": "🎉",
+      "familleId": "social",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "menage",
+      "nom": "Ménage",
+      "emoji": "🧽",
+      "familleId": "discipline",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "courses",
+      "nom": "Courses",
+      "emoji": "🛒",
+      "familleId": "discipline",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "rangement",
+      "nom": "Rangement",
+      "emoji": "📦",
+      "familleId": "discipline",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "routine",
+      "nom": "Routine",
+      "emoji": "🔁",
+      "familleId": "discipline",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "stage",
+      "nom": "Stage",
+      "emoji": "🏢",
+      "familleId": "pro",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "job",
+      "nom": "Job",
+      "emoji": "💶",
+      "familleId": "pro",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "papiers",
+      "nom": "Papiers",
+      "emoji": "📄",
+      "familleId": "pro",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "budget",
+      "nom": "Budget",
+      "emoji": "📊",
+      "familleId": "pro",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "voiture",
+      "nom": "Voiture",
+      "emoji": "🚗",
+      "familleId": "pro",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "pause",
+      "nom": "Pause",
+      "emoji": "☕",
+      "familleId": "repos",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "jeu",
+      "nom": "Jeu",
+      "emoji": "🎮",
+      "familleId": "repos",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "balade",
+      "nom": "Balade",
+      "emoji": "🌳",
+      "familleId": "repos",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "detente",
+      "nom": "Détente",
+      "emoji": "🧘",
+      "familleId": "repos",
+      "perso": false,
+      "nbUtilisations": 0
+    },
+    {
+      "id": "perso-1",
+      "nom": "Guitare",
+      "emoji": "🎸",
+      "familleId": "creation",
+      "perso": true,
+      "nbUtilisations": 3
+    }
+  ],
+  "taches": [
+    {
+      "id": "t1",
+      "nom": "Lire 20 pages",
+      "categorieId": "lecture",
+      "type": "quotidienne",
+      "taille": "moyenne",
+      "objectif": {
+        "cible": 20,
+        "unite": "pages"
+      },
+      "jours": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "incendieApplique": false,
+      "creeLe": "2026-11-01T08:00:00.000Z",
+      "archivee": false
+    },
+    {
+      "id": "t2",
+      "nom": "Rendre le dossier fictif",
+      "categorieId": "papiers",
+      "type": "imprevu",
+      "taille": "grosse",
+      "echeance": "2026-11-20",
+      "important": true,
+      "incendieApplique": false,
+      "creeLe": "2026-11-02T09:00:00.000Z",
+      "archivee": false
+    },
+    {
+      "id": "t3",
+      "nom": "Ranger le bureau",
+      "categorieId": "rangement",
+      "type": "bonus",
+      "taille": "petite",
+      "incendieApplique": false,
+      "creeLe": "2026-11-03T10:00:00.000Z",
+      "termineeLe": "2026-11-03T18:00:00.000Z",
+      "archivee": true
+    }
+  ],
+  "journal": [
+    {
+      "id": "j1",
+      "tacheId": "t1",
+      "horodatage": "2026-11-03T07:30:00.000Z",
+      "jour": "2026-11-03",
+      "valeur": 10,
+      "progression": 0.5,
+      "gains": {
+        "xp": 13,
+        "ressource": "savoir",
+        "quantite": 13
+      }
+    },
+    {
+      "id": "j2",
+      "tacheId": "t3",
+      "horodatage": "2026-11-03T18:00:00.000Z",
+      "jour": "2026-11-03",
+      "valeur": 1,
+      "progression": 1,
+      "gains": {
+        "xp": 13,
+        "ressource": "bois",
+        "quantite": 13
+      }
+    },
+    {
+      "id": "j-cours-1",
+      "tacheId": null,
+      "cours": "cours-fictif@exemple.invalid|2026-11-09T07:30:00.000Z",
+      "titre": "Cours fictif de comptabilité",
+      "horodatage": "2026-11-09T09:40:00.000Z",
+      "jour": "2026-11-09",
+      "valeur": 1,
+      "progression": 1,
+      "gains": {
+        "xp": 25,
+        "ressource": "savoir",
+        "quantite": 25
+      }
+    }
+  ],
+  "joueur": {
+    "xp": 26,
+    "xpTotal": 51,
+    "niveau": 1,
+    "stats": {
+      "intelligence": 1,
+      "force": 0,
+      "creativite": 0,
+      "charisme": 0,
+      "discipline": 1,
+      "organisation": 0
+    },
+    "ressources": {
+      "savoir": 38,
+      "pierre": 0,
+      "cristaux": 0,
+      "nourriture": 0,
+      "bois": 13,
+      "or": 0,
+      "gemmes": 0
+    },
+    "gagneTotal": {
+      "esprit": 13,
+      "corps": 0,
+      "creation": 0,
+      "social": 0,
+      "discipline": 13,
+      "pro": 0,
+      "repos": 0
+    },
+    "moral": 82,
+    "serie": {
+      "jours": 0,
+      "joker": 1
+    },
+    "pause": {
+      "actif": false,
+      "depuis": null,
+      "jusqua": null
+    }
+  },
+  "etat": {
+    "dernierJourTraite": "2026-11-02"
+  },
+  "reglages": {
+    "notifMatin": "08:00",
+    "notifSoir": "20:00",
+    "icsUrl": "https://exemple.invalid/agenda-fictif.ics",
+    "calendrierCache": null,
+    "derniereCategorie": "lecture",
+    "dernierExport": null,
+    "sons": true,
+    "vibrations": true
+  },
+  "village": {
+    "batiments": [
+      {
+        "id": "b1",
+        "type": "mairie",
+        "niveau": 1,
+        "x": 6,
+        "y": 3,
+        "endommage": false,
+        "construitLe": "2026-11-10T12:00:00.000Z"
+      },
+      {
+        "id": "b2",
+        "type": "bibliotheque",
+        "niveau": 1,
+        "x": 2,
+        "y": 2,
+        "endommage": false,
+        "construitLe": "2026-11-12T18:00:00.000Z"
+      }
+    ],
+    "extensions": 0,
+    "decorations": []
+  },
+  "agenda": {
+    "examens": {
+      "interro-fictive@exemple.invalid|2026-11-20T09:00:00.000Z": true,
+      "atelier-fictif@exemple.invalid|2026-11-18T13:00:00.000Z": false
+    }
+  }
+}

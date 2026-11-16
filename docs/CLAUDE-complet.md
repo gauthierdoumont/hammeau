@@ -189,7 +189,7 @@ Objectif d'équilibrage : **environ 4 mois** d'usage régulier pour tout monter 
 ### V3 — Calendrier + notifications
 - [x] 14. Notifications locales matin/soir/échéances + permission + reprogrammation (~40 min)
 - [x] 15a. Lecture iCal (CapacitorHttp + ical.js + cache + `tests/exemple.ics`) (~45 min)
-- [ ] 15b. Affichage des cours dans Aujourd'hui + « J'y étais » → Savoir (~40 min)
+- [x] 15b. Affichage des cours dans Aujourd'hui + « J'y étais » → Savoir (~40 min)
 
 ### V4 — Le fun à long terme
 - [ ] 16. Événements aléatoires (marchand ambulant, tempête…) (~45 min)

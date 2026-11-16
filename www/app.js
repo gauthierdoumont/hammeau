@@ -471,7 +471,7 @@ function rendreAgenda() {
     blocs.push(el('div', { class: 'agenda-jour' }, i === 0 ? 'Aujourd\'hui' : i === 1 ? 'Demain' : dateEcheanceLongue(jour).replace(/ \d{4}$/, '')));
     for (const ev of evs) blocs.push(el('div', { class: 'agenda-ev' },
       el('span', { class: 'agenda-heure' }, ev.journee ? 'journée' : heureCourte(ev.debut)),
-      el('span', { class: 'agenda-titre' }, ev.titre, Cal.estExamen(ev.titre) ? el('span', { class: 'etiquette-examen' }, ' 🎯 examen') : '', ev.lieu ? el('small', {}, ev.lieu) : '')));
+      el('span', { class: 'agenda-titre' }, ev.titre, Cal.estExamenMarque(ev, etat.agenda?.examens) ? el('span', { class: 'etiquette-examen' }, ' 🎯 examen') : '', ev.lieu ? el('small', {}, ev.lieu) : '')));
   }
   document.getElementById('agenda-apercu').replaceChildren(...(blocs.length ? blocs : [el('p', { class: 'sauvegardes-vide' }, 'Rien dans ton agenda ces prochains jours. Profite ! 🌿')]));
 }
@@ -677,19 +677,82 @@ function cocher(tacheId, quantite = null) {
     if (!r.ok) throw refus(r.erreur);
   });
   if (!ok) return false;
-  // Retour immédiat : le gain s'envole vers son compteur, petite vibration
+  retourGain(depart, r, avant, r.terminee ? 'Bien joué ✅' : `${Math.round(r.progression * 100)} % fait ✨`);
+  return true;
+}
+// Retour immédiat après un gain (tâche cochée, « J'y étais ») : le gain s'envole vers son compteur, vibration, son, Annuler
+function retourGain(depart, r, avant, texteFini) {
   animerGain(depart, r, avant);
   // Gradation : coche (léger) < tâche finie (pièces) < coffre (moyen) < niveau (fête)
   vibrer(r.terminee ? 'MEDIUM' : 'LIGHT');
   window.Sons?.jouer(r.terminee ? 'pieces' : 'valide');
-  let texte = r.terminee ? 'Bien joué ✅' : `${Math.round(r.progression * 100)} % fait ✨`;
+  let texte = texteFini;
   if (r.coffre) texte = 'Un coffre ! 🎁';
   if (r.niveauxGagnes) texte = `Niveau ${etat.joueur.niveau} atteint ! 🎉`;
   proposerAnnulation(texte, avant);
   // Les grands moments arrivent juste après le « +25 » qui s'envole
   if (r.coffre) celebrer({ type: 'coffre', coffre: r.coffre });
   if (r.niveauxGagnes) celebrer({ type: 'niveau', niveau: etat.joueur.niveau, gagnes: r.niveauxGagnes });
-  return true;
+}
+
+/* ===== COURS DU JOUR (étape 15b) =====
+ * Événements à heure fixe du jour logique, lus dans le cache de l'agenda (marche hors ligne).
+ * « J'y étais » dès l'heure de début, une fois par occurrence → gains de la catégorie Cours (📜 Savoir).
+ */
+const coursAffiches = new Map();         // cle → événement (pour les boutons)
+function rendreCours() {
+  const zone = document.getElementById('cours-jour');
+  const cache = etat.reglages.calendrierCache;
+  const jour = jourActuel();
+  const cours = Cal.coursDuJour(cache, jour, C);
+  const journees = Cal.journeesDuJour(cache, jour, C);
+  zone.hidden = !etat.reglages.icsUrl || !(cours.length || journees.length);
+  if (zone.hidden) return;
+  const instant = maintenant();
+  const { categorie, mult, virtuelle } = M.gainCours(etat, jour, C);
+  const gain = Math.round(M.brut(virtuelle, C, mult.total));
+  const emoji = C.ressources.find(r => r.id === M.ressourceDe(categorie, C))?.emoji || '';
+  coursAffiches.clear();
+  const lignes = journees.map(ev => el('p', { class: 'cours-journee' }, '📌 ' + ev.titre));
+  for (const ev of cours) {
+    const cle = Cal.cle(ev);
+    coursAffiches.set(cle, ev);
+    const examen = Cal.estExamenMarque(ev, etat.agenda?.examens);
+    const present = M.dejaPresent(etat.journal, cle);
+    const action = present ? el('span', { class: 'cours-fait' }, '✅ Noté')
+      : Cal.commence(ev, instant) ? el('button', { type: 'button', class: 'bouton principal', 'data-jy-etais': cle }, `J'y étais +${gain} ${emoji}`)
+      : el('span', { class: 'cours-attente' }, 'dès ' + heureCourte(ev.debut));
+    const details = [ev.lieu, examen ? '🎯 examen' : ''].filter(Boolean).join(' · ');
+    lignes.push(el('div', { class: 'cours' + (examen ? ' examen' : '') + (present ? ' fait' : '') },
+      el('div', { class: 'cours-heure' }, el('b', {}, heureCourte(ev.debut)), ev.fin ? el('small', {}, heureCourte(ev.fin)) : ''),
+      el('button', { type: 'button', class: 'cours-texte', 'data-examen-cle': cle, title: 'Examen ou pas ?' }, ev.titre, details ? el('small', {}, details) : ''),
+      el('div', { class: 'cours-action' }, action)));
+  }
+  document.getElementById('liste-cours').replaceChildren(...lignes);
+}
+function jYEtais(cle) {
+  const ev = coursAffiches.get(cle);
+  if (!ev) return;
+  const depart = [...document.querySelectorAll('[data-jy-etais]')].find(b => b.dataset.jyEtais === cle)?.getBoundingClientRect();
+  const avant = etat;
+  let r;
+  const ok = modifier(e => {
+    r = M.jYEtais(e, { cle, titre: ev.titre, debut: ev.debut }, { id: S.nouvelId(), horodatage: maintenant().toISOString(), jour: jourActuel(), rng: hasard() }, C);
+    if (!r.ok) throw refus(r.erreur);
+  });
+  if (ok) retourGain(depart, r, avant, 'Présence notée 🎓');
+}
+// Toucher le titre : marquer à la main (examen ou pas), prioritaire sur le titre
+async function marquerExamen(cle) {
+  const ev = coursAffiches.get(cle);
+  if (!ev) return;
+  const choix = await dialogue(ev.titre, '<p>Est-ce un examen ? 🎯</p><p class="discret">Hameau le devine avec le titre (examen, exam, interro, test) ; ton choix passe avant.</p>',
+    [{ texte: 'Selon le titre', valeur: 'auto' }, { texte: 'Pas un examen', valeur: 'non' }, { texte: 'C\'est un examen', valeur: 'oui', principal: true }]);
+  if (!choix) return;
+  modifier(x => {
+    if (choix === 'auto') delete x.agenda.examens[cle];
+    else x.agenda.examens[cle] = choix === 'oui';
+  });
 }
 
 /* ===== PROCHAINE ACTION (étape 7) ===== */
@@ -1079,6 +1142,7 @@ function rendre() {
   if (!etat) return;
   rendreListes();
   rendreCategories();
+  rendreCours();
   rendreHier();
   rendrePause();
   rendreProchaine();
@@ -1177,7 +1241,7 @@ function rendreHistorique() {
     const saisies = parJour.get(jour) || [];
     const xp = saisies.reduce((a, s) => a + (s.gains?.xp || 0), 0);
     const finies = saisies.filter(s => s.progression >= 1).length;
-    const emojis = [...new Set(saisies.map(s => T.categorie(etat, etat.taches.find(t => t.id === s.tacheId)?.categorieId)?.emoji).filter(Boolean))].slice(0, 6);
+    const emojis = [...new Set(saisies.map(s => s.cours ? '🎓' : T.categorie(etat, etat.taches.find(t => t.id === s.tacheId)?.categorieId)?.emoji).filter(Boolean))].slice(0, 6);
     const nom = i === 0 ? 'Aujourd\'hui' : i === 1 ? 'Hier' : dateJourCourt(jour);
     const pause = Jours.enPause(etat.joueur, jour);
     return el('div', { class: 'histo-jour' + (saisies.length ? '' : ' calme') },
@@ -1449,6 +1513,16 @@ document.getElementById('liste-sauvegardes').addEventListener('click', (e) => {
 document.getElementById('btn-mises-a-jour').addEventListener('click', () => verifierMisesAJour().catch(x => { console.error(x); message('Réessaie plus tard', String(x.message || x)); }));
 document.getElementById('btn-rappel-export').addEventListener('click', exporter);
 document.getElementById('btn-rappel-plus-tard').addEventListener('click', () => { rappelExportCache = true; rendreReglages(); });
+
+// Cours du jour : « J'y étais », marquage d'examen
+document.getElementById('liste-cours').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-jy-etais], [data-examen-cle]');
+  if (!b) return;
+  if (b.dataset.jyEtais) jYEtais(b.dataset.jyEtais);
+  else marquerExamen(b.dataset.examenCle);
+});
+// Un cours qui commence fait apparaître « J'y étais » sans attendre un autre changement
+setInterval(() => { if (etat && !document.body.classList.contains('bloque')) rendreCours(); }, 60 * 1000);
 
 // Agenda
 document.getElementById('form-agenda').addEventListener('submit', (e) => { e.preventDefault(); relierAgenda(); });

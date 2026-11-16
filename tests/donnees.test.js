@@ -12,6 +12,7 @@ const C = globalThis.CONFIG;
 
 const fixtureV1 = () => JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'etat-v1.json'), 'utf8'));
 const fixtureV2 = () => JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'etat-v2.json'), 'utf8'));
+const fixtureV3 = () => JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'etat-v3.json'), 'utf8'));
 const sansMeta = ({ meta, ...reste }) => reste;
 
 test('état initial : valide, 33 catégories, moral de départ, aucune ressource', () => {
@@ -50,7 +51,7 @@ test('fixture v1 → dernière version : aucune donnée perdue', () => {
 });
 
 test('migrer un état déjà à jour = inchangé, et ne modifie pas l\'objet reçu', () => {
-  const e = fixtureV2();
+  const e = fixtureV3();
   const copie = structuredClone(e);
   assert.deepEqual(S.migrer(e), copie);
   assert.deepEqual(e, copie);
@@ -85,8 +86,32 @@ test('decider : rien de stocké → état neuf ; version plus récente → refus
   assert.equal(d1.type, 'ok');
   assert.equal(d1.aMigrer, true);                    // → app.js fait une copie de sécurité avant de sauver
   const d2 = S.decider(JSON.stringify(fixtureV2()), C);
-  assert.equal(d2.aMigrer, false);
+  assert.equal(d2.aMigrer, true);                    // v2 → v3 : copie de sécurité aussi
   assert.equal(d2.etat.village.batiments.length, 2);
+  const d3 = S.decider(JSON.stringify(fixtureV3()), C);
+  assert.equal(d3.aMigrer, false);
+  assert.equal(d3.etat.agenda.examens['interro-fictive@exemple.invalid|2026-11-20T09:00:00.000Z'], true);
+});
+
+test('migration v2 → v3 : agenda vide ajouté, rien d\'autre ne change (village, tâches, journal, ressources)', () => {
+  const avant = fixtureV2();
+  const apres = S.completer(S.migrer(avant), C);
+  assert.equal(apres.schemaVersion, 3);
+  assert.deepEqual(apres.agenda, { examens: {} });
+  for (const k of ['taches', 'journal', 'categories', 'village']) assert.deepEqual(apres[k], avant[k]);
+  assert.deepEqual(apres.joueur, S.completer(avant, C).joueur);
+  assert.equal(S.verifier(apres, C), true);
+});
+
+test('v3 : présence à un cours en double, marquage d\'examen non booléen → refusé', () => {
+  const e = fixtureV3();
+  assert.equal(S.verifier(e, C), true);
+  const double = fixtureV3(); double.journal.push({ ...double.journal.at(-1), id: 'autre' });
+  assert.throws(() => S.verifier(double, C), /deux fois/);
+  const marque = fixtureV3(); marque.agenda.examens.x = 'oui';
+  assert.throws(() => S.verifier(marque, C), /examen/);
+  const tache = fixtureV3(); tache.journal.at(-1).tacheId = 't1';
+  assert.throws(() => S.verifier(tache, C), /cours invalide/);
 });
 
 test('village : deux bâtiments du même type, niveau 6 ou case invalide → refusé', () => {
@@ -120,7 +145,7 @@ test('export : jamais l\'adresse iCal, avec meta', () => {
 });
 
 test('export → import = même état (hors meta), adresse iCal de l\'appareil conservée', () => {
-  const original = fixtureV2();
+  const original = fixtureV3();
   const texte = JSON.stringify(S.pourExport(original, '2026-11-15T10:00:00.000Z', '0.2.0'));
   const surAppareil = S.etatInitial(C);
   surAppareil.reglages.icsUrl = 'https://exemple.invalid/autre.ics';
@@ -128,7 +153,7 @@ test('export → import = même état (hors meta), adresse iCal de l\'appareil c
   assert.equal(r.ok, true);
   const attendu = S.completer(original, C);              // (les champs ajoutés depuis sont complétés)
   assert.deepEqual(sansMeta(r.etat), { ...attendu, reglages: { ...attendu.reglages, icsUrl: 'https://exemple.invalid/autre.ics' } });
-  assert.deepEqual(r.apercu, { niveau: 1, xpTotal: 26, taches: 2, saisies: 2, exporteLe: '2026-11-15T10:00:00.000Z' });
+  assert.deepEqual(r.apercu, { niveau: 1, xpTotal: 51, taches: 2, saisies: 3, exporteLe: '2026-11-15T10:00:00.000Z' });
   assert.deepEqual(r.actuel, { niveau: 1, xpTotal: 0, taches: 0, saisies: 0 });
 });
 

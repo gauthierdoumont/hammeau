@@ -90,3 +90,58 @@ test('l\'adresse secrète de l\'agenda ne part JAMAIS dans l\'export (le cache, 
   assert.ok(txt.includes('Interrogation Consolidation'));
   assert.equal(S.verifier(e, C), true);
 });
+
+/* ===== Étape 15b : cours du jour, « J'y étais », examens marqués à la main ===== */
+const M = require('../www/moteur.js');
+const coursLundi = () => {
+  const cache = Cal.construireCache(ICS, new Date('2026-11-16T09:00:00Z'), C, ICAL);
+  return Cal.coursDuJour(cache, '2026-11-16', C)[0];
+};
+
+test('cours du jour : à heure fixe seulement ; la journée entière (congé) est à part', () => {
+  const cache = Cal.construireCache(ICS, new Date('2026-11-10T09:00:00Z'), C, ICAL);
+  assert.equal(Cal.coursDuJour(cache, '2026-11-11', C).length, 0);
+  assert.equal(Cal.journeesDuJour(cache, '2026-11-11', C)[0].titre, 'Armistice (congé)');
+  assert.equal(Cal.commence(coursLundi(), new Date('2026-11-16T07:29:00Z')), false);
+  assert.equal(Cal.commence(coursLundi(), new Date('2026-11-16T07:30:00Z')), true);
+});
+
+test('examen : le marquage à la main passe avant le titre', () => {
+  const interro = { uid: 'i', debut: '2026-11-20T09:00:00.000Z', titre: 'Interrogation Consolidation' };
+  const cours = { uid: 'c', debut: '2026-11-16T07:30:00.000Z', titre: 'Cours de comptabilité' };
+  assert.equal(Cal.estExamenMarque(interro, {}), true);
+  assert.equal(Cal.estExamenMarque(interro, { [Cal.cle(interro)]: false }), false);
+  assert.equal(Cal.estExamenMarque(cours, { [Cal.cle(cours)]: true }), true);
+  assert.equal(Cal.estExamenMarque(cours, undefined), false);
+});
+
+test('« J\'y étais » : une fois par occurrence, après le début, gains 📜 Savoir de la catégorie Cours', () => {
+  const e = S.etatInitial(C);
+  const ev = coursLundi();
+  const p = { cle: Cal.cle(ev), titre: ev.titre, debut: ev.debut };
+  const ctx = (h, id = 'p1') => ({ id, horodatage: h, jour: '2026-11-16' });
+  assert.match(M.jYEtais(e, p, ctx('2026-11-16T07:00:00.000Z'), C).erreur, /pas encore commencé/);
+  const r = M.jYEtais(e, p, ctx('2026-11-16T08:00:00.000Z'), C);
+  assert.equal(r.ok, true);
+  assert.equal(r.ressource, 'savoir');
+  assert.equal(r.gain, C.tailles[C.cours.taille] * C.types[C.cours.type]);
+  assert.equal(e.joueur.ressources.savoir, r.gain);
+  assert.equal(e.joueur.xpTotal, r.gain);
+  assert.equal(e.joueur.gagneTotal.esprit, r.gain);
+  assert.equal(e.journal[0].tacheId, null);
+  assert.equal(e.journal[0].cours, p.cle);
+  assert.equal(M.dejaPresent(e.journal, p.cle), true);
+  assert.match(M.jYEtais(e, p, ctx('2026-11-16T09:00:00.000Z', 'p2'), C).erreur, /Déjà noté/);
+  assert.equal(e.journal.length, 1);
+  assert.equal(S.verifier(e, C), true);
+  // La présence compte comme une tâche faite pour la journée (XP du jour, série) mais pas pour les tâches
+  assert.equal(M.terminesDuJour(e.journal, '2026-11-16'), 1);
+});
+
+test('« J\'y étais » : série et bâtiment (Bibliothèque) augmentent le gain, comme pour une tâche', () => {
+  const e = S.etatInitial(C);
+  e.joueur.serie.jours = 4;
+  const base = C.tailles[C.cours.taille] * C.types[C.cours.type];
+  const r = M.jYEtais(e, { cle: 'x|1', titre: 'Cours', debut: '2026-11-16T07:30:00.000Z' }, { id: 'a', horodatage: '2026-11-16T08:00:00.000Z', jour: '2026-11-16' }, C);
+  assert.equal(r.gain, Math.round(base * (1 + 4 * C.serie.parJour)));
+});
