@@ -1,5 +1,12 @@
 # Journal des versions — Hameau
 
+## 1.7.3 — 2026-11-16 · Agenda : répétitions lues pareil partout
+- 📅 Les événements qui se répètent sont lus de la même façon sur ton téléphone, sur GitHub et dans les tests,
+  quelle que soit la vitesse de la machine (avant : une répétition rare pouvait manquer sur un téléphone lent).
+- 🗓️ Répétitions mensuelles et annuelles anciennes lues vite et juste (ex. « dernier jour ouvré du mois » depuis 2000).
+- ➕ Dates ajoutées à une répétition (RDATE) bien lues, même avec une répétition fréquente.
+- 🧪 Tests de l'agenda stables même sur une machine lente (la construction de l'APK ne peut plus être bloquée par eux).
+
 ## 1.7.2 — 2026-11-16 · Corrections (vérification 4)
 - ⏸️ Une échéance importante pendant une pause est mise de côté dès ce jour-là : après « Reprendre », aucun feu, même le lendemain.
 - ⏸️ Pause rétroactive après un feu : le feu est rendu et ne revient plus.

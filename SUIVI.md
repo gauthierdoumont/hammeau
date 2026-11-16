@@ -1,7 +1,7 @@
 # Suivi — Hameau
 
 ## Où on en est
-- Version : 1.7.2 · Données : **schéma v3** · Prochaine session : **1b** (clé de signature + 1er APK), puis point de contrôle · Dernière session : 2026-11-16
+- Version : 1.7.3 · Données : **schéma v3** · Prochaine session : **1b** (clé de signature + 1er APK), puis point de contrôle · Dernière session : 2026-11-16
 
 ## Dernière session
 - Fait : 2.0 rééquilibrage (v0.7.1, tests de coûts calculés depuis `CONFIG`) puis étape 8 (v1.0.0) : Sons / Vibrations,
@@ -25,6 +25,9 @@
   reliées par uid, famille des séances muscu dans le bilan, examens gardés 21 jours, import muscu plus robuste).
 - Vérification par sous-agents, boucle 3 : 10 corrections en v1.7.1 (examens passés gardés dans le cache de l'agenda,
   « Est-ce un examen ? » depuis l'aperçu et les boss, jour logique des événements, téléchargements de l'agenda périmés jetés).
+- Agenda, correction de fond (choix de Gauthier après 3 boucles en échec sur les répétitions B8 → C8 → D2/D6 → E1-E3) :
+  plafond en NOMBRE DE TOURS (`Cal.MAX_TOURS` = 20 000) au lieu d'un temps → même résultat partout ; départ rapide
+  MONTHLY / YEARLY (sauts de 48 mois × INTERVAL) ; RDATE sans COUNT. Tests comparés à l'itération complète (179 tests).
 - Vérification par sous-agents, boucle 2 : 14 corrections fusionnées en v1.6.1 (rappels inexacts `isExactNotification: false` = plus
   d'écran « Alarmes » sur Android 14+, adresse iCal retirée du texte d'analyse, agenda plus robuste, incendie non rejoué).
 - Vérification par sous-agents (vérificateur → correcteur) : 10 corrections fusionnées en v1.2.1 (Annuler après le tick de 60 s,
@@ -32,7 +35,7 @@
 - Simulation 2.0 (200 j, 20 graines, médianes) : tout au niveau 5 → régulier 125 j, intense 62 j, léger > 200 j.
 - Check-list `appli-native` : navigateur 360/412/1100 px OK, hors ligne OK, export/import OK, appId inchangé, pas de server.url,
   aucun secret. Reste : workflow ✅ + Release (impossible avant la 1b, clé de signature).
-- Testé : `npm test` (176), `npm run e2e` (20 sections, plugin de notifications simulé, agenda d'exemple), `node outils/simulation.js`.
+- Testé : `npm test` (179), `npm run e2e` (20 sections, plugin de notifications simulé, agenda d'exemple), `node outils/simulation.js`.
 - Non testé / à vérifier sur le téléphone : tout (1er APK à la 1b), dont l'ouverture de la page GitHub par `@capacitor/browser`,
   l'arrivée des rappels à l'heure (optimisation de batterie MagicOS à désactiver pour Hameau) et la petite icône,
   la lecture du vrai Google Agenda (impossible à tester ici : le navigateur bloque).
@@ -90,6 +93,7 @@
 | 2026-11-16 | Échéance d'un imprévu important tombée pendant une pause → jamais d'incendie (tâche marquée traitée) | Choix de Gauthier (P5) : « aucune pénalité pendant une pause » |
 | 2026-11-16 | Étape 19 : la source est son appli HTML muscu (format d'export à lire dans son dépôt) | Réponse de Gauthier |
 | 2026-11-16 | Import muscu : séances des 14 derniers jours (`muscu.joursMax`), muscu / express / élastique → Muscu, course → Course ; taille selon minutes ou km ; pas de coffre | Ne pas fausser l'équilibre du village avec des mois d'historique |
+| 2026-11-16 | Agenda : plafond d'une répétition en nombre de tours (20 000), pas en temps | Choix de Gauthier : résultat identique sur toutes les machines, tests stables pour GitHub |
 | 2026-11-15 | `joueur.xp` = XP dans le niveau en cours, `joueur.xpTotal` = cumul (champ ajouté) | Un changement de courbe ne fera jamais baisser un niveau |
 
 ## À faire plus tard (noté, hors étape)

@@ -22,8 +22,12 @@
    * debutSerie(uid, titre) (facultatif) : début (≥ debut) à partir duquel lire une répétition ; ses exceptions
    * (RECURRENCE-ID) sont lues depuis debut. Sert au cache : seuls les examens sont lus avant la fenêtre.
    */
-  // Garde-fous d'une répétition : occurrences DANS la fenêtre, et temps passé dessus (sur tous les chemins)
-  const MAX_DANS_FENETRE = 5000, PLAFOND_MS = 250;
+  /* Garde-fous d'une répétition : occurrences DANS la fenêtre, et nombre de TOURS de l'itérateur (sur tous les chemins).
+   * Un nombre de tours (et pas un temps) : même résultat sur le téléphone, sur GitHub et dans les tests, quelle que
+   * soit la vitesse de la machine. Réglable (Cal.MAX_TOURS) pour un test dédié.
+   */
+  const MAX_DANS_FENETRE = 5000;
+  Cal.MAX_TOURS = 20000;   // cas réels testés : 12 400 tours au plus ; au-delà (règle absurde) ≈ 0,3 s puis arrêt, partout pareil
   const SECONDES = { SECONDLY: 1, MINUTELY: 60, HOURLY: 3600, DAILY: 86400, WEEKLY: 604800 };
   const JOUR_MS = 86400000;
   /* Départ rapide d'une répétition fréquente et ancienne (« toutes les heures depuis 2015 ») : on avance DTSTART d'un
@@ -31,21 +35,40 @@
    * sont les mêmes (même jour de la semaine, même alignement de l'intervalle). Le nouveau départ lui-même est ignoré.
    * COUNT se compte depuis le vrai DTSTART : sans BYxxx, 1 période = 1 occurrence, donc il en reste COUNT − k
    * (voir iterateur) ; avec BYxxx + COUNT, pas de départ rapide (itération complète, plafonnée).
-   * Plusieurs règles : on avance d'un multiple commun de leurs périodes (sans COUNT). Pas avec RDATE, ni MONTHLY /
-   * YEARLY (peu d'occurrences : l'itération complète est rapide).
+   * Plusieurs règles : on avance d'un multiple commun de leurs périodes (sans COUNT). RDATE : dates absolues, gardées
+   * par l'itérateur (sans COUNT seulement, car une RDATE compte dans COUNT).
+   * MONTHLY / YEARLY sans COUNT (« dernier jour ouvré du mois » depuis 2000 : coûteux pour ical.js) : on avance d'un
+   * multiple de 48 mois × INTERVAL → même mois de l'année ET même place dans le cycle bissextile (le 29 février existe
+   * encore) ; les règles BYDAY / BYSETPOS ne dépendent que du mois, pas du jour de la semaine de DTSTART.
    * → { t: ICAL.Time (nouveau départ), k } ou null (partir de DTSTART)
    */
   const pgcd = (a, b) => (b ? pgcd(b, a % b) : a);
+  const ppcm = (a, b) => a / pgcd(a, b) * b;
+  const MOIS = { MONTHLY: 1, YEARLY: 12 };
+  function departMensuel(ev, regles, avantMs) {
+    if (regles.length !== 1 || regles[0].count) return null;
+    const pasMois = ppcm(48, MOIS[regles[0].freq] * (regles[0].interval || 1));
+    const d = ev.startDate, a = new Date(avantMs);
+    const ecart = (a.getUTCFullYear() - d.year) * 12 + (a.getUTCMonth() + 1 - d.month);
+    const k = Math.floor(ecart / pasMois) - 1;                        // une période de marge
+    if (k <= 0) return null;
+    const t = d.clone();
+    const mois = (t.month - 1) + k * pasMois;
+    t.year += Math.floor(mois / 12);
+    t.month = (mois % 12) + 1;
+    return { t, k };
+  }
   function departRapide(ev, avantMs) {
     const regles = ev.component.getAllProperties('rrule').map(p => p.getFirstValue());
-    if (!regles.length || ev.component.hasProperty('rdate')) return null;
-    if (regles.length > 1 && regles.some(r => r.count)) return null;
+    if (!regles.length) return null;
+    if (regles.some(r => r.count) && (regles.length > 1 || ev.component.hasProperty('rdate'))) return null;
+    if (regles.some(r => MOIS[r.freq])) return departMensuel(ev, regles, avantMs);
     let periode = 1;
     for (const r of regles) {
       const pas = SECONDES[r.freq];
       if (!pas || (r.count && Object.keys(r.parts || {}).length)) return null;
       const p = pas * (r.interval || 1);
-      periode = periode / pgcd(periode, p) * p;
+      periode = ppcm(periode, p);
     }
     const k = Math.floor((avantMs - ev.startDate.toJSDate().getTime()) / 1000 / periode) - 1;   // une période de marge
     if (k <= 0) return null;
@@ -65,7 +88,7 @@
     return it;
   }
 
-  /* Occurrences d'UNE répétition dans [debut, fin] → ajouter(...) ; s'arrête au garde-fou des 5 000 ou au plafond de temps.
+  /* Occurrences d'UNE répétition dans [debut, fin] → ajouter(...) ; s'arrête au garde-fou des 5 000 ou à Cal.MAX_TOURS.
    * Les RECURRENCE-ID sont des dates absolues : celles dont la date d'origine est parcourue par l'itération sont vues
    * en chemin ; les autres (origine avant le départ rapide ou après la fin, nouvelle date dans la fenêtre) sont
    * cherchées à part, près de leur date d'origine. Celle-ci doit être une vraie occurrence (pas retirée par EXDATE,
@@ -74,9 +97,8 @@
   function repetition(ev, debut, fin, ajouter, ICAL, debutSerie = debut) {
     const debutMs = debut.getTime(), finMs = fin.getTime();
     const serieMs = Math.max(debutMs, debutSerie.getTime());   // occurrences sans exception : à partir d'ici
-    const limite = Date.now() + PLAFOND_MS;
     let tours = 0;
-    const aTemps = () => ((++tours & 255) !== 0 || Date.now() <= limite);
+    const aTemps = () => ++tours <= Cal.MAX_TOURS;
     const utc = ICAL.Timezone.utcTimezone;
     const cles = Object.keys(ev.exceptions);
     const clesUtc = cles.some(k => k.endsWith('Z'));
