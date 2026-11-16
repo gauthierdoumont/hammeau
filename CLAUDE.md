@@ -103,7 +103,7 @@
 ## 4. Feuille de route (cocher ici ET dans `docs/CLAUDE-complet.md`)
 - [x] 2.0 Rééquilibrage validé (config.js + tests + simulation)
 - [x] 1a · [x] 2 · [x] 3 · [x] 4 · [x] 5a · [x] 5b · [x] 6 · [x] 7 · [x] 9 · [x] 10 · [x] 11 · [x] 12 · [x] 13
-- [ ] 8. Réglages, À propos, vérification des mises à jour, check-list, v1.0.0
+- [x] 8. Réglages, À propos, vérification des mises à jour, check-list, v1.0.0
 - [ ] 14. Notifications locales
 - [ ] 15a. Lecture iCal
 - [ ] 15b. Cours du jour + « J'y étais » + examens

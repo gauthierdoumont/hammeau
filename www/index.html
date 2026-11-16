@@ -51,6 +51,14 @@
         </span>
         <span class="chantier-chevron" aria-hidden="true">›</span>
       </button>
+      <!-- Rappel doux d'export (après 14 jours sans export) : un tap = export -->
+      <div class="rappel-export" id="rappel-export" hidden>
+        <button type="button" class="rappel-export-action" id="btn-rappel-export">
+          <span class="rappel-export-icone" aria-hidden="true">📦</span>
+          <span class="rappel-export-texte"><b>Petite sauvegarde de ton village ?</b><small>Un tap, et ton hameau est à l'abri sur Drive, ton NAS ou par e-mail.</small></span>
+        </button>
+        <button type="button" class="rappel-export-plus-tard" id="btn-rappel-plus-tard" aria-label="Plus tard">✕</button>
+      </div>
       <!-- Prochaine action : une seule tâche proposée -->
       <div class="prochaine" id="prochaine" hidden>
         <button type="button" class="bouton-prochaine" id="btn-prochaine">⚡ Prochaine action</button>
@@ -148,6 +156,30 @@
         </button>
       </div>
 
+      <h3 class="intertitre">Sons et vibrations</h3>
+      <div class="groupe">
+        <label class="ligne" for="reglage-sons">
+          <span class="ligne-icone" data-teinte="social" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <path class="plein" d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/>
+              <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4zM15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>
+            </svg>
+          </span>
+          <span class="ligne-texte">Sons<small>Pièces, marteau, fanfare</small></span>
+          <input type="checkbox" class="interrupteur" id="reglage-sons" role="switch">
+        </label>
+        <label class="ligne" for="reglage-vibrations">
+          <span class="ligne-icone" data-teinte="corps" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <rect class="plein" x="8" y="3.5" width="8" height="17" rx="2"/>
+              <rect x="8" y="3.5" width="8" height="17" rx="2"/><path d="M4.5 8.5v7M19.5 8.5v7M2 10.5v3M22 10.5v3"/>
+            </svg>
+          </span>
+          <span class="ligne-texte">Vibrations<small>Petit retour sous le doigt</small></span>
+          <input type="checkbox" class="interrupteur" id="reglage-vibrations" role="switch">
+        </label>
+      </div>
+
       <h3 class="intertitre">Pause</h3>
       <div class="groupe">
         <button class="ligne" id="btn-pause">
@@ -181,11 +213,31 @@
           <span class="ligne-texte">Importer un export<small>Depuis un fichier de sauvegarde</small></span>
           <svg class="chevron" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="m9.5 6 6 6-6 6"/></svg>
         </button>
+        <button class="ligne" data-aller="sauvegardes">
+          <span class="ligne-icone" data-teinte="repos" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <path class="plein" d="M12 4a8 8 0 1 1-7.4 5"/>
+              <path d="M4.5 4.5v4.75h4.75M4.6 9.25A8 8 0 1 1 4 12M12 8v4.25l3 1.75"/>
+            </svg>
+          </span>
+          <span class="ligne-texte">Sauvegardes automatiques<small>Copies faites par l'appli, à restaurer en cas de souci</small></span>
+          <svg class="chevron" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="m9.5 6 6 6-6 6"/></svg>
+        </button>
       </div>
       <p class="discret aide">L'export crée un fichier à garder en lieu sûr (Drive, NAS, e-mail). Il te permet de tout récupérer, même après avoir changé de téléphone.</p>
 
       <h3 class="intertitre">Hameau</h3>
       <div class="groupe">
+        <button class="ligne" id="btn-mises-a-jour">
+          <span class="ligne-icone" data-teinte="discipline" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <circle class="plein" cx="12" cy="12" r="8.5"/>
+              <path d="M19.5 12a7.5 7.5 0 0 1-13 5.1M4.5 12a7.5 7.5 0 0 1 13-5.1M17.5 3.5v3.4h-3.4M6.5 20.5v-3.4h3.4"/>
+            </svg>
+          </span>
+          <span class="ligne-texte">Vérifier les mises à jour<small id="info-mises-a-jour">Seule fonction qui utilise Internet</small></span>
+          <svg class="chevron" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="m9.5 6 6 6-6 6"/></svg>
+        </button>
         <button class="ligne" data-aller="apropos">
           <span class="ligne-icone" data-teinte="accent" aria-hidden="true">
             <svg viewBox="0 0 24 24" width="20" height="20">
@@ -204,6 +256,12 @@
     <section class="ecran" id="ecran-categories" data-titre="Catégories" data-parent="reglages">
       <button class="bouton principal large" data-action="nouvelle-categorie">➕ Nouvelle catégorie</button>
       <div id="liste-categories"></div>
+    </section>
+
+    <!-- Sous-écran Sauvegardes automatiques (ouvert depuis Réglages) -->
+    <section class="ecran" id="ecran-sauvegardes" data-titre="Sauvegardes" data-parent="reglages">
+      <p class="discret aide">Hameau garde tout seul une copie par semaine et une copie avant chaque opération délicate (import, mise à jour, restauration). Elles restent sur ce téléphone : pour changer de téléphone, utilise l'export.</p>
+      <div class="groupe" id="liste-sauvegardes"></div>
     </section>
 
     <!-- Sous-écran À propos (ouvert depuis Réglages) -->
@@ -463,6 +521,7 @@
   <script src="jours.js"></script>
   <script src="assets/village/catalogue.js"></script>
   <script src="village-geo.js"></script>
+  <script src="mises-a-jour.js"></script>
   <script src="sons.js"></script>
   <script src="village.js"></script>
   <script src="village-ui.js"></script>

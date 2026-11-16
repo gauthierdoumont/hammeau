@@ -9,6 +9,7 @@ const M = window.Moteur;
 const Economie = window.Economie;
 const Jours = window.Jours;
 const J = window.Temps;
+const MAJ = window.MisesAJour;
 const CLE = S.CLE;
 const NOMS_TYPES = { quotidienne: '🔁 Quotidiennes', imprevu: '⚡ Imprévus', bonus: '⭐ Bonus' };
 const JOURS_COURTS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
@@ -161,6 +162,56 @@ async function sauvegardeHebdo() {
   } catch (x) { console.error('Sauvegarde hebdomadaire impossible', x); }
 }
 
+async function lireSauvegarde(nom) {
+  if (PL.Filesystem) {
+    const { data } = await PL.Filesystem.readFile({ path: `sauvegardes/${nom}.json`, directory: 'DATA', encoding: 'utf8' });
+    return data;
+  }
+  return localStorage.getItem(PREFIXE_LS + nom);
+}
+
+// Écran « Sauvegardes automatiques » : les plus récentes d'abord, chacune avec « Restaurer »
+async function rendreSauvegardes() {
+  const zone = document.getElementById('liste-sauvegardes');
+  const liste = S.listeSauvegardes(await listerSauvegardes());
+  if (!liste.length) {
+    zone.replaceChildren(el('p', { class: 'sauvegardes-vide' }, 'Pas encore de copie : la première se fait toute seule cette semaine.'));
+    return;
+  }
+  zone.replaceChildren(...liste.map(sv => el('div', { class: 'ligne sauvegarde' },
+    el('span', { class: 'ligne-icone', 'data-teinte': sv.type === 'hebdo' ? 'repos' : 'esprit', 'aria-hidden': 'true' }, sv.type === 'hebdo' ? '📅' : '🛟'),
+    el('span', { class: 'ligne-texte' }, el('b', {}, titreSauvegarde(sv)), el('small', {}, sv.type === 'hebdo' ? 'Copie de la semaine' : S.libelleRaison(sv.raison))),
+    el('button', { type: 'button', class: 'bouton', 'data-restaurer': sv.nom }, 'Restaurer'))));
+}
+function titreSauvegarde(sv) {
+  if (sv.type === 'hebdo') return 'Semaine du ' + dateEcheanceLongue(sv.jour);
+  const d = new Date(sv.quand);
+  return dateCourte(sv.quand) + ', ' + d.toLocaleTimeString('fr-BE', { timeZone: C.jour.fuseau, hour: '2-digit', minute: '2-digit' });
+}
+
+async function restaurerSauvegarde(nom) {
+  try {
+    const texte = await lireSauvegarde(nom);
+    const r = S.preparerRestauration(texte, etat, C);
+    if (!r.ok) return message('Restauration impossible', r.message);
+    const ok = await dialogue('Revenir à cette copie ?',
+      `<p><b>${echapper(titreSauvegarde(S.decrireSauvegarde(nom)))}</b><br>${descriptionResume(r.apercu)}</p>` +
+      `<p class="discret">Sur ce téléphone en ce moment :<br>${descriptionResume(r.actuel)}</p>` +
+      '<p class="discret">Une copie de sécurité de tes données actuelles est faite avant : tu pourras revenir en arrière.</p>',
+      [{ texte: 'Annuler', valeur: false }, { texte: 'Restaurer', valeur: true, principal: true }]);
+    if (!ok) return;
+    await sauvegardeAvant('restauration', lireBrut());
+    etat = r.etat;
+    sauver(etat);
+    rendre();
+    rendreSauvegardes();
+    toast('Copie restaurée ✅');
+  } catch (x) {
+    console.error(x);
+    message('Restauration impossible', 'La copie n\'a pas pu être lue (' + (x.message || x) + '). Rien n\'a été changé.');
+  }
+}
+
 /* ===== EXPORT / IMPORT ===== */
 // Android : feuille de partage (Drive, NAS, e-mail…) ; navigateur : téléchargement. Renvoie true si c'est parti.
 async function partagerFichier(nom, texte, type) {
@@ -188,6 +239,55 @@ async function exporter() {
     console.error(x);
     message('Export impossible', 'Le fichier n\'a pas pu être créé (' + (x.message || x) + ').');
   }
+}
+
+/* ===== MISES À JOUR (seule fonction en ligne, seulement quand on touche le bouton) ===== */
+function ouvrirLien(url) { PL.Browser ? PL.Browser.open({ url }) : window.open(url, '_blank', 'noopener'); }
+
+async function verifierMisesAJour() {
+  const info = document.getElementById('info-mises-a-jour');
+  info.textContent = 'Vérification…';
+  const fin = (texte) => { info.textContent = texte; };
+  if (navigator.onLine === false) {
+    fin('Seule fonction qui utilise Internet');
+    return message('Pas de connexion', 'Le téléphone n\'est pas connecté à Internet pour l\'instant. Réessaie quand tu auras du réseau : tout le reste de Hameau marche sans.');
+  }
+  let reponse;
+  try {
+    const arret = new AbortController();
+    const minuteur = setTimeout(() => arret.abort(), 10000);
+    reponse = await fetch(MAJ.ADRESSE, { headers: { Accept: 'application/vnd.github+json' }, signal: arret.signal, cache: 'no-store' });
+    clearTimeout(minuteur);
+  } catch {
+    fin('Seule fonction qui utilise Internet');
+    return message('Pas de connexion', 'Impossible de joindre GitHub pour l\'instant. Réessaie plus tard : tout le reste de Hameau marche sans Internet.');
+  }
+  if (reponse.status === 404) {
+    fin('Version ' + window.APP_VERSION);
+    return message('Rien de nouveau', 'Aucune version n\'est encore publiée. Tu as la version ' + window.APP_VERSION + '.');
+  }
+  const r = reponse.ok ? MAJ.analyser(await reponse.json().catch(() => null), window.APP_VERSION) : null;
+  if (!r) {
+    fin('Seule fonction qui utilise Internet');
+    return message('Réessaie plus tard', 'GitHub n\'a pas répondu comme prévu. Rien n\'a changé dans ton appli.');
+  }
+  if (!r.nouvelle) {
+    fin('À jour · version ' + window.APP_VERSION);
+    return toast('Tu as la dernière version ✅');
+  }
+  fin('Version ' + r.version + ' disponible');
+  const ouvrir = await dialogue('Nouvelle version ' + r.version + ' 🎉',
+    `<p>Tu as la version ${echapper(window.APP_VERSION)}.</p><p class="discret">Avec Obtainium, la mise à jour s'installe en un tap. Sinon, télécharge le fichier .apk sur la page de la version : tes données restent.</p>`,
+    [{ texte: 'Plus tard', valeur: false }, { texte: 'Ouvrir la page', valeur: true, principal: true }]);
+  if (ouvrir && r.url) ouvrirLien(r.url);
+}
+
+/* ===== RÉGLAGES : sons, vibrations, rappel d'export ===== */
+let rappelExportCache = false;    // « ✕ » : caché jusqu'à la prochaine ouverture de l'appli (jamais d'insistance)
+function rendreReglages() {
+  document.getElementById('reglage-sons').checked = etat.reglages.sons !== false;
+  document.getElementById('reglage-vibrations').checked = etat.reglages.vibrations !== false;
+  document.getElementById('rappel-export').hidden = rappelExportCache || !S.rappelExport(etat, maintenant().toISOString(), C);
 }
 
 function choisirFichierImport() {
@@ -361,7 +461,7 @@ function enregistrerTache() {
   if (!modifier(e => T.ajouterTache(e, r.tache))) return;
   document.getElementById('feuille-ajout').close();
   if (historique[historique.length - 1] !== 'aujourdhui') aller('aujourdhui');
-  PL.Haptics?.impact({ style: 'LIGHT' }).catch(() => {});
+  vibrer('LIGHT');
   toast('Tâche ajoutée ✅');
 }
 
@@ -762,6 +862,7 @@ function afficher(nom) {
   const onglet = ecran.dataset.parent || nom;
   document.querySelectorAll('.onglet').forEach(b => b.classList.toggle('actif', b.dataset.aller === onglet));
   if (nom === 'apropos') remplirApropos();
+  if (nom === 'sauvegardes') rendreSauvegardes().catch(console.error);
   if (nom === 'perso' && etat) rendrePerso();
   rendreSousTitre(nom);
   window.scrollTo(0, 0);
@@ -777,6 +878,7 @@ function rendre() {
   rendreHier();
   rendrePause();
   rendreProchaine();
+  rendreReglages();
   window.VillageUI?.rendre(etat);
   if (document.getElementById('ecran-perso').classList.contains('actif')) rendrePerso();
   rendreSousTitre(historique[historique.length - 1]);
@@ -1127,6 +1229,23 @@ document.getElementById('fichier-import').addEventListener('change', (e) => {
   if (f) importerFichier(f).catch(x => { console.error(x); message('Import impossible', String(x.message || x)); });
 });
 
+// Réglages : sons, vibrations, sauvegardes, mises à jour, rappel d'export
+document.getElementById('reglage-sons').addEventListener('change', (e) => {
+  modifier(x => { x.reglages.sons = e.target.checked; });
+  if (e.target.checked) window.Sons?.jouer('clic');
+});
+document.getElementById('reglage-vibrations').addEventListener('change', (e) => {
+  modifier(x => { x.reglages.vibrations = e.target.checked; });
+  if (e.target.checked) vibrer('LIGHT');
+});
+document.getElementById('liste-sauvegardes').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-restaurer]');
+  if (b) restaurerSauvegarde(b.dataset.restaurer);
+});
+document.getElementById('btn-mises-a-jour').addEventListener('click', () => verifierMisesAJour().catch(x => { console.error(x); message('Réessaie plus tard', String(x.message || x)); }));
+document.getElementById('btn-rappel-export').addEventListener('click', exporter);
+document.getElementById('btn-rappel-plus-tard').addEventListener('click', () => { rappelExportCache = true; rendreReglages(); });
+
 // Bouton retour Android : ferme la fenêtre ouverte ou revient à l'écran précédent, sinon quitte
 PL.App?.addListener('backButton', () => { if (!retourEcranPrecedent()) PL.App.exitApp(); });
 
@@ -1158,6 +1277,10 @@ function dateCourte(iso) {
 function dateEcheance(jour) {           // « 20 nov. » (jour AAAA-MM-JJ, sans fuseau : c'est une date de calendrier)
   const [a, m, j] = jour.split('-').map(Number);
   return new Date(Date.UTC(a, m - 1, j)).toLocaleDateString('fr-BE', { timeZone: 'UTC', day: 'numeric', month: 'short' });
+}
+function dateEcheanceLongue(jour) {     // « 16 novembre 2026 »
+  const [a, m, j] = jour.split('-').map(Number);
+  return new Date(Date.UTC(a, m - 1, j)).toLocaleDateString('fr-BE', { timeZone: 'UTC', day: 'numeric', month: 'long', year: 'numeric' });
 }
 function nombre(n) { return Number(n).toLocaleString('fr-BE'); }
 function descriptionResume(r) {

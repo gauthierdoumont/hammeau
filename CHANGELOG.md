@@ -1,5 +1,13 @@
 # Journal des versions — Hameau
 
+## 1.0.0 — 2026-11-16 · Première version complète
+- 🔊 Réglages : interrupteurs **Sons** et **Vibrations** (gardés après redémarrage).
+- 🛟 **Sauvegardes automatiques** : la liste des copies (une par semaine + avant chaque opération délicate), avec « Restaurer ».
+  Une copie de ton état actuel est faite avant : tu peux toujours revenir en arrière. Les jours déjà comptés ne sont pas rejoués.
+- 📦 Petite carte « Petite sauvegarde de ton village ? » sur Aujourd'hui après 14 jours sans export : un tap = export, ✕ = plus tard.
+- 🔄 **Vérifier les mises à jour** : seule fonction qui utilise Internet, seulement quand tu touches le bouton ; message clair sans réseau.
+- 🐞 L'ajout d'une tâche ne vibre plus quand les vibrations sont coupées.
+
 ## 0.7.1 — 2026-11-16 · Équilibrage
 - ⚖️ Le village se construit plus vite : bâtiments 30 de leur ressource + 5 bois + 5 pierre (× niveau²), Mairie 20 de chaque (× niveau²).
 - 🏛️ Niveaux de chef demandés par la Mairie : 1 / 3 / 6 / 9 / 12 (au lieu de 1 / 5 / 10 / 16 / 23).

@@ -163,3 +163,54 @@ test('nouvelId : ids différents', () => {
   const ids = new Set(Array.from({ length: 200 }, () => S.nouvelId()));
   assert.equal(ids.size, 200);
 });
+
+/* ===== Étape 8 : sauvegardes automatiques, restauration, rappel d'export ===== */
+test('sauvegardes : noms décrits et triés (plus récentes d\'abord), noms inconnus ignorés', () => {
+  const l = S.listeSauvegardes(['hebdo-2026-11-09', 'avant-2026-11-16T09-30-00-import', 'hebdo-2026-11-16', 'n-importe-quoi',
+    'avant-2026-11-16T08-00-00-migration-v2']);
+  assert.deepEqual(l.map(x => x.nom), ['avant-2026-11-16T09-30-00-import', 'avant-2026-11-16T08-00-00-migration-v2',
+    'hebdo-2026-11-16', 'hebdo-2026-11-09']);
+  assert.equal(l[0].quand, '2026-11-16T09:30:00.000Z');
+  assert.equal(l[0].raison, 'import');
+  assert.equal(S.libelleRaison('migration-v2'), 'avant une mise à jour des données');
+  assert.equal(S.libelleRaison('restauration'), 'avant une restauration');
+  assert.equal(S.decrireSauvegarde('hebdo-2026-11-16').type, 'hebdo');
+});
+
+test('restaurer : garde l\'adresse iCal du téléphone et ne rejoue pas les jours déjà traités', () => {
+  const ancienne = S.etatInitial(C);
+  ancienne.joueur.niveau = 3;
+  ancienne.etat.dernierJourTraite = '2026-11-09';
+  ancienne.reglages.icsUrl = 'https://exemple.invalid/ancien.ics';
+  const actuel = S.etatInitial(C);
+  actuel.etat.dernierJourTraite = '2026-11-15';
+  actuel.reglages.icsUrl = 'https://exemple.invalid/actuel.ics';
+  const r = S.preparerRestauration(JSON.stringify(ancienne), actuel, C);
+  assert.equal(r.ok, true);
+  assert.equal(r.etat.joueur.niveau, 3);
+  assert.equal(r.etat.reglages.icsUrl, 'https://exemple.invalid/actuel.ics');
+  assert.equal(r.etat.etat.dernierJourTraite, '2026-11-15');
+  assert.equal(r.apercu.niveau, 3);
+  assert.equal(S.verifier(r.etat, C), true);
+});
+
+test('restaurer : copie abîmée, vide ou trop récente → refus clair, rien ne change', () => {
+  const actuel = S.etatInitial(C);
+  const avant = JSON.stringify(actuel);
+  assert.equal(S.preparerRestauration('{abîmé', actuel, C).ok, false);
+  assert.equal(S.preparerRestauration(null, actuel, C).ok, false);
+  assert.match(S.preparerRestauration(JSON.stringify({ ...actuel, schemaVersion: 99 }), actuel, C).message, /plus récente/);
+  assert.equal(JSON.stringify(actuel), avant);
+});
+
+test('rappel d\'export : après N jours sans export (N dans config.js), jamais si rien à sauver', () => {
+  const e = S.etatInitial(C);
+  const N = C.donnees.rappelExportJours;
+  const plus = (iso, jours) => new Date(Date.parse(iso) + jours * 86400000).toISOString();
+  assert.equal(S.rappelExport(e, '2026-11-16T10:00:00.000Z', C), false);              // rien saisi
+  e.journal.push({ id: 'j1', tacheId: 't', horodatage: '2026-11-01T10:00:00.000Z', jour: '2026-11-01', valeur: null, progression: 1, gains: {} });
+  assert.equal(S.rappelExport(e, plus('2026-11-01T10:00:00.000Z', N - 1), C), false);
+  assert.equal(S.rappelExport(e, plus('2026-11-01T10:00:00.000Z', N), C), true);
+  e.reglages.dernierExport = plus('2026-11-01T10:00:00.000Z', N);
+  assert.equal(S.rappelExport(e, plus('2026-11-01T10:00:00.000Z', N + 1), C), false);   // export récent
+});

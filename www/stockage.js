@@ -221,6 +221,51 @@
     return liste.slice(0, Math.max(0, liste.length - garder));
   };
 
+  /* Décrit une copie automatique d'après son nom (les noms sont triables par date) :
+   *   hebdo-AAAA-MM-JJ                       → copie de la semaine (lundi)
+   *   avant-AAAA-MM-JJTHH-MM-SS-<raison>     → copie avant import, migration, restauration… (heure UTC)
+   * → {nom, type: 'hebdo' | 'avant', tri, quand (ISO), raison} ; null si le nom est inconnu (ignoré)
+   */
+  S.decrireSauvegarde = function (nom) {
+    let m = /^hebdo-(\d{4}-\d{2}-\d{2})$/.exec(nom);
+    if (m) return { nom, type: 'hebdo', tri: m[1] + 'T00-00-00', jour: m[1], quand: null, raison: null };
+    m = /^avant-(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})-(.+)$/.exec(nom);
+    if (m) return { nom, type: 'avant', tri: `${m[1]}T${m[2]}-${m[3]}-${m[4]}`, jour: m[1], quand: `${m[1]}T${m[2]}:${m[3]}:${m[4]}.000Z`, raison: m[5] };
+    return null;
+  };
+  // Les plus récentes d'abord
+  S.listeSauvegardes = function (noms) {
+    return noms.map(S.decrireSauvegarde).filter(Boolean).sort((a, b) => (a.tri < b.tri ? 1 : a.tri > b.tri ? -1 : 0));
+  };
+  S.RAISONS = { import: 'avant un import', restauration: 'avant une restauration', illisible: 'données illisibles gardées' };
+  S.libelleRaison = (raison) => S.RAISONS[raison] || (/^migration/.test(raison) ? 'avant une mise à jour des données' : 'copie de sécurité');
+
+  /* Restaurer une copie automatique → {ok: true, etat, apercu, actuel} ou {ok: false, message}
+   * L'adresse iCal du téléphone est gardée, et les jours déjà traités ne sont PAS rejoués
+   * (sinon restaurer une copie d'il y a une semaine ferait payer une semaine de « jours manqués »).
+   */
+  S.preparerRestauration = function (texte, etatActuel, C) {
+    const d = S.decider(texte, C);
+    if (d.type === 'trop-recent') return { ok: false, message: 'Cette copie vient d\'une version plus récente de l\'appli.' };
+    if (d.type !== 'ok') return { ok: false, message: 'Cette copie est abîmée, rien n\'a été changé.' };
+    const etat = d.etat;
+    etat.reglages.icsUrl = etatActuel?.reglages?.icsUrl || '';
+    const traiteIci = etatActuel?.etat?.dernierJourTraite;
+    if (traiteIci && (!etat.etat.dernierJourTraite || etat.etat.dernierJourTraite < traiteIci)) etat.etat.dernierJourTraite = traiteIci;
+    try { S.verifier(etat, C); } catch (x) { return { ok: false, message: 'Cette copie est abîmée, rien n\'a été changé.' }; }
+    return { ok: true, etat, apercu: S.resume(etat), actuel: S.resume(etatActuel) };
+  };
+
+  /* Rappel doux d'export : après C.donnees.rappelExportJours jours sans export.
+   * Jamais exporté → on compte depuis la 1re saisie (rien à sauver = pas de rappel).
+   */
+  S.rappelExport = function (etat, instantIso, C) {
+    const debut = etat.reglages?.dernierExport || etat.journal?.[0]?.horodatage;
+    if (!debut) return false;
+    const jours = (Date.parse(instantIso) - Date.parse(debut)) / 86400000;
+    return Number.isFinite(jours) && jours >= C.donnees.rappelExportJours;
+  };
+
   /* ===== UTILITAIRES ===== */
   S.nouvelId = function () {
     return globalThis.crypto?.randomUUID?.() ?? Date.now().toString(36) + Math.random().toString(36).slice(2);

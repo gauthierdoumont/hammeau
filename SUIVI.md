@@ -1,14 +1,16 @@
 # Suivi — Hameau
 
 ## Où on en est
-- Version : 0.7.1 · Prochaine session : suivre **CLAUDE.md §2** dans l'ordre (8 → 14 → 15a → 15b → 16-19 → 1b) · Dernière session : 2026-11-16
+- Version : 1.0.0 · Prochaine session : suivre **CLAUDE.md §2** dans l'ordre (14 → 15a → 15b → 16-19 → 1b) · Dernière session : 2026-11-16
 
 ## Dernière session
-- Fait : 2.0 rééquilibrage (bâtiments 30/5/5, Mairie 20, niveaux de chef 1/3/6/9/12) ; tests de coûts calculés depuis `CONFIG`.
-- Simulation (200 j, 20 graines, médianes) : tout au niveau 5 → régulier 125 j, intense 62 j, léger > 200 j (Mairie 5 : 83 / 42 / 184 j).
-- Avant : étapes 13, 5a, 5b, 6, 7 (v0.7.0).
-- Testé : `npm test` (87), `npm run e2e` (11 sections), `node outils/simulation.js`.
-- Non testé / à vérifier sur le téléphone : tout (1er APK à la 1b).
+- Fait : 2.0 rééquilibrage (v0.7.1, tests de coûts calculés depuis `CONFIG`) puis étape 8 (v1.0.0) : Sons / Vibrations,
+  Sauvegardes automatiques + Restaurer, rappel d'export (carte sur Aujourd'hui), Vérifier les mises à jour (`@capacitor/browser`).
+- Simulation 2.0 (200 j, 20 graines, médianes) : tout au niveau 5 → régulier 125 j, intense 62 j, léger > 200 j.
+- Check-list `appli-native` : navigateur 360/412/1100 px OK, hors ligne OK, export/import OK, appId inchangé, pas de server.url,
+  aucun secret. Reste : workflow ✅ + Release (impossible avant la 1b, clé de signature).
+- Testé : `npm test` (94), `npm run e2e` (12 sections), `node outils/simulation.js`.
+- Non testé / à vérifier sur le téléphone : tout (1er APK à la 1b), dont l'ouverture de la page GitHub par `@capacitor/browser`.
 
 ## Bugs connus
 - (aucun)
@@ -50,12 +52,12 @@
 | 2026-11-16 | Incendie V2 : un bâtiment au hasard est endommagé ; sans village, −20 % de la ressource (max 50) | CLAUDE.md §6 |
 | 2026-11-16 | Pause rétroactive : les pénalités depuis la date choisie sont annulées (moral rendu par différence) | Ne pas effacer ce qui a été gagné depuis |
 | 2026-11-16 | Décorations : retirer = pas de remboursement (dit avant) | Simple et clair |
+| 2026-11-16 | Restaurer une copie : jours déjà traités sur le téléphone non rejoués, adresse iCal du téléphone gardée | Restaurer ne doit jamais faire payer des « jours manqués » |
+| 2026-11-16 | Rappel d'export : compté depuis la 1re saisie si jamais exporté ; ✕ = caché jusqu'à la prochaine ouverture | Doux, jamais d'insistance, aucun champ de données en plus |
 | 2026-11-15 | `joueur.xp` = XP dans le niveau en cours, `joueur.xpTotal` = cumul (champ ajouté) | Un changement de courbe ne fera jamais baisser un niveau |
 
 ## À faire plus tard (noté, hors étape)
 - Étape 5a : simulation de l'économie (`outils/simulation.js`, skill `moteur-recompenses`) — impossible avant le moteur de gains.
-- Étape 8 : Réglages → « Sauvegardes automatiques » (liste + Restaurer) et rappel doux d'export après 14 jours (valeur déjà dans `config.js`).
-- Étape 8 : Réglages → sons / vibrations (déjà dans les données), « Sauvegardes automatiques » (liste + Restaurer), rappel d'export après 14 jours, vérification des mises à jour (API GitHub), check-list du skill, v1.0.0.
 - Point de contrôle : poser les 5 questions du skill `reprise-session` §7 après 2-3 jours d'usage.
 - Réglages → Mes catégories : renommer / changer l'emoji d'une catégorie perso.
 

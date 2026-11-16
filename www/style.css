@@ -178,6 +178,28 @@ main {
 [data-teinte="creation"] { --teinte: var(--creation); }
 [data-teinte="discipline"] { --teinte: var(--discipline); }
 [data-teinte="accent"] { --teinte: var(--accent); }
+[data-teinte="repos"] { --teinte: var(--repos); }
+[data-teinte="social"] { --teinte: var(--social); }
+[data-teinte="corps"] { --teinte: var(--corps); }
+/* Interrupteur (Sons, Vibrations) : toute la ligne est cliquable (label) */
+label.ligne { cursor: pointer; }
+.interrupteur {
+  flex: none; appearance: none; -webkit-appearance: none; margin: 0; position: relative;
+  width: 50px; height: 30px; border-radius: 99px; background: var(--fond); border: 1px solid var(--bord);
+  box-shadow: inset 0 2px 0 var(--assombri); transition: background var(--duree), border-color var(--duree); cursor: pointer;
+}
+.interrupteur::after {
+  content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--texte-doux); box-shadow: 0 2px 0 var(--assombri); transition: transform var(--duree), background var(--duree);
+}
+.interrupteur:checked { background: var(--accent); border-color: var(--accent); }
+.interrupteur:checked::after { transform: translateX(20px); background: var(--fond); }
+.interrupteur:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Liste des sauvegardes automatiques */
+#ecran-sauvegardes .aide { margin: 0 4px 14px; }
+.sauvegarde .ligne-texte b { font-weight: 600; }
+.sauvegarde .bouton { flex: none; min-height: 40px; padding: 0 14px; }
+.sauvegardes-vide { padding: 18px 14px; color: var(--texte-doux); text-align: center; }
 .ligne-texte { flex: 1; min-width: 0; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
 .ligne small { display: block; color: var(--texte-doux); font-size: .875rem; font-weight: 400; margin-top: 3px; }
 .ligne small:empty { display: none; }
@@ -486,6 +508,19 @@ body.bloque main { padding-bottom: calc(var(--bas) + 24px); }
 .chantier-jauge i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--lisere)); border-radius: 99px; transition: width .5s; }
 .chantier-detail { color: var(--texte-doux); font-size: .875rem; }
 .chantier-chevron { color: var(--accent); font-size: 1.6rem; line-height: 1; }
+
+/* ===== RAPPEL DOUX D'EXPORT (un tap = export) ===== */
+.rappel-export {
+  display: flex; align-items: stretch; margin-bottom: 8px;
+  background: var(--surface); border: 1px solid var(--bord); border-radius: var(--rayon-menu);
+  box-shadow: inset 0 1px 0 var(--or-filet);
+}
+.rappel-export-action { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 12px; background: none; border: 0; text-align: left; }
+.rappel-export-action:active { background: var(--or-voile); }
+.rappel-export-icone { flex: none; font-size: 1.6rem; }
+.rappel-export-texte { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rappel-export-texte small { color: var(--texte-doux); font-size: .875rem; }
+.rappel-export-plus-tard { flex: none; width: var(--toucher); background: none; border: 0; color: var(--texte-doux); font-size: 1rem; }
 
 /* Intertitres de l'écran Aujourd'hui : Cinzel doré + filet + compteur */
 #ecran-aujourdhui .intertitre, #ecran-perso .intertitre {

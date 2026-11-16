@@ -567,6 +567,82 @@ function S_ok(e) { return e.schemaVersion === 2 && new Set(e.taches.map(t => t.i
   await ctx.close();
 }
 
+/* 12. Étape 8 : sons / vibrations, sauvegardes automatiques + Restaurer, rappel d'export, vérifier les mises à jour */
+{
+  const { ctx, page, erreurs, externes } = await nouvellePage(412);
+  // Sons et vibrations : interrupteurs liés aux réglages
+  await page.click('.onglet[data-aller="reglages"]');
+  verifier(await page.isChecked('#reglage-sons') && await page.isChecked('#reglage-vibrations'), 'sons et vibrations activés au départ');
+  await page.click('label[for="reglage-sons"]');
+  await page.click('label[for="reglage-vibrations"]');
+  let e = await page.evaluate(() => Appli.etat());
+  verifier(e.reglages.sons === false && e.reglages.vibrations === false, 'sons et vibrations coupés : ' + JSON.stringify(e.reglages));
+  await page.reload(); await pause(page);
+  await page.click('.onglet[data-aller="reglages"]');
+  verifier(!(await page.isChecked('#reglage-sons')) && !(await page.isChecked('#reglage-vibrations')), 'réglages gardés après redémarrage');
+  await page.screenshot({ path: 'tests/captures/etape8-reglages.png', fullPage: true });
+
+  // Sauvegardes : la copie de la semaine existe déjà (faite au démarrage) ; on note une tâche puis on restaure
+  await page.click('.ligne[data-aller="sauvegardes"]');
+  await page.waitForSelector('[data-restaurer]');
+  verifier((await page.textContent('#liste-sauvegardes')).includes('Semaine du 16 novembre 2026'), 'copie hebdomadaire listée');
+  await page.evaluate(() => Appli.modifier(x => { x.joueur.niveau = 4; }));
+  await page.click('[data-restaurer^="hebdo-"]');
+  await page.waitForSelector('#dialogue[open]');
+  verifier((await page.textContent('#dialogue')).includes('Niveau 1') && (await page.textContent('#dialogue')).includes('Niveau 4'), 'aperçu copie / actuel');
+  await page.click('#dialogue-boutons .principal');
+  await page.waitForTimeout(400);
+  e = await page.evaluate(() => Appli.etat());
+  verifier(e.joueur.niveau === 1, 'copie restaurée (niveau 1)');
+  verifier(await page.locator('[data-restaurer^="avant-"]').count() === 1, 'copie de sécurité « avant restauration » créée');
+  verifier((await page.textContent('#liste-sauvegardes')).includes('avant une restauration'), 'raison affichée');
+  // … et on peut revenir en arrière
+  await page.click('[data-restaurer^="avant-"]');
+  await page.click('#dialogue-boutons .principal');
+  await page.waitForTimeout(400);
+  verifier(await page.evaluate(() => Appli.etat().joueur.niveau) === 4, 'retour à l\'état d\'avant la restauration');
+  await page.screenshot({ path: 'tests/captures/etape8-sauvegardes.png', fullPage: true });
+
+  // Rappel d'export : 1re saisie il y a 20 jours, jamais exporté → carte sur Aujourd'hui ; ✕ la cache ; un tap = export
+  await page.evaluate(() => Appli.modifier(x => { x.journal.push({ id: 'vieux', tacheId: 'aucune', horodatage: '2026-10-27T09:00:00.000Z', jour: '2026-10-27', valeur: null, progression: 1, gains: { xp: 0, ressource: null, quantite: 0 } }); }));
+  await page.click('.onglet[data-aller="aujourdhui"]');
+  verifier(await page.isVisible('#rappel-export'), 'carte « Petite sauvegarde de ton village ? »');
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: 'tests/captures/etape8-rappel.png' });
+  await page.click('#btn-rappel-plus-tard');
+  verifier(await page.isHidden('#rappel-export'), '✕ : carte cachée');
+  await page.reload(); await pause(page);
+  verifier(await page.isVisible('#rappel-export'), 'carte revenue à la réouverture');
+  const [telechargement] = await Promise.all([page.waitForEvent('download'), page.click('#btn-rappel-export')]);
+  verifier(/^hameau_\d{4}-\d{2}-\d{2}\.json$/.test(telechargement.suggestedFilename()), 'un tap = export');
+  await pause(page);
+  verifier(await page.isHidden('#rappel-export'), 'carte disparue après l\'export');
+
+  // Mises à jour : réponse de GitHub simulée (aucun vrai appel réseau dans les tests)
+  let reponseGithub = { status: 200, body: JSON.stringify({ tag_name: 'v9.0.0-build.99', html_url: 'https://github.com/gauthierdoumont/hammeau/releases/tag/v9.0.0-build.99' }) };
+  await ctx.route('https://api.github.com/**', route => route.fulfill({ ...reponseGithub, contentType: 'application/json' }));
+  await page.click('.onglet[data-aller="reglages"]');
+  await page.click('#btn-mises-a-jour');
+  await page.waitForSelector('#dialogue[open]');
+  verifier((await page.textContent('#dialogue-titre')).includes('9.0.0'), 'nouvelle version proposée');
+  await page.click('#dialogue-boutons .bouton:not(.principal)');
+  reponseGithub = { status: 200, body: JSON.stringify({ tag_name: 'v0.0.1-build.1', html_url: 'https://github.com/x' }) };
+  await page.click('#btn-mises-a-jour');
+  await page.waitForTimeout(300);
+  verifier((await page.textContent('#toast-texte')).includes('dernière version'), 'déjà à jour');
+  await ctx.unroute('https://api.github.com/**');            // retour au « hors ligne » : message neutre
+  await page.click('#btn-mises-a-jour');
+  await page.waitForSelector('#dialogue[open]');
+  verifier((await page.textContent('#dialogue-titre')) === 'Pas de connexion', 'hors ligne : message clair');
+  await page.click('#dialogue-boutons .principal');
+  const texteReglages = await page.textContent('#ecran-reglages') + await page.textContent('#ecran-sauvegardes');
+  verifier(!/\b(raté|échec|seulement|oublié|paresse|tu dois)\b/i.test(texteReglages), 'aucun mot culpabilisant');
+  verifier(!(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)), 'Réglages : pas de défilement horizontal');
+  verifier(externes.every(u => u.startsWith('https://api.github.com/')), 'seule adresse extérieure : GitHub, au toucher du bouton : ' + externes);
+  verifier(!erreurs.filter(x => !/ERR_FAILED|Failed to load resource/.test(x)).length, 'erreurs console (étape 8) : ' + erreurs);
+  await ctx.close();
+}
+
 await nav.close(); serveur.close();
-console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso, cocher, village, construction, décorations, agrandir, réparer, coffre, fête, jours, prochaine action, perso');
+console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso, cocher, village, construction, décorations, agrandir, réparer, coffre, fête, jours, prochaine action, perso, réglages, sauvegardes, rappel d\'export, mises à jour');
 process.exit(echecs.length ? 1 : 0);

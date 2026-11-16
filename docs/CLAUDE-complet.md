@@ -176,7 +176,7 @@ Objectif d'équilibrage : **environ 4 mois** d'usage régulier pour tout monter 
 - [x] 5b. Retour visuel : vibrations, sons, écran de fête, ouverture de coffre (~40 min)
 - [x] 6. Jour logique, rattrapage, séries, joker, moral, incendies, pause rétroactive, saisie de la veille + tests unitaires (~45 min)
 - [x] 7. Prochaine action + écran Perso (~40 min)
-- [ ] 8. Réglages, À propos, vérification des mises à jour, check-list du skill, release v1.0.0 (~40 min)
+- [x] 8. Réglages, À propos, vérification des mises à jour, check-list du skill, release v1.0.0 (~40 min) — Release GitHub avec la 1b
 
 ### V2 — Le village
 - [x] 9. Choix et intégration du pack graphique (surprise) + crédits (~45 min)
