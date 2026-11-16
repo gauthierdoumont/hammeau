@@ -198,7 +198,8 @@
    * - les jours déjà traités ici ne sont PAS rejoués : importer ou restaurer une copie d'il y a 10 jours
    *   ne doit jamais faire payer 10 jours de « jours manqués » ;
    * - ni les incendies : une échéance déjà passée sur le téléphone ne rebrûle pas (le rattrapage regarde
-   *   toutes les échéances ≤ au jour traité, pas seulement celles du jour).
+   *   toutes les échéances ≤ au jour traité, pas seulement celles du jour) ;
+   * - ni la surprise du jour : celle du téléphone reste si elle est aussi récente (sinon 2e tirage le même jour).
    */
   function garderDuTelephone(etat, etatActuel) {
     etat.reglages.icsUrl = etatActuel?.reglages?.icsUrl || '';
@@ -211,6 +212,8 @@
     }
     const brules = new Set((etatActuel?.taches || []).filter(t => t.incendieApplique).map(t => t.id));
     for (const t of etat.taches) if (brules.has(t.id)) t.incendieApplique = true;
+    const surprise = etatActuel?.etat?.surprise;
+    if (surprise?.jour && !(etat.etat.surprise?.jour > surprise.jour)) etat.etat.surprise = structuredClone(surprise);
   }
 
   /* Texte illisible envoyé « pour analyse » : on retire l'adresse secrète de l'agenda avant de le partager.

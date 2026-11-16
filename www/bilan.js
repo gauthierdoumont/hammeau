@@ -46,11 +46,13 @@
     };
   };
 
-  // Phrase d'accroche, toujours positive (jamais de comparaison négative mise en avant)
-  Bi.accroche = function (b) {
+  // Phrase d'accroche, toujours positive (jamais de comparaison négative mise en avant).
+  // Que des saisies partielles (aucune tâche finie) : on parle de l'XP gagnée, jamais de « 0 tâche ».
+  Bi.accroche = function (b, C) {
     if (!b.xp) return 'Semaine au calme : ton hameau t\'attend tranquillement 🌿';
-    if (b.evolution !== null && b.evolution >= 0.05) return `+${Math.round(b.evolution * 100)} % d'XP par rapport à la semaine d'avant 🚀`;
-    if (b.joursActifs >= 5) return `${b.joursActifs} jours actifs sur 7 : quelle régularité 🔥`;
+    if (b.evolution !== null && b.evolution >= C.bilan.evolutionMin) return `+${Math.round(b.evolution * 100)} % d'XP par rapport à la semaine d'avant 🚀`;
+    if (b.joursActifs >= C.bilan.joursActifsBravo) return `${b.joursActifs} jours actifs sur 7 : quelle régularité 🔥`;
+    if (!b.taches) return `+${b.xp} XP cette semaine : chaque pas compte ✨`;
     return `${b.taches} tâche${b.taches > 1 ? 's' : ''} terminée${b.taches > 1 ? 's' : ''} : chaque pas compte ✨`;
   };
 

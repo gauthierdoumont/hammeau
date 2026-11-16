@@ -53,12 +53,13 @@
   };
 
   /* Boss à montrer aujourd'hui : apparus, pas encore passés (jusqu'au jour J inclus), ou passés depuis peu
-   * avec une récompense à prendre (jusqu'à 7 jours après). Compte à rebours en jours.
+   * avec une récompense à prendre (jusqu'à C.boss.joursApres jours après ; le cache de l'agenda les garde).
+   * Compte à rebours en jours.
    */
   B.actifs = function (etat, jour, C) {
     const recues = etat.agenda?.recompenses || {};
     return B.etats(etat, C)
-      .filter(b => b.apparition <= jour && (b.jourExamen >= jour || (!recues[b.cle] && J.ajouterJours(b.jourExamen, 7) >= jour)))
+      .filter(b => b.apparition <= jour && (b.jourExamen >= jour || (!recues[b.cle] && J.ajouterJours(b.jourExamen, C.boss.joursApres) >= jour)))
       .map(b => ({ ...b, dans: joursEntre(jour, b.jourExamen), recue: !!recues[b.cle] }));
   };
   function joursEntre(a, b) {

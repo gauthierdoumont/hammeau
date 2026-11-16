@@ -144,10 +144,17 @@ window.CONFIG = {
   /* ===== Examens = boss (V4) : chaque révision 📚 lui fait des dégâts ===== */
   boss: {
     joursAvant: 14,                  // le boss apparaît N jours avant l'examen ; ↑ = plus de temps pour réviser
+    joursApres: 7,                   // après l'examen, la récompense attend N jours (l'agenda garde l'examen) ; ↑ = plus de temps pour la prendre
     pv: 200,                         // points de vie ; dégâts d'une révision = son XP (25 pour une moyenne) ; ↑ = boss plus coriace
     categories: ['revision'],        // catégories qui font des dégâts
     recompense: { savoir: 80, gemmes: 2 },   // le jour J, boss vaincu ; sinon une part (jamais rien)
     partMin: 0.25                    // part minimale de la récompense, même sans révision (on a passé l'examen !)
+  },
+
+  /* ===== Bilan de la semaine (V4) : phrase d'accroche ===== */
+  bilan: {
+    evolutionMin: 0.05,        // « +N % d'XP » dit seulement à partir de cette hausse (5 %) ; ↓ = dit plus souvent
+    joursActifsBravo: 5        // « N jours actifs sur 7 : quelle régularité » à partir de ce nombre de jours
   },
 
   /* ===== Cours de l'agenda : « J'y étais » (V3) ===== */

@@ -9,6 +9,7 @@ const S = require('../www/stockage.js');
 const T = require('../www/taches.js');
 const M = require('../www/moteur.js');
 const B = require('../www/boss.js');
+const J = require('../www/temps.js');
 const C = globalThis.CONFIG;
 
 // Agenda FICTIF : interro le vendredi 20/11 à 10 h, examen le lundi 23/11 à 9 h, un cours (pas un boss)
@@ -88,10 +89,69 @@ test('récompense le jour J, une seule fois : complète si vaincu, une part sino
   assert.deepEqual(B.recuperer(f, cle, apres, jourJ, C).recompense, C.boss.recompense);
 });
 
-test('après l\'examen : le boss reste 7 jours si la récompense attend, puis disparaît', () => {
+test('après l\'examen : le boss reste C.boss.joursApres jours si la récompense attend, puis disparaît', () => {
   const e = etat();
   assert.equal(B.actifs(e, '2026-11-27', C)[0].titre, 'Interrogation Consolidation');
   assert.ok(!B.actifs(e, '2026-11-28', C).some(b => b.titre === 'Interrogation Consolidation'));
   B.recuperer(e, B.liste(e, C)[0].cle, new Date('2026-11-21T10:00:00Z'), '2026-11-21', C);
   assert.ok(!B.actifs(e, '2026-11-21', C).some(b => b.titre === 'Interrogation Consolidation'));
+});
+
+/* ===== Vérification 3 (C1) : l'agenda garde les examens passés → boss, récompense et dégâts gardés après une actualisation ===== */
+const ICAL = require('../www/lib/ical.min.js');
+const Cal = require('../www/calendrier.js');
+const icsExamens = (avecInterro = true) => ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Hameau//tests FICTIFS//FR',
+  ...(avecInterro ? ['BEGIN:VEVENT', 'UID:interro@exemple.invalid', 'DTSTAMP:20261001T000000Z', 'DTSTART:20261120T090000Z',
+    'DTEND:20261120T110000Z', 'SUMMARY:Interrogation Consolidation', 'END:VEVENT'] : []),
+  'BEGIN:VEVENT', 'UID:exam@exemple.invalid', 'DTSTAMP:20261001T000000Z', 'DTSTART:20261125T080000Z', 'DTEND:20261125T110000Z',
+  'SUMMARY:Examen de fiscalité', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+function actualiser(e, iso, ics = icsExamens()) {
+  e.reglages.calendrierCache = Cal.construireCache(ics, new Date(iso), C, ICAL, { ancien: e.reglages.calendrierCache, examens: e.agenda.examens });
+}
+
+test('examen passé : après une actualisation 2 jours plus tard, le boss est toujours là, récompense prenable jusqu\'à J+joursApres', () => {
+  const e = etat();
+  actualiser(e, '2026-11-16T09:00:00Z');
+  reviser(e, '2026-11-18');                                             // dans la fenêtre des deux boss → le plus proche
+  const degats = () => Object.fromEntries(B.etats(e, C).map(b => [b.titre, b.degats]));
+  const avant = degats();
+  assert.ok(avant['Interrogation Consolidation'] > 0);
+  assert.equal(avant['Examen de fiscalité'], 0);
+  actualiser(e, '2026-11-22T09:00:00Z');                                // J+2 : hors de la fenêtre J−1
+  assert.deepEqual(degats(), avant, 'dégâts non réattribués à l\'examen suivant');
+  const interro = B.actifs(e, '2026-11-22', C).find(b => b.titre === 'Interrogation Consolidation');
+  assert.ok(interro && B.recompenseOuverte(interro, new Date('2026-11-22T09:00:00Z'), '2026-11-22'));
+  const jourMax = J.ajouterJours('2026-11-20', C.boss.joursApres);
+  actualiser(e, jourMax + 'T09:00:00Z');
+  assert.ok(B.actifs(e, jourMax, C).some(b => b.titre === 'Interrogation Consolidation'), 'encore là à J+joursApres');
+  assert.ok(!B.actifs(e, J.ajouterJours(jourMax, 1), C).some(b => b.titre === 'Interrogation Consolidation'));
+  const r = B.recuperer(e, interro.cle, new Date(jourMax + 'T09:00:00Z'), jourMax, C);
+  assert.equal(r.ok, true);
+  assert.equal(S.verifier(e, C), true);
+});
+
+test('examen passé disparu du fichier : repris de l\'ancien cache ; « pas un examen » ou trop ancien : plus gardé', () => {
+  const e = etat();
+  actualiser(e, '2026-11-16T09:00:00Z');
+  actualiser(e, '2026-11-22T09:00:00Z', icsExamens(false));             // Google ne renvoie plus l'interro passée
+  assert.ok(B.liste(e, C).some(b => b.titre === 'Interrogation Consolidation'));
+  const cle = B.liste(e, C).find(b => b.titre === 'Interrogation Consolidation').cle;
+  e.agenda.examens[cle] = false;                                        // marqué « pas un examen »
+  assert.ok(!B.liste(e, C).some(b => b.titre === 'Interrogation Consolidation'), 'faux boss retiré tout de suite');
+  actualiser(e, '2026-11-23T09:00:00Z');
+  assert.ok(!e.reglages.calendrierCache.evenements.some(ev => ev.uid === 'interro@exemple.invalid'), 'plus gardé dans le cache');
+  delete e.agenda.examens[cle];
+  const tard = J.ajouterJours('2026-11-20', Cal.joursExamensGardes(C) + 1);
+  actualiser(e, '2026-11-22T09:00:00Z');
+  actualiser(e, tard + 'T09:00:00Z');
+  assert.ok(!e.reglages.calendrierCache.evenements.some(ev => ev.uid === 'interro@exemple.invalid'), 'trop ancien : retiré');
+  // Les cours passés, eux, ne sont jamais gardés hors de la fenêtre
+  assert.ok(e.reglages.calendrierCache.evenements.every(ev => ev.jour >= J.ajouterJours(tard, -C.calendrier.joursAvant) || Cal.estExamenMarque(ev, e.agenda.examens)));
+});
+
+test('marquer à la main : un événement devient un boss (« C\'est un examen »)', () => {
+  const e = etat();
+  const cours = B.liste(e, C).length;
+  e.agenda.examens['cours@exemple.invalid|2026-11-16T07:30:00.000Z'] = true;
+  assert.equal(B.liste(e, C).length, cours + 1);
 });

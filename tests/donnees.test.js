@@ -313,3 +313,24 @@ test('rappel d\'export : après N jours sans export (N dans config.js), jamais s
   e.reglages.dernierExport = plus('2026-11-01T10:00:00.000Z', N);
   assert.equal(S.rappelExport(e, plus('2026-11-01T10:00:00.000Z', N + 1), C), false);   // export récent
 });
+
+test('restaurer / importer une copie de la veille : la surprise du jour du téléphone reste (pas de 2e tirage)', () => {
+  const Sur = require('../www/surprises.js');
+  const copie = S.etatInitial(C);
+  copie.etat.surprise = { jour: '2026-11-15', type: null };
+  const actuel = S.etatInitial(C);
+  actuel.etat.surprise = { jour: '2026-11-16', type: 'tempete', cible: 3, recompense: { bois: 30, pierre: 30 }, fini: 'releve' };
+  for (const r of [S.preparerRestauration(JSON.stringify(copie), actuel, C),
+    S.analyserImport(JSON.stringify(S.pourExport(copie, '2026-11-15T10:00:00.000Z')), actuel, C)]) {
+    assert.equal(r.ok, true);
+    assert.deepEqual(r.etat.etat.surprise, actuel.etat.surprise);
+    assert.equal(Sur.aTirer(r.etat, '2026-11-16'), false);
+    assert.equal(S.verifier(r.etat, C), true);
+  }
+  // Copie plus récente que la surprise du téléphone : celle de la copie est gardée
+  const recente = S.etatInitial(C);
+  recente.etat.surprise = { jour: '2026-11-17', type: null };
+  assert.equal(S.preparerRestauration(JSON.stringify(recente), actuel, C).etat.etat.surprise.jour, '2026-11-17');
+  // Téléphone sans surprise : rien ne change
+  assert.equal(S.preparerRestauration(JSON.stringify(copie), S.etatInitial(C), C).etat.etat.surprise.jour, '2026-11-15');
+});

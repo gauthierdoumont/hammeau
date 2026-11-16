@@ -779,6 +779,17 @@ function S_ok(e) { return e.schemaVersion === SCHEMA && new Set(e.taches.map(t =
   verifier(apercu.includes('Interrogation Consolidation') && apercu.includes('🎯 examen') && !apercu.includes('Réunion annulée'), 'examen repéré, annulé ignoré');
   verifier((await page.textContent('#agenda-etat')).startsWith('Mis à jour à'), 'état : mis à jour');
   await page.screenshot({ path: 'tests/captures/etape15a-agenda.png', fullPage: true });
+  // Marquer depuis l'aperçu : le cours de ce matin devient un examen (donc un boss), puis retour au titre
+  await page.locator('#agenda-apercu [data-examen-cle]', { hasText: 'Cours de comptabilité' }).first().click();
+  await page.click('#dialogue-boutons .principal');
+  await page.waitForTimeout(300);
+  verifier((await page.locator('#agenda-apercu .agenda-ev', { hasText: 'Cours de comptabilité' }).first().textContent()).includes('🎯 examen'), 'aperçu : marqué examen');
+  verifier(Object.values((await page.evaluate(() => Appli.etat())).agenda.examens).includes(true), 'aperçu : marquage enregistré');
+  verifier((await page.textContent('#liste-boss')).includes('Cours de comptabilité'), 'aperçu : l\'événement marqué devient un boss');
+  await page.locator('#agenda-apercu [data-examen-cle]', { hasText: 'Cours de comptabilité' }).first().click();
+  await page.click('#dialogue-boutons .bouton:first-child');
+  await page.waitForTimeout(300);
+  verifier(!Object.keys((await page.evaluate(() => Appli.etat())).agenda.examens).length && !(await page.textContent('#liste-boss')).includes('Cours de comptabilité'), 'aperçu : retour au titre');
   // Export : jamais l'adresse
   await page.click('.onglet[data-aller="reglages"]');
   const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#btn-exporter')]);
@@ -801,6 +812,52 @@ function S_ok(e) { return e.schemaVersion === SCHEMA && new Set(e.taches.map(t =
   verifier(!(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)), 'Agenda : pas de défilement horizontal');
   verifier(!externes.length, 'ressources externes (agenda) : ' + externes);
   verifier(!erreurs.filter(x => !/^Agenda :/.test(x)).length, 'erreurs console (agenda) : ' + erreurs);
+  await ctx.close();
+}
+
+/* 14b. Agenda : « Retirer » ou « Changer d'adresse » PENDANT un téléchargement → le résultat périmé n'est jamais écrit */
+{
+  const { ctx, page, erreurs, externes } = await nouvellePage(412);
+  const A = 'https://agenda.exemple.invalid/adresse-a/basic.ics', B = 'https://agenda.exemple.invalid/adresse-b/basic.ics';
+  // Téléchargements retenus jusqu'à ce que le test les libère ; l'adresse B donne un agenda reconnaissable (« Cours B »)
+  await page.evaluate(ics => {
+    window.attente = [];
+    window.telechargerAgenda = (adresse) => new Promise(ok => window.attente.push(() => ok(adresse.includes('adresse-b') ? ics.replace(/Cours de comptabilité/g, 'Cours B') : ics)));
+  }, fs.readFileSync('tests/exemple.ics', 'utf8'));
+  const liberer = async (i = 0) => { await page.evaluate(n => window.attente.splice(n, 1)[0](), i); await page.waitForTimeout(250); };
+  const relier = async (adresse) => { await page.fill('#agenda-adresse', adresse); await page.click('#btn-agenda-enregistrer'); await page.waitForTimeout(100); };
+  const retirer = async () => { await page.click('#btn-agenda-retirer'); await page.click('#dialogue-boutons .principal'); await page.waitForTimeout(200); };
+  const reglages = () => page.evaluate(() => Appli.etat().reglages);
+  const titres = (r) => (r.calendrierCache?.evenements || []).map(e => e.titre).join(' | ');
+  await page.click('.onglet[data-aller="reglages"]');
+  await page.click('.ligne[data-aller="agenda"]');
+  await relier(A); await liberer();
+  verifier((await reglages()).icsUrl === A, 'adresse A reliée');
+  // 1. Retirer pendant « Changer d'adresse » (B)
+  await relier(B); await retirer(); await liberer();
+  let r = await reglages();
+  verifier(r.icsUrl === '' && r.calendrierCache === null, 'Retirer pendant Relier : rien de relié : ' + r.icsUrl);
+  verifier((await page.textContent('#toast-texte')) === 'Agenda retiré', 'Retirer pendant Relier : pas de toast « relié »');
+  // 2. Retirer pendant « Actualiser »
+  await relier(A); await liberer();
+  await page.click('#btn-agenda-actualiser'); await page.waitForTimeout(100);
+  await retirer(); await liberer();
+  r = await reglages();
+  verifier(r.icsUrl === '' && r.calendrierCache === null, 'Retirer pendant Actualiser : rien d\'écrit');
+  verifier((await page.textContent('#toast-texte')) === 'Agenda retiré', 'Retirer pendant Actualiser : pas de toast « à jour »');
+  // 3. Changer d'adresse pendant « Actualiser » : B arrive d'abord, puis l'ancien téléchargement (A) est jeté
+  await relier(A); await liberer();
+  await page.click('#btn-agenda-actualiser'); await page.waitForTimeout(100);
+  await relier(B);
+  await liberer(1);
+  r = await reglages();
+  verifier(r.icsUrl === B && titres(r).includes('Cours B'), 'adresse B reliée pendant l\'actualisation de A');
+  await liberer(0);
+  r = await reglages();
+  verifier(r.icsUrl === B && titres(r).includes('Cours B') && !titres(r).includes('Cours de comptabilité'), 'Changer d\'adresse pendant Actualiser : agenda B gardé : ' + titres(r));
+  verifier((await page.textContent('#toast-texte')).includes('relié'), 'pas de toast « à jour » pour l\'ancienne adresse');
+  verifier(!externes.length, 'ressources externes (agenda, courses) : ' + externes);
+  verifier(!erreurs.length, 'erreurs console (agenda, courses) : ' + erreurs);
   await ctx.close();
 }
 
@@ -907,6 +964,20 @@ function S_ok(e) { return e.schemaVersion === SCHEMA && new Set(e.taches.map(t =
   await pause(page);
   let texte = await page.textContent('#liste-boss');
   verifier(texte.includes('Interrogation Consolidation') && texte.includes('dans 4 jours') && texte.includes('200 / 200 PV'), 'boss affiché : ' + texte);
+  // Toucher le titre du boss → « Pas un examen » : il disparaît ; on le remet depuis l'aperçu de l'agenda
+  await page.click('#liste-boss [data-examen-cle]');
+  verifier((await page.textContent('#dialogue')).includes('Est-ce un examen'), 'titre du boss : « Est-ce un examen ? »');
+  await page.click('#dialogue-boutons .bouton:nth-child(2)');
+  await page.waitForTimeout(300);
+  verifier(await page.isHidden('#boss-zone'), 'faux boss retiré depuis sa carte');
+  await page.click('.onglet[data-aller="reglages"]');
+  await page.click('.ligne[data-aller="agenda"]');
+  await page.locator('#agenda-apercu [data-examen-cle]', { hasText: 'Interrogation Consolidation' }).click();
+  await page.click('#dialogue-boutons .bouton:first-child');
+  await page.waitForTimeout(300);
+  await page.click('.onglet[data-aller="aujourdhui"]');
+  await pause(page);
+  verifier((await page.textContent('#liste-boss')).includes('Interrogation Consolidation'), 'boss revenu (selon le titre)');
   // Une révision 📚 fait des dégâts
   await page.evaluate(() => Appli.modifier(e => { Taches.ajouterTache(e, Taches.creerTache({ nom: 'Réviser la conso', categorieId: 'revision' }, e, CONFIG, 'rev1', '2026-11-15T08:00:00.000Z').tache); }));
   await page.click('[data-cocher="rev1"]');

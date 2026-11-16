@@ -1,5 +1,18 @@
 # Journal des versions — Hameau
 
+## 1.7.1 — 2026-11-16 · Corrections (vérification 3)
+- ⚔️ Un examen passé reste dans l'agenda gardé : son boss et sa récompense sont encore là quelques jours après,
+  et ses dégâts ne passent plus à l'examen suivant.
+- 🎯 « Est-ce un examen ? » : touche aussi un événement de Réglages → Agenda, ou le titre d'un boss.
+  « Pas un examen » retire le boss ; « C'est un examen » en crée un.
+- 🌙 Un cours à 1 h 30 du matin compte pour la veille (la journée de Hameau finit à 4 h), comme une tâche.
+- ⚡ Écran plus rapide avec un agenda relié (jour de chaque événement calculé une fois ; aperçu de l'agenda construit quand on l'ouvre).
+- 🎲 Restaurer ou importer une copie de la veille ne relance plus la surprise du jour.
+- 📅 « Retirer » ou « Changer d'adresse » pendant un téléchargement : l'ancien agenda n'est jamais relié ni enregistré.
+- 📊 Bilan : une semaine faite de petits pas affiche « +N XP cette semaine : chaque pas compte ✨ ».
+- 📅 Une répétition très fréquente et ancienne (ex. toutes les heures depuis 2015) s'affiche bien, et vite.
+- 🧰 Coulisses : réglages du boss et du bilan dans `config.js` (mêmes valeurs) ; graphique du bilan mieux lu par les lecteurs d'écran.
+
 ## 1.7.0 — 2026-11-16 · Import de l'appli Muscu
 - 💪 Réglages → Mes données → **« Importer mes séances de muscu »** : choisis le fichier exporté par ton appli Muscu.
   Chaque séance des 14 derniers jours devient une tâche faite : XP + 🪨 Pierre (famille Corps), selon sa durée (ou ses km pour la course).

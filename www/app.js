@@ -445,24 +445,29 @@ async function telechargerAgenda(adresse) {
   if (r.status !== 200 || !Cal.estAgenda(txt)) throw refus('Cet agenda ne s\'ouvre pas : vérifie que c\'est bien l\'adresse secrète au format iCal.');
   return txt;
 }
-function lireAgenda(txt) {
-  try { return Cal.construireCache(txt, maintenant(), C, window.ICAL); }
+// ancien : cache de la MÊME adresse (ses examens passés sont repris : récompense du boss encore prenable)
+function lireAgenda(txt, ancien) {
+  try { return Cal.construireCache(txt, maintenant(), C, window.ICAL, { ancien, examens: etat.agenda?.examens }); }
   catch { throw refus('Cet agenda est illisible : vérifie l\'adresse (format iCal).'); }
 }
+/* Règle des chemins asynchrones de l'agenda : on note l'adresse reliée au départ ; si elle a changé pendant le
+ * téléchargement (« Retirer », « Changer d'adresse »), on n'écrit RIEN et on ne dit rien (ce résultat est périmé). */
+const adresseChangee = (depart) => (etat?.reglages.icsUrl || '') !== depart;
 async function actualiserAgenda(silencieux) {
   const adresse = etat?.reglages.icsUrl;
   if (!adresse || agendaEnCours) return;
   agendaEnCours = true;
   rendreAgenda();
   try {
-    const cache = lireAgenda(await telechargerAgenda(adresse));
+    const txt = await telechargerAgenda(adresse);
+    if (adresseChangee(adresse)) return;
+    const cache = lireAgenda(txt, etat.reglages.calendrierCache);
     agendaHorsLigne = false;
-    // Agenda retiré ou changé pendant le téléchargement : ce cache est celui de l'ancienne adresse, on le jette
-    if (etat?.reglages.icsUrl !== adresse) return;
     modifier(x => { x.reglages.calendrierCache = cache; });
     if (!silencieux) toast(`Agenda à jour 📅 ${cache.evenements.length} événements`);
   } catch (x) {
     console.error('Agenda :', x?.name || 'erreur');          // jamais le message brut (il pourrait contenir l'adresse)
+    if (adresseChangee(adresse)) return;
     agendaHorsLigne = true;
     if (!silencieux) toast(x.pourUtilisateur || 'Agenda indisponible pour l\'instant.');
   } finally {
@@ -478,14 +483,18 @@ async function relierAgenda() {
   erreur.textContent = '';
   const bouton = document.getElementById('btn-agenda-enregistrer');
   bouton.disabled = true; bouton.textContent = 'Lecture…';
+  const depart = etat.reglages.icsUrl || '';
   try {
-    const cache = lireAgenda(await telechargerAgenda(adresse));
+    const txt = await telechargerAgenda(adresse);
+    if (adresseChangee(depart)) return;               // agenda retiré (ou changé) entre-temps : on ne relie rien
+    const cache = lireAgenda(txt, adresse === depart ? etat.reglages.calendrierCache : null);
     agendaHorsLigne = false;
     if (!modifier(x => { x.reglages.icsUrl = adresse; x.reglages.calendrierCache = cache; })) return;
     champ.value = '';
     toast(`Agenda relié 📅 ${cache.evenements.length} événements`);
   } catch (x) {
     console.error('Agenda :', x?.name || 'erreur');
+    if (adresseChangee(depart)) return;
     erreur.textContent = x.pourUtilisateur || 'Cet agenda ne s\'ouvre pas pour l\'instant.';
   } finally {
     bouton.disabled = false;
@@ -522,8 +531,9 @@ function rendreAgenda() {
   const bouton = document.getElementById('btn-agenda-enregistrer');
   if (!bouton.disabled) bouton.textContent = relie ? 'Changer d\'adresse' : 'Relier mon agenda';
   document.getElementById('agenda-adresse').placeholder = relie ? 'Adresse enregistrée ✅ (colle-en une autre pour changer)' : 'https://calendar.google.com/…/basic.ics';
-  if (!relie) return;
-  // Aperçu : les prochains jours, groupés par jour
+  // Aperçu : seulement quand l'écran Agenda est affiché (rendre() tourne à chaque saisie ; afficher('agenda') le construit)
+  if (!relie || !document.getElementById('ecran-agenda').classList.contains('actif')) return;
+  // Les prochains jours, groupés par jour ; toucher un événement → « Est-ce un examen ? »
   const aujourdhui = jourActuel();
   const blocs = [];
   for (let i = 0; i < C.calendrier.apercuJours; i++) {
@@ -531,7 +541,7 @@ function rendreAgenda() {
     const evs = Cal.duJour(etat.reglages.calendrierCache, jour, C);
     if (!evs.length) continue;
     blocs.push(el('div', { class: 'agenda-jour' }, i === 0 ? 'Aujourd\'hui' : i === 1 ? 'Demain' : dateEcheanceLongue(jour).replace(/ \d{4}$/, '')));
-    for (const ev of evs) blocs.push(el('div', { class: 'agenda-ev' },
+    for (const ev of evs) blocs.push(el('button', { type: 'button', class: 'agenda-ev', 'data-examen-cle': Cal.cle(ev), title: 'Examen ou pas ?' },
       el('span', { class: 'agenda-heure' }, ev.journee ? 'journée' : heureCourte(ev.debut)),
       el('span', { class: 'agenda-titre' }, ev.titre, Cal.estExamenMarque(ev, etat.agenda?.examens) ? el('span', { class: 'etiquette-examen' }, ' 🎯 examen') : '', ev.lieu ? el('small', {}, ev.lieu) : '')));
   }
@@ -835,7 +845,7 @@ function rendreBilan() {
   document.querySelectorAll('#bilan-semaine [data-semaine]').forEach(x => x.setAttribute('aria-checked', String(+x.dataset.semaine === decalageBilan)));
   const court = (j) => dateEcheanceLongue(j).replace(/ \d{4}$/, '');
   document.getElementById('bilan-dates').textContent = `Du ${court(b.lundi)} au ${court(b.dimanche)}`;
-  document.getElementById('bilan-accroche').textContent = Bilan.accroche(b);
+  document.getElementById('bilan-accroche').textContent = Bilan.accroche(b, C);
   document.getElementById('bilan-tuiles').replaceChildren(...[[nombre(b.xp), 'XP gagnée'], [nombre(b.taches), b.taches > 1 ? 'tâches finies' : 'tâche finie'], [`${b.joursActifs}/7`, 'jours actifs']]
     .map(([v, l]) => el('div', { class: 'bilan-tuile' }, el('b', {}, v), el('small', {}, l))));
   rendreGrapheJours(b);
@@ -858,7 +868,8 @@ function rendreGrapheJours(b) {
   const meilleur = b.meilleurJour?.jour;
   const info = document.getElementById('bilan-info');
   info.textContent = b.xp ? 'Touche un jour pour le détail.' : '';
-  const g = svg('svg', { viewBox: `0 0 ${L} ${H}`, role: 'img', 'aria-label': 'XP gagnée chaque jour de la semaine' });
+  // role « group » (pas « img ») : les jours restent touchables et lus par les lecteurs d'écran
+  const g = svg('svg', { viewBox: `0 0 ${L} ${H}`, role: 'group', 'aria-label': 'XP gagnée chaque jour de la semaine' });
   g.append(svg('line', { class: 'axe', x1: 0, x2: L, y1: bas + .5, y2: bas + .5 }));
   b.jours.forEach((j, i) => {
     const x = i * pas + (pas - largeur) / 2;
@@ -914,7 +925,7 @@ function rendreBoss() {
       : ouverte ? 'Bravo pour l\'examen : chaque révision a compté.'
       : `Chaque révision ${emojiRev} lui fait des dégâts.`;
     return el('div', { class: 'boss' + (b.vaincu ? ' vaincu' : '') },
-      el('div', { class: 'boss-tete' }, el('b', {}, b.titre), el('span', { class: 'boss-quand' }, quand)),
+      el('div', { class: 'boss-tete' }, el('button', { type: 'button', class: 'boss-titre', 'data-examen-cle': b.cle, title: 'Examen ou pas ?' }, b.titre), el('span', { class: 'boss-quand' }, quand)),
       el('span', { class: 'boss-pv', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(b.pvMax), 'aria-valuenow': String(b.pv) },
         Object.assign(el('i', {}), { style: `width: ${Math.round((b.pv / b.pvMax) * 100)}%` })),
       el('span', { class: 'boss-detail' }, `${nombre(b.pv)} / ${nombre(b.pvMax)} PV · ${detail}`),
@@ -978,9 +989,10 @@ function jYEtais(cle) {
   });
   if (ok) retourGain(depart, r, avant, 'Présence notée 🎓');
 }
-// Toucher le titre : marquer à la main (examen ou pas), prioritaire sur le titre
+// Toucher un événement (cours du jour, aperçu de l'agenda, titre d'un boss) : marquer à la main (examen ou pas),
+// prioritaire sur le titre. « Pas un examen » retire le boss ; « C'est un examen » en fait un.
 async function marquerExamen(cle) {
-  const ev = coursAffiches.get(cle);
+  const ev = (etat.reglages.calendrierCache?.evenements || []).find(x => Cal.cle(x) === cle);
   if (!ev) return;
   const choix = await dialogue(ev.titre, '<p>Est-ce un examen ? 🎯</p><p class="discret">Hameau le devine avec le titre (examen, exam, interro, test) ; ton choix passe avant.</p>',
     [{ texte: 'Selon le titre', valeur: 'auto' }, { texte: 'Pas un examen', valeur: 'non' }, { texte: 'C\'est un examen', valeur: 'oui', principal: true }]);
@@ -1368,6 +1380,7 @@ function afficher(nom) {
   if (nom === 'apropos') remplirApropos();
   if (nom === 'bilan' && etat) rendreBilan();
   if (nom === 'sauvegardes') rendreSauvegardes().catch(console.error);
+  if (nom === 'agenda' && etat) rendreAgenda();
   if (nom === 'perso' && etat) rendrePerso();
   rendreSousTitre(nom);
   window.scrollTo(0, 0);
@@ -1770,8 +1783,15 @@ document.getElementById('btn-carte-bilan-fermer').addEventListener('click', () =
 
 // Examens = boss : récompense le jour J
 document.getElementById('liste-boss').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-recompense-boss]');
-  if (b) recompenseBoss(b.dataset.recompenseBoss);
+  const b = e.target.closest('[data-recompense-boss], [data-examen-cle]');
+  if (!b) return;
+  if (b.dataset.recompenseBoss) recompenseBoss(b.dataset.recompenseBoss);
+  else marquerExamen(b.dataset.examenCle);
+});
+// Aperçu de l'agenda : toucher un événement → « Est-ce un examen ? »
+document.getElementById('agenda-apercu').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-examen-cle]');
+  if (b) marquerExamen(b.dataset.examenCle);
 });
 
 // Surprise du jour : marchand

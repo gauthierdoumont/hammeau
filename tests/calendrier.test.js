@@ -194,3 +194,107 @@ test('« J\'y étais » : série et bâtiment (Bibliothèque) augmentent le gain
   const r = M.jYEtais(e, { cle: 'x|1', titre: 'Cours', debut: '2026-11-16T07:30:00.000Z' }, { id: 'a', horodatage: '2026-11-16T08:00:00.000Z', jour: '2026-11-16' }, C);
   assert.equal(r.gain, Math.round(base * (1 + 4 * C.serie.parJour)));
 });
+
+/* ===== Vérification 3 : jour logique (C4), jour calculé une fois dans le cache (C3), répétitions anciennes (C8) ===== */
+const Tm = require('../www/temps.js');
+const BOSS = require('../www/boss.js');
+const FUSEAU = ['BEGIN:VTIMEZONE', 'TZID:Europe/Brussels', 'BEGIN:DAYLIGHT', 'TZOFFSETFROM:+0100', 'TZOFFSETTO:+0200', 'TZNAME:CEST',
+  'DTSTART:19700329T020000', 'RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU', 'END:DAYLIGHT', 'BEGIN:STANDARD', 'TZOFFSETFROM:+0200',
+  'TZOFFSETTO:+0100', 'TZNAME:CET', 'DTSTART:19701025T030000', 'RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU', 'END:STANDARD', 'END:VTIMEZONE'];
+const agendaTz = (...evenements) => agenda(...evenements).replace('BEGIN:VEVENT', FUSEAU.join('\r\n') + '\r\nBEGIN:VEVENT');
+
+test('jour LOGIQUE : un cours à 01:30 le 17 appartient au 16 (cours du jour, « J\'y étais », boss, aperçu)', () => {
+  const ics = agendaTz(
+    ['UID:nuit@exemple.invalid', 'DTSTART;TZID=Europe/Brussels:20261117T013000', 'DTEND;TZID=Europe/Brussels:20261117T023000', 'SUMMARY:Observation des étoiles'],
+    ['UID:exam-nuit@exemple.invalid', 'DTSTART;TZID=Europe/Brussels:20261121T013000', 'DTEND;TZID=Europe/Brussels:20261121T030000', 'SUMMARY:Examen de nuit'],
+    ['UID:journee@exemple.invalid', 'DTSTART;VALUE=DATE:20261117', 'DTEND;VALUE=DATE:20261118', 'SUMMARY:Journée sportive']);
+  const cache = Cal.construireCache(ics, new Date('2026-11-16T09:00:00Z'), C, ICAL);
+  assert.deepEqual(Cal.coursDuJour(cache, '2026-11-16', C).map(e => e.titre), ['Observation des étoiles']);
+  assert.deepEqual(Cal.coursDuJour(cache, '2026-11-17', C).map(e => e.titre), []);
+  assert.deepEqual(Cal.journeesDuJour(cache, '2026-11-17', C).map(e => e.titre), ['Journée sportive']);   // journée entière : inchangée
+  // « J'y étais » à 01:45 : jour logique du 16 → la présence est créditée au 16
+  const instant = new Date('2026-11-17T00:45:00Z');
+  const jour = Tm.jourLogique(instant, C);
+  assert.equal(jour, '2026-11-16');
+  const ev = Cal.coursDuJour(cache, jour, C)[0];
+  assert.equal(Cal.commence(ev, instant), true);
+  const e = S.etatInitial(C);
+  assert.equal(M.jYEtais(e, { cle: Cal.cle(ev), titre: ev.titre, debut: ev.debut }, { id: 'n1', horodatage: instant.toISOString(), jour }, C).ok, true);
+  assert.equal(e.journal[0].jour, '2026-11-16');
+  // Boss : l'examen de 01:30 le 21 a lieu le jour (logique) du 20
+  e.reglages.calendrierCache = cache;
+  assert.equal(BOSS.liste(e, C).find(b => b.titre === 'Examen de nuit').jourExamen, '2026-11-20');
+});
+
+test('cache : le jour logique est calculé une fois (champ `jour`) ; un vieux cache sans `jour` marche encore', () => {
+  const cache = Cal.construireCache(ICS, new Date('2026-11-16T09:00:00Z'), C, ICAL);
+  assert.ok(cache.evenements.every(e => /^\d{4}-\d{2}-\d{2}$/.test(e.jour)));
+  assert.equal(cache.evenements.find(e => e.uid === 'interro-conso@exemple.invalid').jour, '2026-11-20');
+  const vieux = { ...cache, evenements: cache.evenements.map(({ jour, ...reste }) => reste) };
+  for (const j of ['2026-11-16', '2026-11-20', '2026-11-23']) {
+    assert.deepEqual(Cal.duJour(vieux, j, C).map(Cal.cle), Cal.duJour(cache, j, C).map(Cal.cle));
+  }
+});
+
+// Référence : itération COMPLÈTE de ical.js depuis DTSTART, sans raccourci ni garde-fou (pour comparer)
+function reference(ics, debut, fin) {
+  const comp = new ICAL.Component(ICAL.parse(ics));
+  comp.getAllSubcomponents('vtimezone').forEach(tz => ICAL.TimezoneService.register(tz));
+  const ev = new ICAL.Event(comp.getFirstSubcomponent('vevent'));
+  const res = [];
+  for (let t, it = ev.iterator(); (t = it.next());) {
+    const d = ev.getOccurrenceDetails(t);
+    if (d.startDate.toJSDate() > fin) break;
+    if (d.endDate.toJSDate() >= debut) res.push(d.startDate.isDate ? d.startDate.toString() : d.startDate.toJSDate().toISOString());
+  }
+  return res.sort();      // trié comme Cal.lireEvenements (au changement d'heure, ical.js peut sortir deux dates dans le désordre)
+}
+
+test('répétition fréquente et ancienne : « toutes les heures depuis 2015 » donne bien ses occurrences, vite', () => {
+  const ics = agendaTz(['UID:horaire@exemple.invalid', 'DTSTART;TZID=Europe/Brussels:20150105T100000',
+    'DTEND;TZID=Europe/Brussels:20150105T101500', 'RRULE:FREQ=HOURLY', 'SUMMARY:Boire un verre d\'eau']);
+  const t0 = performance.now();
+  const evs = Cal.construireCache(ics, new Date('2026-11-16T09:00:00Z'), C, ICAL).evenements;
+  const duree = performance.now() - t0;
+  assert.ok(duree < 1000, `trop lent : ${Math.round(duree)} ms`);
+  assert.equal(evs[0].debut, '2026-11-14T23:00:00.000Z');                 // minuit du 15 (J−1), Bruxelles
+  assert.equal(evs.at(-1).debut, '2027-03-16T23:00:00.000Z');            // minuit à la fin de J+120
+  for (let i = 1; i < evs.length; i++) assert.equal(Date.parse(evs[i].debut) - Date.parse(evs[i - 1].debut), 3600000);
+});
+
+test('départ rapide = mêmes dates que l\'itération complète (BYDAY, INTERVAL, heure d\'été, journée entière)', () => {
+  const instant = new Date('2027-03-01T09:00:00Z');                       // la fenêtre passe l'heure d'été (28/03/2027)
+  const { debut, fin } = Cal.fenetre(instant, C);
+  for (const [regle, depart] of [
+    ['FREQ=DAILY', 'TZID=Europe/Brussels:20200106T083000'],
+    ['FREQ=WEEKLY;INTERVAL=2;BYDAY=TU,TH', 'TZID=Europe/Brussels:20200107T083000'],
+    ['FREQ=WEEKLY;INTERVAL=3', 'TZID=Europe/Brussels:20190109T170000'],   // un mercredi, toutes les 3 semaines
+    ['FREQ=HOURLY;INTERVAL=5;BYHOUR=8,13,18', 'TZID=Europe/Brussels:20240101T080000'],
+    ['FREQ=MINUTELY;INTERVAL=45', 'TZID=Europe/Brussels:20260601T000000'],
+    ['FREQ=DAILY;INTERVAL=3', 'VALUE=DATE:20180101'],
+    ['FREQ=WEEKLY;BYDAY=MO;UNTIL=20270405T000000Z', 'TZID=Europe/Brussels:20160104T090000']
+  ]) {
+    const fin1 = depart.startsWith('VALUE=DATE') ? 'DTEND;VALUE=DATE:20180102' : 'DURATION:PT30M';
+    const ics = agendaTz(['UID:r@exemple.invalid', 'DTSTART;' + depart, fin1, 'RRULE:' + regle, 'SUMMARY:Répétition']);
+    const obtenu = Cal.lireEvenements(ics, debut, fin, ICAL).map(e => e.debut);
+    assert.ok(obtenu.length > 0, regle);
+    assert.deepEqual(obtenu, reference(ics, debut, fin), regle);
+  }
+});
+
+test('répétitions : quotidienne depuis 2010 avec EXDATE dans la fenêtre, COUNT compté depuis DTSTART', () => {
+  const ics = agenda(
+    ['UID:q@exemple.invalid', 'DTSTART:20100104T070000Z', 'DTEND:20100104T073000Z', 'RRULE:FREQ=DAILY',
+      'EXDATE:20261120T070000Z,20261225T070000Z', 'SUMMARY:Méditation'],
+    ['UID:c@exemple.invalid', 'DTSTART:20261101T100000Z', 'DTEND:20261101T110000Z', 'RRULE:FREQ=DAILY;COUNT=20', 'SUMMARY:Défi 20 jours'],
+    ['UID:h@exemple.invalid', 'DTSTART:20261116T000000Z', 'DURATION:PT10M', 'RRULE:FREQ=HOURLY;COUNT=30', 'SUMMARY:Toutes les heures (30 fois)']);
+  const evs = Cal.construireCache(ics, new Date('2026-11-16T09:00:00Z'), C, ICAL).evenements;
+  const q = evs.filter(e => e.uid === 'q@exemple.invalid').map(e => e.debut);
+  assert.equal(q.length, C.calendrier.joursAvant + C.calendrier.joursApres + 1 - 2);    // 2 jours retirés (EXDATE)
+  assert.ok(!q.includes('2026-11-20T07:00:00.000Z') && q.includes('2026-11-21T07:00:00.000Z'));
+  const c = evs.filter(e => e.uid === 'c@exemple.invalid').map(e => e.debut);
+  assert.deepEqual([c[0], c.at(-1), c.length], ['2026-11-15T10:00:00.000Z', '2026-11-20T10:00:00.000Z', 6]);   // 1er au 20 nov.
+  const h = evs.filter(e => e.uid === 'h@exemple.invalid');
+  assert.equal(h.length, 30);
+  assert.equal(h.at(-1).debut, '2026-11-17T05:00:00.000Z');
+});
