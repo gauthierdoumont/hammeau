@@ -378,12 +378,91 @@ function cocher(tacheId, quantite = null) {
   if (!ok) return false;
   // Retour immédiat : le gain s'envole vers son compteur, petite vibration
   animerGain(depart, r, avant);
-  vibrer('LIGHT');
+  // Gradation : coche (léger) < tâche finie (pièces) < coffre (moyen) < niveau (fête)
+  vibrer(r.terminee ? 'MEDIUM' : 'LIGHT');
   window.Sons?.jouer(r.terminee ? 'pieces' : 'valide');
   let texte = r.terminee ? 'Bien joué ✅' : `${Math.round(r.progression * 100)} % fait ✨`;
+  if (r.coffre) texte = 'Un coffre ! 🎁';
   if (r.niveauxGagnes) texte = `Niveau ${etat.joueur.niveau} atteint ! 🎉`;
   proposerAnnulation(texte, avant);
+  // Les grands moments arrivent juste après le « +25 » qui s'envole
+  if (r.coffre) celebrer({ type: 'coffre', coffre: r.coffre });
+  if (r.niveauxGagnes) celebrer({ type: 'niveau', niveau: etat.joueur.niveau, gagnes: r.niveauxGagnes });
   return true;
+}
+
+/* ===== CÉLÉBRATIONS : coffre et montée de niveau (étape 5b) =====
+ * Une à la fois (file d'attente) ; un toucher n'importe où accélère puis ferme ; jamais bloquant.
+ */
+const fileCelebrations = [];
+let celebrationEnCours = null, celebrationPrevue = false;
+function celebrer(c) {
+  fileCelebrations.push(c);
+  // Une seule mise en route à la fois (sinon la 2e célébration écraserait la 1re)
+  if (celebrationEnCours || celebrationPrevue) return;
+  celebrationPrevue = true;
+  setTimeout(() => { celebrationPrevue = false; suivanteCelebration(); }, MOUVEMENT_REDUIT ? 0 : 650);
+}
+function suivanteCelebration() {
+  celebrationEnCours = fileCelebrations.shift() || null;
+  const zone = document.getElementById('celebration');
+  if (!celebrationEnCours) { zone.hidden = true; zone.replaceChildren(); return; }
+  zone.hidden = false;
+  zone.className = 'celebration celebration-' + celebrationEnCours.type;   // (pas « coffre » tout court : classe du dessin)
+  if (celebrationEnCours.type === 'coffre') ouvrirCoffre(zone, celebrationEnCours.coffre);
+  else feteNiveau(zone, celebrationEnCours);
+}
+function fermerCelebration() {
+  if (!celebrationEnCours) return false;
+  // 1er toucher pendant l'animation : tout afficher d'un coup ; 2e toucher : fermer
+  const zone = document.getElementById('celebration');
+  if (!zone.classList.contains('fini')) { zone.classList.add('fini'); return true; }
+  celebrationEnCours = null;
+  zone.classList.add('sortie');
+  setTimeout(suivanteCelebration, MOUVEMENT_REDUIT ? 0 : 220);
+  return true;
+}
+
+// Coffre en bois cerclé d'or (SVG dessiné ici) : il tremble, s'ouvre, puis les récompenses sortent une à une
+const SVG_COFFRE = `<svg class="coffre-svg" viewBox="0 0 120 100" aria-hidden="true">
+  <g class="coffre-corps"><rect x="12" y="46" width="96" height="46" rx="6" class="bois"/>
+    <rect x="12" y="46" width="96" height="10" class="bois-fonce"/><rect x="26" y="46" width="10" height="46" class="or"/>
+    <rect x="84" y="46" width="10" height="46" class="or"/><rect x="52" y="54" width="16" height="20" rx="3" class="or"/>
+    <circle cx="60" cy="63" r="3" class="serrure"/></g>
+  <g class="coffre-couvercle"><path d="M12 48 Q12 18 60 16 Q108 18 108 48 Z" class="bois"/>
+    <path d="M26 46 Q26 22 31 20 L36 20 Q32 24 36 46 Z" class="or"/><path d="M84 46 Q88 24 84 20 L89 20 Q94 22 94 46 Z" class="or"/></g>
+</svg>`;
+function ouvrirCoffre(zone, coffre) {
+  const recompenses = [...Object.entries(coffre.ressources).map(([r, q]) => `+${q} ${C.ressources.find(x => x.id === r).emoji}`),
+    `+${coffre.gemmes} 💠`];
+  zone.innerHTML = `<div class="celebration-fond"></div><div class="celebration-contenu">
+    <p class="celebration-titre">Un coffre !</p>
+    <div class="coffre"><div class="rayons" aria-hidden="true"></div>${SVG_COFFRE}</div>
+    <div class="recompenses">${recompenses.map((t, i) => `<span style="--i:${i}">${echapper(t)}</span>`).join('')}</div>
+    <button type="button" class="bouton principal" data-celebration-fermer>Super !</button></div>`;
+  vibrer('MEDIUM');
+  window.Sons?.jouer('marteau');
+  setTimeout(() => { if (celebrationEnCours?.coffre === coffre) { window.Sons?.jouer('fanfare'); zone.classList.add('ouvert'); } }, MOUVEMENT_REDUIT ? 0 : 520);
+}
+
+// Fête de niveau : grand blason, confettis légers (≤ 120), « Continuer »
+function feteNiveau(zone, c) {
+  const plusieurs = c.gagnes > 1 ? `<p class="celebration-sous">+${c.gagnes} niveaux d'un coup !</p>` : '';
+  zone.innerHTML = `<div class="celebration-fond"></div><div class="confettis" aria-hidden="true"></div>
+    <div class="celebration-contenu"><p class="celebration-titre">Niveau supérieur !</p>
+    <div class="medaillon geant"><span>${c.niveau}</span></div>${plusieurs}
+    <p class="celebration-sous">Ton hameau est fier de son chef.</p>
+    <button type="button" class="bouton principal" data-celebration-fermer>Continuer</button></div>`;
+  if (etat?.reglages?.vibrations !== false) PL.Haptics?.notification?.({ type: 'SUCCESS' })?.catch?.(() => {});
+  window.Sons?.jouer('fanfare');
+  if (MOUVEMENT_REDUIT) return;
+  const couleurs = ['var(--accent)', 'var(--lisere)', 'var(--esprit)', 'var(--corps)', 'var(--creation)', 'var(--social)', 'var(--discipline)', 'var(--repos)'];
+  zone.querySelector('.confettis').append(...Array.from({ length: 110 }, (_, i) => {
+    const p = document.createElement('i');
+    p.style.cssText = `--x:${Math.random() * 100}vw;--d:${(Math.random() * 0.6).toFixed(2)}s;--t:${(1.6 + Math.random() * 1.2).toFixed(2)}s;` +
+      `--r:${Math.round(Math.random() * 720 - 360)}deg;--c:${couleurs[i % couleurs.length]};--dx:${Math.round(Math.random() * 120 - 60)}px`;
+    return p;
+  }));
 }
 
 function ouvrirSaisie(tacheId) {
@@ -745,6 +824,7 @@ function aller(nom) {
 
 // Renvoie false quand il n'y a plus rien à fermer (le bouton retour quitte alors l'appli)
 function retourEcranPrecedent() {
+  if (celebrationEnCours) { fermerCelebration(); fermerCelebration(); return true; }
   const ouverts = document.querySelectorAll('dialog[open]');
   if (ouverts.length) { ouverts[ouverts.length - 1].close(); return true; }
   if (window.VillageUI?.retour()) return true;      // placement en cours dans le village → annulé
@@ -905,6 +985,12 @@ function descriptionResume(r) {
 function echapper(t) {
   return String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
+
+// Toucher une célébration : accélérer puis fermer
+document.getElementById('celebration').addEventListener('click', (e) => {
+  if (e.target.closest('[data-celebration-fermer]')) { fermerCelebration(); fermerCelebration(); return; }
+  fermerCelebration();
+});
 
 /* ===== FENÊTRE SUR L'APPLI (pour le village : village-ui.js, village.js) ===== */
 function vibrer(style) {

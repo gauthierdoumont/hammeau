@@ -21,6 +21,8 @@
   --verre: rgba(27, 23, 20, .82);       /* fond des barres posées sur la scène */
   --or-fonce: #b97418; --bois-fonce: #7a4c12;   /* relief des boutons dorés (Construire, +) */
   --or-clair: #ffe3a3;                          /* reflet des jauges dorées */
+  --bois-coffre: #9a5a2c; --bois-coffre-fonce: #6e3e1d;   /* coffre des célébrations */
+  --nuit-celebration: rgba(8, 6, 4, .9);
   --fond-translucide: rgba(27, 23, 20, .86);    /* en-tête au-dessus du contenu qui défile */
   --fond: #1B1714;
   --surface: #2A231E;
@@ -454,7 +456,7 @@ body.bloque main { padding-bottom: calc(var(--bas) + 24px); }
 @keyframes reflet { 0%, 60% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
 .barre-xp.pulse .jauge { animation: pulse .4s ease-out; }
 
-.ressources { display: grid; grid-template-columns: repeat(auto-fit, minmax(46px, 1fr)); gap: 6px; margin-top: 12px; }
+.ressources { display: grid; grid-template-columns: repeat(auto-fit, minmax(40px, 1fr)); gap: 5px; margin-top: 12px; }
 .pastille-res {
   display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 6px 2px;
   border-radius: var(--rayon); background: var(--fond); border: 1px solid var(--bord);
@@ -726,3 +728,63 @@ body.village-placement-actif .village-construire { display: none; }
 .segments button[aria-selected="true"] { background: var(--accent); color: var(--fond); border-color: var(--accent); }
 .bat-carte.rare { background: linear-gradient(120deg, var(--or-voile), transparent 55%), var(--surface); }
 .fiche-type { font-size: .875rem; color: var(--texte-doux); font-weight: 600; }
+
+/* ===== CÉLÉBRATIONS (étape 5b) : coffre et montée de niveau ===== */
+.celebration { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; }
+.celebration[hidden] { display: none; }
+.celebration-fond { position: absolute; inset: 0; background: radial-gradient(circle at 50% 42%, var(--lueur), transparent 55%), var(--nuit-celebration); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); animation: fondu .25s ease-out; }
+.celebration.sortie { animation: disparait .22s ease-in forwards; }
+@keyframes fondu { from { opacity: 0; } }
+@keyframes disparait { to { opacity: 0; transform: scale(.98); } }
+.celebration-contenu {
+  position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 14px;
+  padding: 24px; text-align: center; animation: surgit .45s cubic-bezier(.2, 1.4, .4, 1);
+}
+@keyframes surgit { from { transform: scale(.6); opacity: 0; } }
+.celebration-titre { margin: 0; font-family: var(--police-titre); font-size: 1.9rem; color: var(--lisere); text-shadow: 0 0 18px var(--lueur), 0 3px 0 var(--bois-fonce); }
+.celebration-sous { margin: 0; color: var(--texte); }
+.celebration .bouton { min-width: 180px; margin-top: 6px; }
+
+/* Coffre */
+.coffre { position: relative; width: 190px; height: 160px; display: grid; place-items: center; }
+.coffre-svg { width: 170px; position: relative; z-index: 1; overflow: visible; animation: tremble .4s ease-in-out 2; }
+.coffre-svg .bois { fill: var(--bois-coffre); stroke: var(--bois-coffre-fonce); stroke-width: 2.5; }
+.coffre-svg .bois-fonce { fill: var(--bois-coffre-fonce); }
+.coffre-svg .or { fill: var(--accent); stroke: var(--bois-fonce); stroke-width: 1.5; }
+.coffre-svg .serrure { fill: var(--bois-fonce); }
+.coffre-couvercle { transform-origin: 60px 46px; transition: transform .45s cubic-bezier(.3, 1.6, .5, 1); }
+.celebration.ouvert .coffre-couvercle, .celebration.fini .coffre-couvercle { transform: translateY(-14px) rotate(-24deg); }
+@keyframes tremble { 25% { transform: rotate(-4deg); } 50% { transform: rotate(3deg) translateY(-2px); } 75% { transform: rotate(-2deg); } }
+.rayons {
+  position: absolute; inset: -60px; opacity: 0; border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, var(--or-plaque) 0 10deg, transparent 10deg 24deg);
+  -webkit-mask: radial-gradient(circle, #000 30%, transparent 70%); mask: radial-gradient(circle, #000 30%, transparent 70%);
+  transition: opacity .4s;
+}
+.celebration.ouvert .rayons, .celebration.fini .rayons { opacity: 1; animation: tourne 8s linear infinite; }
+@keyframes tourne { to { transform: rotate(360deg); } }
+.recompenses { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; min-height: 44px; }
+.recompenses span {
+  padding: 8px 14px; border-radius: 999px; font-weight: 800; font-size: 1.15rem;
+  background: var(--surface-2); border: 1px solid var(--or-bord); box-shadow: 0 0 14px var(--lueur);
+  opacity: 0; transform: translateY(24px) scale(.7);
+}
+.celebration.ouvert .recompenses span { animation: sortCoffre .45s cubic-bezier(.2, 1.4, .4, 1) forwards; animation-delay: calc(.25s + var(--i) * .15s); }
+.celebration.fini .recompenses span { opacity: 1; transform: none; animation: none; }
+@keyframes sortCoffre { to { opacity: 1; transform: none; } }
+
+/* Fête de niveau */
+.medaillon.geant { width: 150px; height: 150px; font-size: 4rem; box-shadow: none; animation: pulsation 1.6s ease-in-out infinite; }
+@keyframes pulsation { 50% { transform: scale(1.06); filter: drop-shadow(0 0 18px var(--lueur)); } }
+.confettis { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 1; }
+.confettis i {
+  position: absolute; top: -20px; left: var(--x); width: 8px; height: 14px; border-radius: 2px; background: var(--c);
+  animation: tombe var(--t) cubic-bezier(.25, .6, .5, 1) var(--d) forwards;
+}
+@keyframes tombe { to { transform: translate(var(--dx), 110vh) rotate(var(--r)); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .celebration-fond, .celebration-contenu, .coffre-svg, .rayons, .medaillon.geant, .celebration.sortie { animation: none !important; }
+  .recompenses span { opacity: 1; transform: none; animation: none !important; }
+  .coffre-couvercle { transition: none; }
+}

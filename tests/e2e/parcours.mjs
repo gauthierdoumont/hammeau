@@ -327,7 +327,13 @@ function S_ok(e) { return e.schemaVersion === 2 && new Set(e.taches.map(t => t.i
   await page.waitForTimeout(300);
   verifier((await page.textContent('#toast-texte')).includes('Niveau 2'), 'message de niveau');
   verifier((await page.textContent('#xp-niveau')) === 'Niv. 2', 'barre : niveau 2');
-  await page.waitForTimeout(900);
+  // Étape 5b : écran de fête, fermé par « Continuer »
+  await page.waitForSelector('#celebration:not([hidden]) .medaillon.geant');
+  verifier((await page.textContent('#celebration')).includes('Niveau supérieur'), 'écran de fête du niveau');
+  await page.click('[data-celebration-fermer]');
+  await page.waitForTimeout(400);
+  verifier(await page.isHidden('#celebration'), 'fête fermée');
+  await page.waitForTimeout(500);
   await page.screenshot({ path: 'tests/captures/etape4-final.png', fullPage: true });
   verifier(!(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)), 'étape 4 : pas de défilement horizontal');
 
@@ -468,6 +474,28 @@ function S_ok(e) { return e.schemaVersion === 2 && new Set(e.taches.map(t => t.i
   await ctx.close();
 }
 
+/* 9. Étape 5b : coffre (hasard forcé), puis bouton retour qui ferme la célébration */
+{
+  const { ctx, page, erreurs } = await nouvellePage(412);
+  await page.evaluate(() => localStorage.setItem('debug_hasard', 'toujours'));
+  await page.click('#fab');
+  await page.fill('#ajout-nom', 'Sortir les poubelles');
+  await page.click('#btn-enregistrer');
+  await pause(page);
+  const id = await page.evaluate(() => Appli.etat().taches[0].id);
+  await page.click(`[data-cocher="${id}"]`);
+  await page.waitForSelector('#celebration:not([hidden]) .coffre-svg');
+  await page.waitForTimeout(1300);
+  const e = await page.evaluate(() => Appli.etat());
+  verifier(e.joueur.ressources.gemmes >= 1 && e.journal[0].coffre, 'coffre : gemmes reçues');
+  verifier(await page.locator('.recompenses span').count() === 3, 'coffre : 3 récompenses affichées');
+  await page.evaluate(() => retourEcranPrecedent());
+  await page.waitForTimeout(400);
+  verifier(await page.isHidden('#celebration'), 'retour : célébration fermée');
+  verifier(!erreurs.length, 'erreurs console (coffre) : ' + erreurs);
+  await ctx.close();
+}
+
 await nav.close(); serveur.close();
-console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso, cocher, village, construction, décorations, agrandir, réparer');
+console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso, cocher, village, construction, décorations, agrandir, réparer, coffre, fête');
 process.exit(echecs.length ? 1 : 0);
