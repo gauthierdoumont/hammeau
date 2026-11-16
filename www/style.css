@@ -926,3 +926,19 @@ select.champ { appearance: none; -webkit-appearance: none; color: var(--texte); 
 .surprise-texte > span { color: var(--texte-doux); font-size: .9rem; }
 .surprise-boutons { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; flex-wrap: wrap; }
 .surprise-boutons .bouton { min-height: 44px; padding: 0 14px; }
+
+/* ===== ÉTAPE 17 : examens = boss ===== */
+.boss-zone { margin-bottom: 8px; }
+.boss {
+  margin-bottom: 8px; padding: 12px; background: linear-gradient(120deg, rgba(233, 118, 93, .12), transparent 60%), var(--surface);
+  border: 1px solid var(--bord); border-left: 4px solid var(--corps); border-radius: var(--rayon-menu);
+}
+.boss.vaincu { border-left-color: var(--discipline); }
+.boss-tete { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.boss-tete b { font-family: var(--police-titre); font-size: 1rem; min-width: 0; overflow-wrap: anywhere; }
+.boss-quand { flex: none; color: var(--accent); font-weight: 700; font-size: .85rem; white-space: nowrap; }
+.boss-pv { display: block; height: 10px; margin: 8px 0 4px; background: var(--fond); border-radius: 99px; overflow: hidden; box-shadow: inset 0 1px 0 var(--assombri); }
+.boss-pv i { display: block; height: 100%; background: linear-gradient(90deg, var(--corps), var(--erreur)); border-radius: 99px; transition: width .6s; }
+.boss.vaincu .boss-pv i { background: var(--discipline); }
+.boss-detail { color: var(--texte-doux); font-size: .875rem; }
+.boss .bouton { width: 100%; margin-top: 8px; min-height: 44px; }

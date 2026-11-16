@@ -13,6 +13,7 @@ const MAJ = window.MisesAJour;
 const N = window.Notifications;
 const Cal = window.Calendrier;
 const Sur = window.Surprises;
+const Boss = window.Boss;
 const CLE = S.CLE;
 const NOMS_TYPES = { quotidienne: '🔁 Quotidiennes', imprevu: '⚡ Imprévus', bonus: '⭐ Bonus' };
 const JOURS_COURTS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
@@ -688,6 +689,8 @@ function retourGain(depart, r, avant, texteFini) {
   vibrer(r.terminee ? 'MEDIUM' : 'LIGHT');
   window.Sons?.jouer(r.terminee ? 'pieces' : 'valide');
   let texte = texteFini;
+  const coup = coupAuBoss(avant, etat);
+  if (coup) texte = `⚔️ ${nombre(coup.degats)} dégâts à « ${coup.titre} » !` + (coup.vaincu ? ' Vaincu 🏆' : '');
   if (r.defi) texte = 'Tempête passée, le hameau a tenu bon ! ' + listeRessources(r.defi) + ' 🌈';
   if (r.coffre) texte = 'Un coffre ! 🎁';
   if (r.niveauxGagnes) texte = `Niveau ${etat.joueur.niveau} atteint ! 🎉`;
@@ -747,6 +750,46 @@ function echangerMarchand() {
   window.Sons?.jouer('pieces');
   vibrer('MEDIUM');
   toast('Échange fait 🤝');
+}
+
+/* ===== EXAMENS = BOSS (étape 17) =====
+ * Dégâts recalculés depuis le journal (boss.js) : rien à stocker, toujours juste après un Annuler.
+ */
+function coupAuBoss(avant, apres) {
+  if (!avant || !apres?.reglages.calendrierCache) return null;
+  const a = new Map(Boss.etats(avant, C).map(b => [b.cle, b.degats]));
+  const touche = Boss.etats(apres, C).find(b => b.degats > (a.get(b.cle) || 0));
+  return touche ? { titre: touche.titre, degats: touche.degats - (a.get(touche.cle) || 0), vaincu: touche.vaincu } : null;
+}
+function rendreBoss() {
+  const zone = document.getElementById('boss-zone');
+  const jour = jourActuel(), instant = maintenant();
+  const liste = etat.reglages.icsUrl ? Boss.actifs(etat, jour, C).filter(b => !b.recue).slice(0, 3) : [];
+  zone.hidden = !liste.length;
+  if (zone.hidden) return;
+  const emojiRev = T.categorie(etat, C.boss.categories[0])?.emoji || '📚';
+  document.getElementById('liste-boss').replaceChildren(...liste.map(b => {
+    const quand = b.dans > 1 ? `dans ${b.dans} jours` : b.dans === 1 ? 'demain' : b.dans === 0 ? 'Jour J !' : 'passé 👏';
+    const ouverte = Boss.recompenseOuverte(b, instant, jour);
+    const detail = b.vaincu ? 'Vaincu ! Le jour J peut venir 🏆'
+      : ouverte ? 'Bravo pour l\'examen : chaque révision a compté.'
+      : `Chaque révision ${emojiRev} lui fait des dégâts.`;
+    return el('div', { class: 'boss' + (b.vaincu ? ' vaincu' : '') },
+      el('div', { class: 'boss-tete' }, el('b', {}, b.titre), el('span', { class: 'boss-quand' }, quand)),
+      el('span', { class: 'boss-pv', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(b.pvMax), 'aria-valuenow': String(b.pv) },
+        Object.assign(el('i', {}), { style: `width: ${Math.round((b.pv / b.pvMax) * 100)}%` })),
+      el('span', { class: 'boss-detail' }, `${nombre(b.pv)} / ${nombre(b.pvMax)} PV · ${detail}`),
+      ouverte ? el('button', { type: 'button', class: 'bouton principal', 'data-recompense-boss': b.cle }, 'Récupérer ta récompense ' + listeRessources(Boss.recompense(b, C))) : '');
+  }));
+}
+function recompenseBoss(cle) {
+  const jour = jourActuel(), instant = maintenant();
+  let r;
+  const ok = modifier(e => { r = Boss.recuperer(e, cle, instant, jour, C); if (!r.ok) throw refus(r.erreur); });
+  if (!ok) return;
+  window.Sons?.jouer('fanfare');
+  vibrer('HEAVY');
+  toast((r.vaincu ? 'Boss vaincu ! ' : 'Bien joué pour l\'examen ! ') + listeRessources(r.recompense) + ' 🏆');
 }
 
 /* ===== COURS DU JOUR (étape 15b) =====
@@ -1198,6 +1241,7 @@ function rendre() {
   rendreListes();
   rendreCategories();
   rendreCours();
+  rendreBoss();
   rendreSurprise();
   rendreHier();
   rendrePause();
@@ -1570,6 +1614,12 @@ document.getElementById('btn-mises-a-jour').addEventListener('click', () => veri
 document.getElementById('btn-rappel-export').addEventListener('click', exporter);
 document.getElementById('btn-rappel-plus-tard').addEventListener('click', () => { rappelExportCache = true; rendreReglages(); });
 
+// Examens = boss : récompense le jour J
+document.getElementById('liste-boss').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-recompense-boss]');
+  if (b) recompenseBoss(b.dataset.recompenseBoss);
+});
+
 // Surprise du jour : marchand
 document.getElementById('btn-surprise-oui').addEventListener('click', echangerMarchand);
 document.getElementById('btn-surprise-non').addEventListener('click', () => {
@@ -1585,7 +1635,7 @@ document.getElementById('liste-cours').addEventListener('click', (e) => {
   else marquerExamen(b.dataset.examenCle);
 });
 // Un cours qui commence fait apparaître « J'y étais » sans attendre un autre changement
-setInterval(() => { if (etat && !document.body.classList.contains('bloque')) rendreCours(); }, 60 * 1000);
+setInterval(() => { if (etat && !document.body.classList.contains('bloque')) { rendreCours(); rendreBoss(); } }, 60 * 1000);
 
 // Agenda
 document.getElementById('form-agenda').addEventListener('submit', (e) => { e.preventDefault(); relierAgenda(); });

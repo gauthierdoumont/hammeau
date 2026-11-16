@@ -15,7 +15,8 @@
    *               incendieApplique, creeLe, termineeLe?, archivee}
    * journal[]    {id, tacheId, horodatage, jour, valeur, progression, gains{xp, ressource, quantite}}
    *              « J'y étais » (v3) : tacheId null + cours (uid|début de l'occurrence) + titre
-   * agenda       {examens {cle: true = examen | false = pas un examen}} (v3 ; sans entrée → selon le titre)
+   * agenda       {examens {cle: true = examen | false = pas un examen}} (v3 ; sans entrée → selon le titre),
+   *              recompenses {cle: AAAA-MM-JJ} (facultatif : récompense du boss reçue ce jour-là)
    * joueur       xp = XP gagnée dans le niveau en cours (xpTotal = cumul, ne baisse jamais)
    * etat         {dernierJourTraite, evenements[], surprise?{jour, type, …}} (surprise : champ facultatif, complété)
    * village      {batiments[{id, type, niveau 1-5, x, y (case de grille), endommage, construitLe}], extensions, decorations[]}
@@ -43,7 +44,7 @@
       },
       etat: { dernierJourTraite: null, evenements: [], surprise: null },   // evenements : pénalités récentes, annulables par une pause ; surprise du jour (bonus)
       village: { batiments: [], extensions: 0, decorations: [] },
-      agenda: { examens: {} },
+      agenda: { examens: {}, recompenses: {} },   // recompenses (facultatif, complété) : boss dont la récompense est reçue
       reglages: {
         notifMatin: '08:00',
         notifSoir: '20:00',
@@ -133,6 +134,7 @@
     if (e.agenda !== undefined) {
       if (!estObjet(e.agenda) || !estObjet(e.agenda.examens)) err('agenda');
       else for (const v of Object.values(e.agenda.examens)) if (typeof v !== 'boolean') err('agenda : marquage d\'examen invalide');
+      if (e.agenda.recompenses !== undefined && !estObjet(e.agenda.recompenses)) err('agenda : récompenses');
     }
     const presences = new Set();
     for (const s of e.journal) {

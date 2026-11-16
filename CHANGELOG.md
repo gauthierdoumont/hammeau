@@ -1,5 +1,11 @@
 # Journal des versions — Hameau
 
+## 1.5.0 — 2026-11-16 · Examens = boss
+- ⚔️ **Examens à venir** sur Aujourd'hui : chaque examen de ton agenda devient un boss 14 jours avant (compte à rebours, 200 PV).
+- 📚 Chaque révision lui fait des dégâts (son XP) : « ⚔️ 30 dégâts à « Interrogation Consolidation » ! ». Annuler rend les PV.
+- 🏆 Le jour J, dès le début de l'examen : récompense (+80 📜 +2 💠 si le boss est vaincu, une part sinon — jamais rien).
+- Réglages des boss dans `config.js`.
+
 ## 1.4.0 — 2026-11-16 · Surprises du jour
 - 🎲 Environ un jour sur trois, une **surprise** sur Aujourd'hui — toujours un bonus, jamais une perte :
   - 🧳 **Marchand ambulant** : ta ressource la plus abondante contre la plus rare, avec un bonus de 50 % (« Non merci » ne coûte rien).

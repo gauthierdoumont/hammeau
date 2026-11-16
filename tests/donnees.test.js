@@ -97,7 +97,7 @@ test('migration v2 → v3 : agenda vide ajouté, rien d\'autre ne change (villag
   const avant = fixtureV2();
   const apres = S.completer(S.migrer(avant), C);
   assert.equal(apres.schemaVersion, 3);
-  assert.deepEqual(apres.agenda, { examens: {} });
+  assert.deepEqual(apres.agenda, { examens: {}, recompenses: {} });   // recompenses : champ facultatif complété (étape 17)
   for (const k of ['taches', 'journal', 'categories', 'village']) assert.deepEqual(apres[k], avant[k]);
   assert.deepEqual(apres.joueur, S.completer(avant, C).joueur);
   assert.equal(S.verifier(apres, C), true);

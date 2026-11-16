@@ -872,6 +872,48 @@ function S_ok(e) { return e.schemaVersion === SCHEMA && new Set(e.taches.map(t =
   await ctx.close();
 }
 
+/* 17. Étape 17 : examens = boss (agenda FICTIF : interro le vendredi 20/11) */
+{
+  const { ctx, page, erreurs, externes } = await nouvellePage(412);
+  await page.evaluate(ics => localStorage.setItem('debug_ics', ics), fs.readFileSync('tests/exemple.ics', 'utf8'));
+  verifier(await page.isHidden('#boss-zone'), 'sans agenda : pas de boss');
+  await page.click('.onglet[data-aller="reglages"]');
+  await page.click('.ligne[data-aller="agenda"]');
+  await page.fill('#agenda-adresse', 'https://agenda.exemple.invalid/adresse-fictive/basic.ics');
+  await page.click('#btn-agenda-enregistrer');
+  await page.waitForTimeout(300);
+  await page.click('.onglet[data-aller="aujourdhui"]');
+  await pause(page);
+  let texte = await page.textContent('#liste-boss');
+  verifier(texte.includes('Interrogation Consolidation') && texte.includes('dans 4 jours') && texte.includes('200 / 200 PV'), 'boss affiché : ' + texte);
+  // Une révision 📚 fait des dégâts
+  await page.evaluate(() => Appli.modifier(e => { Taches.ajouterTache(e, Taches.creerTache({ nom: 'Réviser la conso', categorieId: 'revision' }, e, CONFIG, 'rev1', '2026-11-15T08:00:00.000Z').tache); }));
+  await page.click('[data-cocher="rev1"]');
+  await page.waitForTimeout(300);
+  verifier((await page.textContent('#toast-texte')).includes('dégâts à « Interrogation Consolidation »'), 'message de dégâts : ' + await page.textContent('#toast-texte'));
+  texte = await page.textContent('#liste-boss');
+  verifier(/1\d\d \/ 200 PV/.test(texte), 'PV en baisse : ' + texte);
+  await page.screenshot({ path: 'tests/captures/etape17-boss.png' });
+  // Annuler rend les PV (rien n'est stocké pour les dégâts)
+  await page.click('#toast-action');
+  await page.waitForTimeout(200);
+  verifier((await page.textContent('#liste-boss')).includes('200 / 200 PV'), 'Annuler : PV rendus');
+  // Le jour J, après le début : récompense (une part, puisque le boss n'est pas vaincu)
+  await page.evaluate(() => { localStorage.setItem('debug_maintenant', '2026-11-20T11:00:00+01:00'); rendre(); });
+  verifier((await page.textContent('#liste-boss')).includes('Jour J'), 'jour J');
+  const gemmes = await page.evaluate(() => Appli.etat().joueur.ressources.gemmes);
+  await page.click('[data-recompense-boss]');
+  await page.waitForTimeout(300);
+  const e = await page.evaluate(() => Appli.etat());
+  verifier(e.joueur.ressources.gemmes > gemmes && Object.keys(e.agenda.recompenses).length === 1, 'récompense reçue');
+  verifier((await page.textContent('#toast-texte')).includes('Bien joué pour l\'examen'), 'message positif');
+  verifier(await page.isHidden('#boss-zone'), 'boss rangé après la récompense');
+  verifier(!(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)), 'boss : pas de défilement horizontal');
+  verifier(!externes.length, 'ressources externes (boss) : ' + externes);
+  verifier(!erreurs.length, 'erreurs console (boss) : ' + erreurs);
+  await ctx.close();
+}
+
 await nav.close(); serveur.close();
-console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso, cocher, village, construction, décorations, agrandir, réparer, coffre, fête, jours, prochaine action, perso, réglages, sauvegardes, rappel d\'export, mises à jour, rappels, agenda, cours du jour, surprises');
+console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso, cocher, village, construction, décorations, agrandir, réparer, coffre, fête, jours, prochaine action, perso, réglages, sauvegardes, rappel d\'export, mises à jour, rappels, agenda, cours du jour, surprises, boss');
 process.exit(echecs.length ? 1 : 0);

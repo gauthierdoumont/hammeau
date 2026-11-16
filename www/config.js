@@ -141,6 +141,15 @@ window.CONFIG = {
     fete: { bonus: 0.2 }                           // une famille au hasard : +20 % de gains aujourd'hui
   },
 
+  /* ===== Examens = boss (V4) : chaque révision 📚 lui fait des dégâts ===== */
+  boss: {
+    joursAvant: 14,                  // le boss apparaît N jours avant l'examen ; ↑ = plus de temps pour réviser
+    pv: 200,                         // points de vie ; dégâts d'une révision = son XP (25 pour une moyenne) ; ↑ = boss plus coriace
+    categories: ['revision'],        // catégories qui font des dégâts
+    recompense: { savoir: 80, gemmes: 2 },   // le jour J, boss vaincu ; sinon une part (jamais rien)
+    partMin: 0.25                    // part minimale de la récompense, même sans révision (on a passé l'examen !)
+  },
+
   /* ===== Cours de l'agenda : « J'y étais » (V3) ===== */
   cours: { categorieId: 'cours', taille: 'moyenne', type: 'quotidienne' },   // gain d'une présence ; taille ↑ = plus de 📜
 

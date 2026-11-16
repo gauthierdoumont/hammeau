@@ -40,6 +40,11 @@
         <h3 class="intertitre">🎓 Cours du jour</h3>
         <div id="liste-cours"></div>
       </div>
+      <!-- Examens = boss : chaque révision 📚 fait des dégâts, récompense le jour J -->
+      <div class="boss-zone" id="boss-zone" hidden>
+        <h3 class="intertitre">⚔️ Examens à venir</h3>
+        <div id="liste-boss"></div>
+      </div>
       <!-- Surprise du jour (bonus seulement) : marchand, tempête = défi, fête -->
       <div class="surprise" id="surprise" hidden>
         <span class="surprise-icone" id="surprise-icone" aria-hidden="true"></span>
@@ -637,6 +642,7 @@
   <script src="surprises.js"></script>
   <script src="lib/ical.min.js"></script>
   <script src="calendrier.js"></script>
+  <script src="boss.js"></script>
   <script src="sons.js"></script>
   <script src="village.js"></script>
   <script src="village-ui.js"></script>
