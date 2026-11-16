@@ -15,6 +15,7 @@ const Cal = window.Calendrier;
 const Sur = window.Surprises;
 const Boss = window.Boss;
 const Bilan = window.Bilan;
+const Muscu = window.Muscu;
 const CLE = S.CLE;
 const NOMS_TYPES = { quotidienne: '🔁 Quotidiennes', imprevu: '⚡ Imprévus', bonus: '⭐ Bonus' };
 const JOURS_COURTS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
@@ -260,6 +261,41 @@ async function exporter() {
     console.error(x);
     message('Export impossible', 'Le fichier n\'a pas pu être créé (' + (x.message || x) + ').');
   }
+}
+
+/* ===== IMPORT DES SÉANCES DE MUSCU (étape 19) =====
+ * Fichier exporté par l'appli Muscu → chaque séance récente = une tâche faite (famille Corps), une seule fois.
+ * Aperçu calculé sur une copie, confirmation, copie de sécurité, puis Annuler possible 5 s.
+ */
+function choisirFichierMuscu() {
+  const input = document.getElementById('fichier-muscu');
+  input.value = '';
+  input.click();
+}
+async function importerMuscu(fichier) {
+  const lu = Muscu.analyser(await fichier.text());
+  if (!lu.ok) return message('Import impossible', lu.message);
+  const plan = Muscu.planifier(etat, lu.seances, maintenant(), C);
+  const apercu = Muscu.importer(structuredClone(etat), plan, () => S.nouvelId(), C);
+  const s = (n, mot) => `${n} ${mot}${n > 1 ? 's' : ''}`;
+  const autres = [apercu.deja ? s(apercu.deja, 'séance') + ' déjà comptée' + (apercu.deja > 1 ? 's' : '') : '',
+    apercu.anciennes ? `${s(apercu.anciennes, 'séance')} de plus de ${C.muscu.joursMax} jours (elle${apercu.anciennes > 1 ? 's restent' : ' reste'} dans ton appli Muscu)` : '']
+    .filter(Boolean).join(' · ');
+  if (!apercu.importees) return message('Rien de nouveau 💪', 'Tout est déjà compté dans Hameau.' + (autres ? ' ' + autres + '.' : ''));
+  const ok = await dialogue(`${s(apercu.importees, 'séance')} à compter 💪`,
+    `<p><b>+${nombre(apercu.xp)} XP · ${echapper(listeRessources(apercu.ressources))}</b></p>` +
+    (autres ? `<p class="discret">${echapper(autres)}.</p>` : '') +
+    '<p class="discret">Une copie de sécurité de tes données est faite avant.</p>',
+    [{ texte: 'Annuler', valeur: false }, { texte: 'Compter mes séances', valeur: true, principal: true }]);
+  if (!ok) return;
+  await sauvegardeAvant('import-muscu', lireBrut());
+  const avant = etat;
+  let r;
+  if (!modifier(e => { r = Muscu.importer(e, Muscu.planifier(e, lu.seances, maintenant(), C), () => S.nouvelId(), C); })) return;
+  window.Sons?.jouer('pieces');
+  vibrer('MEDIUM');
+  proposerAnnulation(`${s(r.importees, 'séance')} comptée${r.importees > 1 ? 's' : ''} : +${nombre(r.xp)} XP 💪`, avant);
+  if (r.niveauxGagnes) celebrer({ type: 'niveau', niveau: etat.joueur.niveau, gagnes: r.niveauxGagnes });
 }
 
 /* ===== MISES À JOUR (seule fonction en ligne, seulement quand on touche le bouton) ===== */
@@ -1693,6 +1729,11 @@ document.getElementById('form-categorie').addEventListener('submit', (e) => { e.
 // Données
 document.getElementById('btn-exporter').addEventListener('click', exporter);
 document.getElementById('btn-importer').addEventListener('click', choisirFichierImport);
+document.getElementById('btn-importer-muscu').addEventListener('click', choisirFichierMuscu);
+document.getElementById('fichier-muscu').addEventListener('change', (e) => {
+  const f = e.target.files?.[0];
+  if (f) importerMuscu(f).catch(x => { console.error(x); message('Import impossible', String(x.message || x)); });
+});
 document.getElementById('btn-importer-recup').addEventListener('click', choisirFichierImport);
 document.getElementById('btn-secours').addEventListener('click', essayerCopieSecours);
 document.getElementById('btn-envoyer-brut').addEventListener('click', () =>

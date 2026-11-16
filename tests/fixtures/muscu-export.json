@@ -1,0 +1,130 @@
+{
+ "app": "muscu-gd",
+ "format": 1,
+ "dbVersion": 1,
+ "dataVersion": 1,
+ "appVersion": "1.0.0",
+ "exportedAt": "2026-11-16T09:30:00.000Z",
+ "auteur": "Créé par Gauthier Doumont — export FICTIF pour les tests de Hameau",
+ "data": {
+  "kv": [
+   {
+    "k": "profile",
+    "v": {
+     "prenom": "Exemple",
+     "niveau": 1
+    }
+   },
+   {
+    "k": "meta",
+    "v": {
+     "dataVersion": 1
+    }
+   }
+  ],
+  "exercises": [],
+  "sessions": [
+   {
+    "id": "seance-a",
+    "kind": "muscu",
+    "tpl": "hautA",
+    "title": "Haut du corps A",
+    "start": 1794672000000,
+    "end": 1794675120000,
+    "date": "2026-11-14",
+    "durMin": 52,
+    "items": [
+     {
+      "exId": "ex-fictif",
+      "name": "Développé fictif",
+      "load": "kg",
+      "u": "reps",
+      "sets": [
+       {
+        "kg": 20,
+        "reps": 10,
+        "feel": "o"
+       }
+      ]
+     }
+    ],
+    "volume": 200,
+    "setsDone": 12,
+    "setsPlanned": 12,
+    "prs": []
+   },
+   {
+    "id": "seance-b",
+    "kind": "express",
+    "tpl": "full",
+    "title": "Express",
+    "start": 1794724200000,
+    "end": 1794725700000,
+    "date": "2026-11-15",
+    "durMin": 25,
+    "items": [],
+    "volume": 0,
+    "setsDone": 6,
+    "setsPlanned": 6,
+    "prs": []
+   },
+   {
+    "id": "seance-c",
+    "kind": "elastique",
+    "tpl": "bras",
+    "title": "Routine élastique du soir",
+    "start": 1794792600000,
+    "end": 1794793320000,
+    "date": "2026-11-16",
+    "durMin": 12,
+    "items": [],
+    "volume": 0,
+    "setsDone": 4,
+    "setsPlanned": 4,
+    "prs": []
+   },
+   {
+    "id": "course-d",
+    "kind": "course",
+    "title": "Course",
+    "start": 1794567600000,
+    "end": 1794569700000,
+    "date": "2026-11-13",
+    "km": 6.2,
+    "sec": 2100,
+    "pace": 338.7,
+    "items": []
+   },
+   {
+    "id": "seance-ancienne",
+    "kind": "muscu",
+    "tpl": "legs",
+    "title": "Jambes",
+    "start": 1788278400000,
+    "end": 1788280800000,
+    "date": "2026-09-01",
+    "durMin": 40,
+    "items": [],
+    "volume": 0,
+    "setsDone": 10,
+    "setsPlanned": 10,
+    "prs": []
+   },
+   {
+    "id": "seance-future",
+    "kind": "muscu",
+    "tpl": "push",
+    "title": "Push",
+    "start": 1796144400000,
+    "end": 1796146800000,
+    "date": "2026-12-01",
+    "durMin": 40,
+    "items": [],
+    "volume": 0,
+    "setsDone": 10,
+    "setsPlanned": 10,
+    "prs": []
+   }
+  ]
+ }
+}

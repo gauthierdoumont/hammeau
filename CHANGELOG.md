@@ -1,5 +1,12 @@
 # Journal des versions — Hameau
 
+## 1.7.0 — 2026-11-16 · Import de l'appli Muscu
+- 💪 Réglages → Mes données → **« Importer mes séances de muscu »** : choisis le fichier exporté par ton appli Muscu.
+  Chaque séance des 14 derniers jours devient une tâche faite : XP + 🪨 Pierre (famille Corps), selon sa durée (ou ses km pour la course).
+- Une séance n'est jamais comptée deux fois ; aperçu avant (« 4 séances à compter : +135 XP »), copie de sécurité, « Annuler » 5 s.
+- Rien d'autre n'est copié de l'appli Muscu (ni poids, ni taille, ni profil).
+- 🧪 Tests navigateur plus stables (hasard fixé dans la section qui simule l'appli installée).
+
 ## 1.6.2 — 2026-11-16 · Pause encore plus douce
 - ⏸️ Une échéance importante qui tombe **pendant une pause** ne provoque plus jamais d'incendie, même après la pause.
 
@@ -75,7 +82,7 @@
 - 🛟 **Sauvegardes automatiques** : la liste des copies (une par semaine + avant chaque opération délicate), avec « Restaurer ».
   Une copie de ton état actuel est faite avant : tu peux toujours revenir en arrière. Les jours déjà comptés ne sont pas rejoués.
 - 📦 Petite carte « Petite sauvegarde de ton village ? » sur Aujourd'hui après 14 jours sans export : un tap = export, ✕ = plus tard.
-- 🔄 **Vérifier les mises à jour** : seule fonction qui utilise Internet, seulement quand tu touches le bouton ; message clair sans réseau.
+- 🔄 **Vérifier les mises à jour** : seule fonction qui utilise Internet, et uniquement quand tu touches le bouton ; message clair sans réseau.
 - 🐞 L'ajout d'une tâche ne vibre plus quand les vibrations sont coupées.
 
 ## 0.7.1 — 2026-11-16 · Équilibrage
@@ -125,7 +132,7 @@
 ## 0.4.0 — 2026-11-16
 - Cocher une tâche rapporte de l'XP et la ressource de sa famille (petite 10 · moyenne 25 · grosse 50) : le gain s'envole vers son compteur, petite vibration.
 - Objectif chiffré : bouton + pour saisir « 10 pages » → 50 % des gains ; plusieurs saisies s'additionnent, plafond 100 %.
-- Quotidiennes : seulement celles prévues ce jour-là, une fois par jour (la journée finit à 4 h du matin).
+- Quotidiennes : celles prévues ce jour-là, une fois par jour (la journée finit à 4 h du matin).
 - Barre de ressources et barre d'XP avec niveau ; « Annuler » pendant 5 secondes après chaque action.
 - Toucher une tâche pour la modifier ou la supprimer (ce qu'elle a rapporté reste acquis).
 

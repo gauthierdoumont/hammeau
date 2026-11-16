@@ -235,12 +235,23 @@
     if (!ev?.cle) return { ok: false, erreur: 'Cours introuvable.' };
     if (M.dejaPresent(etat.journal, ev.cle)) return { ok: false, erreur: 'Déjà noté ✅' };
     if (Date.parse(ctx.horodatage) < Date.parse(ev.debut)) return { ok: false, erreur: 'Ce cours n\'a pas encore commencé ⏳' };
-    const { categorie, mult, virtuelle } = M.gainCours(etat, ctx.jour, C);
+    return M.saisieExterne(etat, { champ: 'cours', cle: ev.cle, titre: ev.titre, categorieId: C.cours.categorieId, taille: C.cours.taille, type: C.cours.type }, ctx, C);
+  };
+
+  /* ===== SAISIE EXTERNE : un effort fait hors des tâches (cours suivi, séance de muscu importée) =====
+   * src = {champ: 'cours' | 'muscu', cle (unique), titre, categorieId, taille, type}. Gain d'une tâche de cette
+   * catégorie (série, bâtiment, fête, anti-farm), crédité comme une tâche finie. Journal : tacheId null + [champ]: cle.
+   * Coffre seulement si ctx.rng est donné (pas de coffre en rafale lors d'un import).
+   */
+  M.saisieExterne = function (etat, src, ctx, C) {
+    const categorie = etat.categories.find(c => c.id === src.categorieId);
+    const virtuelle = { type: src.type, taille: src.taille };
+    const mult = M.multiplicateurs(virtuelle, etat, C, ctx.jour, categorie?.familleId);
     const gain = Math.max(0, Math.round(M.brut(virtuelle, C, mult.total)));
     const ressource = M.ressourceDe(categorie, C);
     const coffre = M.tirerCoffre(ctx.rng, C);
     const entree = {
-      id: ctx.id, tacheId: null, cours: ev.cle, titre: String(ev.titre || '').slice(0, 120), horodatage: ctx.horodatage, jour: ctx.jour,
+      id: ctx.id, tacheId: null, [src.champ]: src.cle, titre: String(src.titre || '').slice(0, 120), horodatage: ctx.horodatage, jour: ctx.jour,
       valeur: 1, progression: 1, gains: { xp: gain, ressource, quantite: ressource ? gain : 0 }
     };
     if (coffre) entree.coffre = coffre;

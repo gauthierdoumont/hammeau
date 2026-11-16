@@ -1,7 +1,7 @@
 # Suivi — Hameau
 
 ## Où on en est
-- Version : 1.6.2 · Données : **schéma v3** · Prochaine session : suivre **CLAUDE.md §2** dans l'ordre (19 → 1b) · Dernière session : 2026-11-16
+- Version : 1.7.0 · Données : **schéma v3** · Prochaine session : **1b** (clé de signature + 1er APK), puis point de contrôle · Dernière session : 2026-11-16
 
 ## Dernière session
 - Fait : 2.0 rééquilibrage (v0.7.1, tests de coûts calculés depuis `CONFIG`) puis étape 8 (v1.0.0) : Sons / Vibrations,
@@ -18,6 +18,8 @@
   récompense notée dans `agenda.recompenses` (champ facultatif complété, pas de migration).
 - Étape 18 (v1.6.0) : bilan de la semaine (`www/bilan.js` pur, graphiques SVG faits main, une seule teinte + étiquettes :
   la palette des familles échoue au validateur `dataviz` sur fond sombre, donc la couleur ne porte jamais l'information seule).
+- Étape 19 (v1.7.0) : import de l'appli Muscu (`www/muscu.js`, format `muscu-gd` lu dans le dépôt `muscuappperso`, export FICTIF
+  `tests/fixtures/muscu-export.json`) ; `M.saisieExterne` partagée avec « J'y étais » ; saisie du journal `tacheId: null` + `muscu`.
 - Vérification par sous-agents, boucle 2 : 14 corrections fusionnées en v1.6.1 (rappels inexacts `isExactNotification: false` = plus
   d'écran « Alarmes » sur Android 14+, adresse iCal retirée du texte d'analyse, agenda plus robuste, incendie non rejoué).
 - Vérification par sous-agents (vérificateur → correcteur) : 10 corrections fusionnées en v1.2.1 (Annuler après le tick de 60 s,
@@ -25,7 +27,7 @@
 - Simulation 2.0 (200 j, 20 graines, médianes) : tout au niveau 5 → régulier 125 j, intense 62 j, léger > 200 j.
 - Check-list `appli-native` : navigateur 360/412/1100 px OK, hors ligne OK, export/import OK, appId inchangé, pas de server.url,
   aucun secret. Reste : workflow ✅ + Release (impossible avant la 1b, clé de signature).
-- Testé : `npm test` (146), `npm run e2e` (18 sections, plugin de notifications simulé, agenda d'exemple), `node outils/simulation.js`.
+- Testé : `npm test` (150), `npm run e2e` (19 sections, plugin de notifications simulé, agenda d'exemple), `node outils/simulation.js`.
 - Non testé / à vérifier sur le téléphone : tout (1er APK à la 1b), dont l'ouverture de la page GitHub par `@capacitor/browser`,
   l'arrivée des rappels à l'heure (optimisation de batterie MagicOS à désactiver pour Hameau) et la petite icône,
   la lecture du vrai Google Agenda (impossible à tester ici : le navigateur bloque).
@@ -81,6 +83,7 @@
 | 2026-11-16 | Boss : apparaît 14 j avant, 200 PV, dégâts = XP des révisions 📚 (le plus proche d'abord, surplus au suivant) ; récompense le jour J, au moins 25 % | On ne « perd » jamais contre un boss |
 | 2026-11-16 | Échéance d'un imprévu important tombée pendant une pause → jamais d'incendie (tâche marquée traitée) | Choix de Gauthier (P5) : « aucune pénalité pendant une pause » |
 | 2026-11-16 | Étape 19 : la source est son appli HTML muscu (format d'export à lire dans son dépôt) | Réponse de Gauthier |
+| 2026-11-16 | Import muscu : séances des 14 derniers jours (`muscu.joursMax`), muscu / express / élastique → Muscu, course → Course ; taille selon minutes ou km ; pas de coffre | Ne pas fausser l'équilibre du village avec des mois d'historique |
 | 2026-11-15 | `joueur.xp` = XP dans le niveau en cours, `joueur.xpTotal` = cumul (champ ajouté) | Un changement de courbe ne fera jamais baisser un niveau |
 
 ## À faire plus tard (noté, hors étape)

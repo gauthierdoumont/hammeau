@@ -195,7 +195,7 @@ Objectif d'équilibrage : **environ 4 mois** d'usage régulier pour tout monter 
 - [x] 16. Événements aléatoires (marchand ambulant, tempête…) (~45 min)
 - [x] 17. Examens = boss (repérés par mot-clé, compte à rebours, révisions = dégâts) (~45 min)
 - [x] 18. Bilan hebdomadaire avec graphiques de progression (~45 min)
-- [ ] 19. Import de l'historique de l'app muscu → XP automatique (~45 min)
+- [x] 19. Import de l'historique de l'app muscu → XP automatique (~45 min)
 
 ### Plus tard (idées, pas dans le plan)
 - Widget Android sur l'écran d'accueil · version Windows · succès / trophées · saisons.

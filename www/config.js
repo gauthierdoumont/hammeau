@@ -153,6 +153,15 @@ window.CONFIG = {
   /* ===== Cours de l'agenda : « J'y étais » (V3) ===== */
   cours: { categorieId: 'cours', taille: 'moyenne', type: 'quotidienne' },   // gain d'une présence ; taille ↑ = plus de 📜
 
+  /* ===== Import de l'appli muscu (V4) : chaque séance = une tâche faite (famille Corps) ===== */
+  muscu: {
+    joursMax: 14,                                      // séances plus anciennes ignorées (l'équilibre du village) ; ↑ = plus d'historique compté
+    categories: { muscu: 'muscu', express: 'muscu', elastique: 'muscu', course: 'course' },   // type de séance → catégorie
+    tailleMinutes: { moyenne: 20, grosse: 45 },        // durée d'une séance → petite / moyenne / grosse
+    tailleKm: { moyenne: 3, grosse: 6 },               // course : distance → petite / moyenne / grosse
+    type: 'quotidienne'                                // multiplicateur de type (1)
+  },
+
   /* ===== Rappels (notifications locales, V3) ===== */
   notifications: {
     matinDefaut: '08:00',      // heure proposée quand on rallume le rappel du matin

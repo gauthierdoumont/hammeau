@@ -15,6 +15,7 @@
    *               incendieApplique, creeLe, termineeLe?, archivee}
    * journal[]    {id, tacheId, horodatage, jour, valeur, progression, gains{xp, ressource, quantite}}
    *              « J'y étais » (v3) : tacheId null + cours (uid|début de l'occurrence) + titre
+   *              séance de muscu importée (étape 19, champ facultatif) : tacheId null + muscu (id de la séance) + titre
    * agenda       {examens {cle: true = examen | false = pas un examen}} (v3 ; sans entrée → selon le titre),
    *              recompenses {cle: AAAA-MM-JJ} (facultatif : récompense du boss reçue ce jour-là)
    * joueur       xp = XP gagnée dans le niveau en cours (xpTotal = cumul, ne baisse jamais)
@@ -136,12 +137,15 @@
       else for (const v of Object.values(e.agenda.examens)) if (typeof v !== 'boolean') err('agenda : marquage d\'examen invalide');
       if (e.agenda.recompenses !== undefined && !estObjet(e.agenda.recompenses)) err('agenda : récompenses');
     }
-    const presences = new Set();
-    for (const s of e.journal) {
-      if (!estObjet(s) || s.cours === undefined) continue;
-      if (typeof s.cours !== 'string' || !s.cours || s.tacheId !== null) err('journal : présence à un cours invalide');
-      if (presences.has(s.cours)) err('journal : présence notée deux fois');
-      presences.add(s.cours);
+    // Saisies sans tâche : présence à un cours (v3) ou séance de muscu importée (étape 19) — une seule fois chacune
+    for (const [champ, quoi] of [['cours', 'présence à un cours'], ['muscu', 'séance de muscu']]) {
+      const vues = new Set();
+      for (const s of e.journal) {
+        if (!estObjet(s) || s[champ] === undefined) continue;
+        if (typeof s[champ] !== 'string' || !s[champ] || s.tacheId !== null) err(`journal : ${quoi} invalide`);
+        if (vues.has(s[champ])) err(`journal : ${quoi} notée deux fois`);
+        vues.add(s[champ]);
+      }
     }
     for (const k of ['categories', 'taches', 'journal']) {
       const vus = new Set();
@@ -289,7 +293,7 @@
   S.listeSauvegardes = function (noms) {
     return noms.map(S.decrireSauvegarde).filter(Boolean).sort((a, b) => (a.tri < b.tri ? 1 : a.tri > b.tri ? -1 : 0));
   };
-  S.RAISONS = { import: 'avant un import', restauration: 'avant une restauration', illisible: 'données illisibles gardées' };
+  S.RAISONS = { import: 'avant un import', 'import-muscu': 'avant un import de séances de muscu', restauration: 'avant une restauration', illisible: 'données illisibles gardées' };
   S.libelleRaison = (raison) => S.RAISONS[raison] || (/^migration/.test(raison) ? 'avant une mise à jour des données' : 'copie de sécurité');
 
   /* Restaurer une copie automatique → {ok: true, etat, apercu, actuel} ou {ok: false, message}

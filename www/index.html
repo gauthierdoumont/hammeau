@@ -324,6 +324,16 @@
           <span class="ligne-texte">Importer un export<small>Depuis un fichier de sauvegarde</small></span>
           <svg class="chevron" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="m9.5 6 6 6-6 6"/></svg>
         </button>
+        <button class="ligne" id="btn-importer-muscu">
+          <span class="ligne-icone" data-teinte="corps" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <rect class="plein" x="7" y="9.5" width="10" height="5" rx="1"/>
+              <path d="M3 10v4M6 8v8M18 8v8M21 10v4M6 12h12"/>
+            </svg>
+          </span>
+          <span class="ligne-texte">Importer mes séances de muscu<small>Le fichier exporté par ton appli Muscu : chaque séance rapporte des 🪨</small></span>
+          <svg class="chevron" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="m9.5 6 6 6-6 6"/></svg>
+        </button>
         <button class="ligne" data-aller="sauvegardes">
           <span class="ligne-icone" data-teinte="repos" aria-hidden="true">
             <svg viewBox="0 0 24 24" width="20" height="20">
@@ -659,6 +669,7 @@
     <span id="toast-texte"></span><button type="button" id="toast-action" hidden></button>
   </div>
   <input type="file" id="fichier-import" accept=".json,application/json" hidden>
+  <input type="file" id="fichier-muscu" accept=".json,application/json" hidden>
 
   <script src="version.js"></script>
   <script src="config.js"></script>
@@ -677,6 +688,7 @@
   <script src="calendrier.js"></script>
   <script src="boss.js"></script>
   <script src="bilan.js"></script>
+  <script src="muscu.js"></script>
   <script src="sons.js"></script>
   <script src="village.js"></script>
   <script src="village-ui.js"></script>

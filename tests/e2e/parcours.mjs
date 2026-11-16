@@ -695,6 +695,7 @@ function S_ok(e) { return e.schemaVersion === SCHEMA && new Set(e.taches.map(t =
   const ctx = await nav.newContext({ viewport: { width: 360, height: 800 }, colorScheme: 'dark', locale: 'fr-BE' });
   await ctx.addInitScript(([cle, val]) => {
     if (!sessionStorage.getItem('init')) { localStorage.setItem(cle, val); sessionStorage.setItem('init', '1'); }
+    Math.random = () => 0.999;   // le faux « natif » ignore debug_hasard : pas de coffre ni de surprise au hasard (test stable)
     const r = window.__rappels = { permission: 'prompt', programmes: [], demandes: 0 };
     window.Capacitor = { isNativePlatform: () => true, Plugins: { LocalNotifications: {
       checkPermissions: async () => ({ display: r.permission }),
@@ -973,6 +974,48 @@ function S_ok(e) { return e.schemaVersion === SCHEMA && new Set(e.taches.map(t =
   await ctx.close();
 }
 
+/* 19. Étape 19 : import des séances de l'appli Muscu (export FICTIF) */
+{
+  const { ctx, page, erreurs, externes } = await nouvellePage(412);
+  await page.click('.onglet[data-aller="reglages"]');
+  const [choix] = await Promise.all([page.waitForEvent('filechooser'), page.click('#btn-importer-muscu')]);
+  await choix.setFiles('tests/fixtures/muscu-export.json');
+  await page.waitForSelector('#dialogue[open]');
+  verifier((await page.textContent('#dialogue-titre')).includes('4 séances à compter'), 'aperçu : 4 séances : ' + await page.textContent('#dialogue-titre'));
+  verifier((await page.textContent('#dialogue-texte')).includes('🪨') && (await page.textContent('#dialogue-texte')).includes('14 jours'), 'aperçu : gains et séances anciennes expliquées');
+  await page.click('#dialogue-boutons .principal');
+  await page.waitForTimeout(500);
+  let e = await page.evaluate(() => Appli.etat());
+  verifier(e.journal.filter(s => s.muscu).length === 4 && e.joueur.ressources.pierre > 0, 'séances comptées, 🪨 gagnée');
+  verifier((await page.textContent('#toast-texte')).includes('4 séances comptées'), 'message de réussite');
+  verifier(await page.evaluate(() => Object.keys(localStorage).some(k => k.includes('import-muscu'))), 'copie de sécurité avant l\'import');
+  // Annuler, puis ré-importer : rien de compté deux fois
+  await page.click('#toast-action');
+  await page.waitForTimeout(200);
+  verifier((await page.evaluate(() => Appli.etat().journal.filter(s => s.muscu).length)) === 0, 'Annuler : import retiré');
+  await page.evaluate(() => { document.getElementById('fichier-muscu').value = ''; });   // comme le bouton le fait
+  await page.setInputFiles('#fichier-muscu', 'tests/fixtures/muscu-export.json');   // (le bouton peut être sous un message : on passe par le champ)
+  await page.waitForSelector('#dialogue[open]');
+  await page.click('#dialogue-boutons .principal');
+  await page.waitForTimeout(400);
+  await page.evaluate(() => { document.getElementById('fichier-muscu').value = ''; });   // comme le bouton le fait
+  await page.setInputFiles('#fichier-muscu', 'tests/fixtures/muscu-export.json');   // (le bouton peut être sous un message : on passe par le champ)
+  await page.waitForSelector('#dialogue[open]');
+  verifier((await page.textContent('#dialogue-titre')).includes('Rien de nouveau'), 'ré-import : rien de nouveau');
+  await page.click('#dialogue-boutons .principal');
+  e = await page.evaluate(() => Appli.etat());
+  verifier(e.journal.filter(s => s.muscu).length === 4, 'toujours 4 séances, jamais deux fois');
+  // Mauvais fichier : refus clair
+  await page.evaluate(() => { document.getElementById('fichier-muscu').value = ''; });   // comme le bouton le fait
+  await page.setInputFiles('#fichier-muscu', 'tests/exemple.ics');   // (le bouton peut être sous un message : on passe par le champ)
+  await page.waitForSelector('#dialogue[open]');
+  verifier((await page.textContent('#dialogue-texte')).includes('appli Muscu'), 'fichier étranger refusé');
+  await page.click('#dialogue-boutons .principal');
+  verifier(!externes.length, 'ressources externes (muscu) : ' + externes);
+  verifier(!erreurs.length, 'erreurs console (muscu) : ' + erreurs);
+  await ctx.close();
+}
+
 await nav.close(); serveur.close();
-console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso, cocher, village, construction, décorations, agrandir, réparer, coffre, fête, jours, prochaine action, perso, réglages, sauvegardes, rappel d\'export, mises à jour, rappels, agenda, cours du jour, surprises, boss, bilan');
+console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso, cocher, village, construction, décorations, agrandir, réparer, coffre, fête, jours, prochaine action, perso, réglages, sauvegardes, rappel d\'export, mises à jour, rappels, agenda, cours du jour, surprises, boss, bilan, import muscu');
 process.exit(echecs.length ? 1 : 0);
