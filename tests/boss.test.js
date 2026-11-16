@@ -155,3 +155,27 @@ test('marquer à la main : un événement devient un boss (« C\'est un examen �
   e.agenda.examens['cours@exemple.invalid|2026-11-16T07:30:00.000Z'] = true;
   assert.equal(B.liste(e, C).length, cours + 1);
 });
+
+/* ===== Vérification 4 (D5) : un examen passé reste gardé tant qu'un boss qu'il a « protégé » est encore affiché ===== */
+test('examens X (20/11) puis Y (03/12) : le 05/12, Y garde ses dégâts (ceux de X ne lui passent jamais)', () => {
+  const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Hameau//tests FICTIFS//FR',
+    'BEGIN:VEVENT', 'UID:x@exemple.invalid', 'DTSTAMP:20261001T000000Z', 'DTSTART:20261120T080000Z', 'DTEND:20261120T100000Z', 'SUMMARY:Examen X', 'END:VEVENT',
+    'BEGIN:VEVENT', 'UID:y@exemple.invalid', 'DTSTAMP:20261001T000000Z', 'DTSTART:20261203T080000Z', 'DTEND:20261203T100000Z', 'SUMMARY:Examen Y', 'END:VEVENT',
+    'END:VCALENDAR'].join('\r\n');
+  const e = etat();
+  e.reglages.calendrierCache = null;
+  actualiser(e, '2026-11-19T09:00:00Z', ics);
+  reviser(e, '2026-11-19');
+  reviser(e, '2026-11-20');                                             // révisions pour X (le plus proche)
+  const degatsY = () => B.etats(e, C).find(b => b.titre === 'Examen Y')?.degats;
+  assert.equal(degatsY(), 0);
+  const vus = [];
+  for (const jour of ['2026-11-25', '2026-12-03', '2026-12-04', '2026-12-05', J.ajouterJours('2026-12-03', C.boss.joursApres)]) {
+    actualiser(e, jour + 'T09:00:00Z', ics);
+    if (!B.actifs(e, jour, C).some(b => b.titre === 'Examen Y')) continue;
+    vus.push(jour);
+    assert.equal(degatsY(), 0, jour);
+  }
+  assert.ok(vus.includes('2026-12-05'), 'Y encore affiché le 05/12');
+  assert.equal(Cal.joursExamensGardes(C), C.boss.joursAvant + C.boss.joursApres);
+});

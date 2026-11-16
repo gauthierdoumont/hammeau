@@ -279,7 +279,8 @@ async function importerMuscu(fichier) {
   const apercu = Muscu.importer(structuredClone(etat), plan, () => S.nouvelId(), C);
   const s = (n, mot) => `${n} ${mot}${n > 1 ? 's' : ''}`;
   const autres = [apercu.deja ? s(apercu.deja, 'séance') + ' déjà comptée' + (apercu.deja > 1 ? 's' : '') : '',
-    apercu.anciennes ? `${s(apercu.anciennes, 'séance')} de plus de ${C.muscu.joursMax} jours (elle${apercu.anciennes > 1 ? 's restent' : ' reste'} dans ton appli Muscu)` : '']
+    apercu.anciennes ? `${s(apercu.anciennes, 'séance')} de plus de ${C.muscu.joursMax} jours (elle${apercu.anciennes > 1 ? 's restent' : ' reste'} dans ton appli Muscu)` : '',
+    apercu.futures ? `${s(apercu.futures, 'séance')} pas encore passée${apercu.futures > 1 ? 's' : ''} (comptée${apercu.futures > 1 ? 's' : ''} au prochain import)` : '']
     .filter(Boolean).join(' · ');
   if (!apercu.importees) return message('Rien de nouveau 💪', 'Tout est déjà compté dans Hameau.' + (autres ? ' ' + autres + '.' : ''));
   const ok = await dialogue(`${s(apercu.importees, 'séance')} à compter 💪`,
@@ -294,7 +295,9 @@ async function importerMuscu(fichier) {
   if (!modifier(e => { r = Muscu.importer(e, Muscu.planifier(e, lu.seances, maintenant(), C), () => S.nouvelId(), C); })) return;
   window.Sons?.jouer('pieces');
   vibrer('MEDIUM');
-  proposerAnnulation(`${s(r.importees, 'séance')} comptée${r.importees > 1 ? 's' : ''} : +${nombre(r.xp)} XP 💪`, avant);
+  // Tempête du jour relevée grâce à l'import : on le dit, comme pour une tâche cochée
+  proposerAnnulation(`${s(r.importees, 'séance')} comptée${r.importees > 1 ? 's' : ''} : +${nombre(r.xp)} XP 💪` +
+    (r.defi ? ` · Tempête passée, le hameau a tenu bon ! ${listeRessources(r.defi)} 🌈` : ''), avant);
   if (r.niveauxGagnes) celebrer({ type: 'niveau', niveau: etat.joueur.niveau, gagnes: r.niveauxGagnes });
 }
 
@@ -1495,7 +1498,7 @@ function rendreHistorique() {
     const saisies = parJour.get(jour) || [];
     const xp = saisies.reduce((a, s) => a + (s.gains?.xp || 0), 0);
     const finies = saisies.filter(s => s.progression >= 1).length;
-    const emojis = [...new Set(saisies.map(s => s.cours ? '🎓' : T.categorie(etat, etat.taches.find(t => t.id === s.tacheId)?.categorieId)?.emoji).filter(Boolean))].slice(0, 6);
+    const emojis = [...new Set(saisies.map(s => T.categorie(etat, Bilan.categorieDe(etat, s, C))?.emoji).filter(Boolean))].slice(0, 6);
     const nom = i === 0 ? 'Aujourd\'hui' : i === 1 ? 'Hier' : dateJourCourt(jour);
     const pause = Jours.enPause(etat.joueur, jour);
     return el('div', { class: 'histo-jour' + (saisies.length ? '' : ' calme') },

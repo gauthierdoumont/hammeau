@@ -233,6 +233,57 @@ test('incendie : une échéance tombée pendant une pause n\'en provoque jamais 
   assert.equal(r.evenements.filter(v => v.type === 'incendie').length, 0);
 });
 
+/* ===== Vérification 4 (D1) : la pause rangée ne doit pas « oublier » une échéance tombée pendant la pause ===== */
+const incendiesDe = (r) => r.evenements.filter(v => v.type === 'incendie');
+for (const [nom, echeance] of [['milieu de la pause', '2026-11-13'], ['dernier jour de la pause', '2026-11-15']]) {
+  test(`pause : échéance importante le ${nom}, « Reprendre » puis deux rattrapages séparés → jamais d'incendie`, () => {
+    const e = etatDe('2026-11-09', { nom: 'Dossier', categorieId: 'papiers', echeance, important: true });
+    e.joueur.ressources.or = 300;
+    e.joueur.pause = { actif: true, depuis: '2026-11-10', jusqua: null };
+    let r = D.rattraper(e, a('2026-11-14'), C);                       // ouverture pendant la pause
+    const repris = D.finirPause(r.etat, a('2026-11-16'), C);          // le 16 : « Reprendre » (pause jusqu'au 15)
+    r = D.rattraper(repris, a('2026-11-16', '14:05'), C);
+    assert.equal(r.etat.joueur.pause.actif, false, 'pause rangée');
+    assert.equal(incendiesDe(r).length, 0);
+    assert.equal(r.etat.taches[0].incendieApplique, true, 'marquée traitée pendant la pause');
+    r = D.rattraper(r.etat, a('2026-11-17'), C);                      // le 17 : traitement du 16, pause déjà rangée
+    assert.equal(incendiesDe(r).length, 0);
+    assert.equal(r.etat.joueur.ressources.or, 300);
+  });
+}
+
+test('pause rétroactive après un incendie déjà appliqué : l\'incendie est rendu et ne revient pas', () => {
+  const e = etatDe('2026-11-12', { nom: 'Dossier', categorieId: 'papiers', echeance: '2026-11-13', important: true });
+  e.joueur.ressources.or = 300;
+  let r = D.rattraper(e, a('2026-11-15'), C);                         // le 13 traité : incendie
+  assert.equal(incendiesDe(r).length, 1);
+  assert.equal(r.etat.joueur.ressources.or, 250);
+  const p = D.activerPause(r.etat, '2026-11-12', a('2026-11-15'), C); // pause depuis le 12 (rétroactive)
+  assert.equal(p.ok, true);
+  assert.equal(p.etat.joueur.ressources.or, 300, 'perte rendue');
+  assert.equal(p.etat.taches[0].incendieApplique, true, 'retraitée en pause : marquée sans feu');
+  // Fin de la pause le 17, puis plusieurs ouvertures : l'incendie ne revient jamais
+  r = D.rattraper(D.finirPause(p.etat, a('2026-11-17'), C), a('2026-11-17', '14:05'), C);
+  assert.equal(r.etat.joueur.pause.actif, false);
+  for (const jour of ['2026-11-18', '2026-11-20']) {
+    r = D.rattraper(r.etat, a(jour), C);
+    assert.equal(incendiesDe(r).length, 0, jour);
+  }
+  assert.equal(r.etat.joueur.ressources.or, 300);
+});
+
+test('pause sans fin : l\'échéance pendant la pause est marquée traitée, sans feu ni perte', () => {
+  const e = etatDe('2026-11-09', { nom: 'Dossier', categorieId: 'papiers', echeance: '2026-11-12', important: true },
+    { nom: 'Plus tard', categorieId: 'papiers', echeance: '2026-12-20', important: true });
+  e.joueur.ressources.or = 300;
+  e.joueur.pause = { actif: true, depuis: '2026-11-10', jusqua: null };
+  const r = D.rattraper(e, a('2026-11-16'), C);
+  assert.equal(incendiesDe(r).length, 0);
+  assert.deepEqual(r.etat.taches.map(t => !!t.incendieApplique), [true, false], 'échéance future : pas touchée');
+  assert.equal(r.etat.joueur.ressources.or, 300);
+  assert.equal(r.etat.etat.evenements.length, 0, 'aucun événement noté');
+});
+
 test('1er lancement : on démarre à hier, rien à rattraper ; message de retour seulement si utile', () => {
   const e = S.etatInitial(C);
   const r = D.rattraper(e, a('2026-11-16'), C);

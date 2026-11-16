@@ -298,3 +298,116 @@ test('répétitions : quotidienne depuis 2010 avec EXDATE dans la fenêtre, COUN
   assert.equal(h.length, 30);
   assert.equal(h.at(-1).debut, '2026-11-17T05:00:00.000Z');
 });
+
+/* ===== Vérification 4 (D2, D6) : départ rapide AUSSI avec exceptions (RECURRENCE-ID, EXDATE) et COUNT sans BYxxx ===== */
+// Référence : itération COMPLÈTE d'ical.js depuis DTSTART (aucun départ rapide), exceptions du même uid, jusqu'après la
+// fenêtre ET toutes les dates d'origine ; détails calculés près de la fenêtre ou quand une exception porte sur la date.
+function referenceComplete(ics, debut, fin) {
+  const comp = new ICAL.Component(ICAL.parse(ics));
+  comp.getAllSubcomponents('vtimezone').forEach(tz => ICAL.TimezoneService.register(tz));
+  const vs = comp.getAllSubcomponents('vevent');
+  const res = [];
+  const pousser = (s, f, item) => {
+    if (item.component.getFirstPropertyValue('status') === 'CANCELLED' || (f || s).toJSDate() < debut || s.toJSDate() > fin) return;
+    res.push({ debut: s.isDate ? s.toString() : s.toJSDate().toISOString(), titre: String(item.summary), journee: s.isDate });
+  };
+  for (const v of vs.filter(x => !x.hasProperty('recurrence-id'))) {
+    const uid = v.getFirstPropertyValue('uid');
+    const ev = new ICAL.Event(v, { exceptions: vs.filter(x => x.hasProperty('recurrence-id') && x.getFirstPropertyValue('uid') === uid) });
+    if (!ev.isRecurring()) { pousser(ev.startDate, ev.endDate, ev); continue; }
+    const borne = Math.max(fin.getTime(), ...Object.values(ev.exceptions).map(x => x.recurrenceId.toJSDate().getTime())) + 3 * 86400000;
+    const pres = debut.getTime() - 3 * 86400000;
+    for (let t, it = ev.iterator(); (t = it.next());) {
+      const ms = t.toJSDate().getTime();
+      if (ms > borne) break;
+      if (ms < pres && !(t.toString() in ev.exceptions)) continue;
+      const d = ev.getOccurrenceDetails(t);
+      pousser(d.startDate, d.endDate, d.item);
+    }
+  }
+  return res.sort(Cal.ordre).map(e => e.debut + ' ' + e.titre);
+}
+const LUNDI = new Date('2026-11-16T09:00:00Z');
+const lire = (ics, instant = LUNDI) => { const { debut, fin } = Cal.fenetre(instant, C); return Cal.lireEvenements(ics, debut, fin, ICAL).map(e => e.debut + ' ' + e.titre); };
+const pareil = (ics, instant = LUNDI) => { const { debut, fin } = Cal.fenetre(instant, C); assert.deepEqual(lire(ics, instant), referenceComplete(ics, debut, fin)); };
+const chrono = (f) => { const t0 = performance.now(); const r = f(); return { r, ms: performance.now() - t0 }; };
+
+test('toutes les heures depuis 2015 + cours déplacés (origine avant / dans / après la fenêtre) + EXDATE : comme l\'itération complète, vite', () => {
+  const ics = agendaTz(
+    ['UID:h@exemple.invalid', 'DTSTART;TZID=Europe/Brussels:20150105T100000', 'DURATION:PT15M', 'RRULE:FREQ=HOURLY', 'SUMMARY:Eau',
+      'EXDATE;TZID=Europe/Brussels:20261118T080000,20261201T130000'],
+    ['UID:h@exemple.invalid', 'RECURRENCE-ID;TZID=Europe/Brussels:20261111T100000', 'DTSTART;TZID=Europe/Brussels:20261118T104000', 'DURATION:PT15M', 'SUMMARY:Venu d\'avant'],
+    ['UID:h@exemple.invalid', 'RECURRENCE-ID;TZID=Europe/Brussels:20261119T100000', 'DTSTART;TZID=Europe/Brussels:20261119T103000', 'DURATION:PT15M', 'SUMMARY:Décalé'],
+    ['UID:h@exemple.invalid', 'RECURRENCE-ID;TZID=Europe/Brussels:20270601T100000', 'DTSTART;TZID=Europe/Brussels:20261120T102000', 'DURATION:PT15M', 'SUMMARY:Venu d\'après'],
+    ['UID:h@exemple.invalid', 'RECURRENCE-ID;TZID=Europe/Brussels:20261121T100000', 'DTSTART;TZID=Europe/Brussels:20271121T100000', 'DURATION:PT15M', 'SUMMARY:Parti loin']);
+  const { r: cache, ms } = chrono(() => Cal.construireCache(ics, LUNDI, C, ICAL));
+  assert.ok(ms < 1500, `trop lent : ${Math.round(ms)} ms`);
+  const titres = cache.evenements.map(e => e.titre);
+  for (const t of ['Venu d\'avant', 'Décalé', 'Venu d\'après']) assert.ok(titres.includes(t), t);
+  assert.ok(!titres.includes('Parti loin'));
+  assert.ok(!cache.evenements.some(e => e.debut === '2026-11-18T07:00:00.000Z'), 'EXDATE');
+  pareil(ics);
+  pareil(ics, new Date('2026-10-26T09:00:00Z'));                          // fenêtre qui commence le jour du passage à l'heure d'hiver
+});
+
+test('toutes les 15 min depuis 2020 avec 1 cours déplacé : plus d\'écran bloqué (garde-fou des 5 000 gardé)', () => {
+  const ics = agendaTz(['UID:q@exemple.invalid', 'DTSTART;TZID=Europe/Brussels:20200105T100000', 'DURATION:PT5M', 'RRULE:FREQ=MINUTELY;INTERVAL=15', 'SUMMARY:Pause'],
+    ['UID:q@exemple.invalid', 'RECURRENCE-ID;TZID=Europe/Brussels:20261116T100000', 'DTSTART;TZID=Europe/Brussels:20261116T100500', 'DURATION:PT5M', 'SUMMARY:Pause déplacée']);
+  const { r: cache, ms } = chrono(() => Cal.construireCache(ics, LUNDI, C, ICAL));
+  assert.ok(ms < 1500, `trop lent : ${Math.round(ms)} ms`);
+  assert.equal(cache.evenements.length, 5000);
+  assert.ok(cache.evenements.some(e => e.titre === 'Pause déplacée' && e.debut === '2026-11-16T09:05:00.000Z'));
+});
+
+test('COUNT très grand sans BYxxx (toutes les heures depuis 2015, COUNT=200000) : les occurrences sont là ; COUNT qui finit dans la fenêtre : juste', () => {
+  const grand = agendaTz(['UID:c@exemple.invalid', 'DTSTART;TZID=Europe/Brussels:20150105T100000', 'DURATION:PT15M', 'RRULE:FREQ=HOURLY;COUNT=200000', 'SUMMARY:Compté']);
+  const { r: evs, ms } = chrono(() => Cal.construireCache(grand, LUNDI, C, ICAL).evenements);
+  assert.ok(ms < 1500, `trop lent : ${Math.round(ms)} ms`);
+  assert.equal(evs[0].debut, '2026-11-14T23:00:00.000Z');
+  assert.equal(evs.at(-1).debut, '2027-03-16T23:00:00.000Z');
+  pareil(grand);
+  // 104 400 heures depuis le 05/01/2015 10:00 → dernière occurrence début décembre 2026, dans la fenêtre
+  const fini = agendaTz(['UID:c@exemple.invalid', 'DTSTART;TZID=Europe/Brussels:20150105T100000', 'DURATION:PT15M', 'RRULE:FREQ=HOURLY;COUNT=104400',
+    'EXDATE;TZID=Europe/Brussels:20261120T100000', 'SUMMARY:Compté']);
+  pareil(fini);
+  const derniere = Date.parse('2015-01-05T09:00:00Z') + 104399 * 3600000;
+  assert.equal(Date.parse(lire(fini).at(-1).split(' ')[0]), derniere);
+});
+
+test('quotidien depuis 2010 : déplacements autour de la fenêtre, sur une EXDATE, hors règle ; uid différents à la même heure', () => {
+  const ics = agendaTz(
+    ['UID:d@exemple.invalid', 'DTSTART;TZID=Europe/Brussels:20100104T080000', 'DURATION:PT30M', 'RRULE:FREQ=DAILY', 'SUMMARY:Cours',
+      'EXDATE;TZID=Europe/Brussels:20261112T080000,20261119T080000'],
+    ['UID:d@exemple.invalid', 'RECURRENCE-ID;TZID=Europe/Brussels:20261110T080000', 'DTSTART;TZID=Europe/Brussels:20261117T140000', 'DURATION:PT30M', 'SUMMARY:Rattrapage'],
+    ['UID:d@exemple.invalid', 'RECURRENCE-ID;TZID=Europe/Brussels:20261112T080000', 'DTSTART;TZID=Europe/Brussels:20261118T140000', 'DURATION:PT30M', 'SUMMARY:Sur EXDATE'],
+    ['UID:d@exemple.invalid', 'RECURRENCE-ID;TZID=Europe/Brussels:20261110T080700', 'DTSTART;TZID=Europe/Brussels:20261118T150000', 'DURATION:PT30M', 'SUMMARY:Hors règle'],
+    ['UID:d@exemple.invalid', 'RECURRENCE-ID;TZID=Europe/Brussels:20270501T080000', 'DTSTART;TZID=Europe/Brussels:20261123T140000', 'DURATION:PT30M', 'SUMMARY:Avancé'],
+    ['UID:d@exemple.invalid', 'RECURRENCE-ID;TZID=Europe/Brussels:20261125T080000', 'DTSTART;TZID=Europe/Brussels:20261125T080000', 'DURATION:PT30M', 'SUMMARY:Annulé', 'STATUS:CANCELLED'],
+    ['UID:autre@exemple.invalid', 'DTSTART;TZID=Europe/Brussels:20100104T080000', 'DURATION:PT30M', 'RRULE:FREQ=DAILY', 'SUMMARY:Autre cours']);
+  const evs = lire(ics);
+  for (const t of ['Rattrapage', 'Avancé']) assert.ok(evs.some(e => e.endsWith(' ' + t)), t);
+  for (const t of ['Sur EXDATE', 'Hors règle', 'Annulé']) assert.ok(!evs.some(e => e.endsWith(' ' + t)), t);
+  // Le déplacement du cours « d » ne touche pas l'autre cours à la même heure
+  assert.equal(evs.filter(e => e.endsWith(' Autre cours')).length, C.calendrier.joursAvant + C.calendrier.joursApres + 1);
+  pareil(ics);
+  pareil(ics, new Date('2026-03-30T09:00:00Z'));
+});
+
+test('plusieurs règles, BYDAY / INTERVAL / UNTIL / COUNT avec BYxxx, journée entière, heure flottante, UTC : comme l\'itération complète', () => {
+  for (const lignes of [
+    ['DTSTART;TZID=Europe/Brussels:20100104T080000', 'DURATION:PT30M', 'RRULE:FREQ=DAILY', 'RRULE:FREQ=DAILY;BYHOUR=18'],
+    ['DTSTART;TZID=Europe/Brussels:20120103T083000', 'DURATION:PT2H', 'RRULE:FREQ=WEEKLY;BYDAY=TU,TH'],
+    ['DTSTART;TZID=Europe/Brussels:20130106T083000', 'DURATION:PT2H', 'RRULE:FREQ=WEEKLY;INTERVAL=2;WKST=SU;BYDAY=SU,MO'],
+    ['DTSTART;TZID=Europe/Brussels:20150105T100000', 'DURATION:PT15M', 'RRULE:FREQ=HOURLY;INTERVAL=7;UNTIL=20261201T000000Z'],
+    ['DTSTART;TZID=Europe/Brussels:20120102T080000', 'DURATION:PT1H', 'RRULE:FREQ=WEEKLY;BYDAY=MO,WE;COUNT=1500'],
+    ['DTSTART;VALUE=DATE:20000101', 'DTEND;VALUE=DATE:20000102', 'RRULE:FREQ=DAILY;INTERVAL=4'],
+    ['DTSTART:20100105T100000', 'DURATION:PT5M', 'RRULE:FREQ=DAILY'],
+    ['DTSTART:20150105T100000Z', 'DURATION:PT5M', 'RRULE:FREQ=HOURLY;INTERVAL=5']
+  ]) {
+    const ics = agendaTz(['UID:r@exemple.invalid', ...lignes, 'SUMMARY:Répétition']);
+    for (const instant of [LUNDI, new Date('2026-03-29T12:00:00Z'), new Date('2026-10-25T12:00:00Z')]) {
+      const { debut, fin } = Cal.fenetre(instant, C);
+      assert.deepEqual(lire(ics, instant), referenceComplete(ics, debut, fin), lignes.join(' ') + ' @ ' + instant.toISOString());
+    }
+  }
+});

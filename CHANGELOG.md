@@ -1,5 +1,19 @@
 # Journal des versions — Hameau
 
+## 1.7.2 — 2026-11-16 · Corrections (vérification 4)
+- ⏸️ Une échéance importante pendant une pause est mise de côté dès ce jour-là : après « Reprendre », aucun feu, même le lendemain.
+- ⏸️ Pause rétroactive après un feu : le feu est rendu et ne revient plus.
+- 📅 Agenda : une répétition très fréquente avec un rendez-vous déplacé ou retiré s'affiche vite (plus d'écran bloqué).
+- 📅 Agenda : une répétition « 200 000 fois depuis 2015 » s'affiche bien.
+- 📅 Agenda : un rendez-vous déplacé d'un autre cours à la même heure ne touche plus tes autres cours.
+- 📅 Agenda : un rendez-vous déplacé depuis une date lointaine (avant ou après la fenêtre) s'affiche à sa nouvelle date.
+- 📊 Bilan et historique : tes séances de muscu importées comptent bien dans la famille Corps (🏋️, 🏃).
+- ⚔️ Un examen passé reste gardé 21 jours : les révisions faites pour lui ne passent jamais à l'examen suivant.
+- 💪 Import muscu : une séance présente deux fois dans le fichier compte une fois.
+- 💪 Import muscu : une séance pas encore passée est dite « pas encore passée » (comptée au prochain import).
+- 💪 Import muscu : une date illisible ou un type de séance bizarre ne bloque plus l'import.
+- 🌈 Import muscu : s'il fait passer la tempête du jour, le message le dit, avec sa récompense.
+
 ## 1.7.1 — 2026-11-16 · Corrections (vérification 3)
 - ⚔️ Un examen passé reste dans l'agenda gardé : son boss et sa récompense sont encore là quelques jours après,
   et ses dégâts ne passent plus à l'examen suivant.

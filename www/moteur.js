@@ -240,7 +240,7 @@
 
   /* ===== SAISIE EXTERNE : un effort fait hors des tâches (cours suivi, séance de muscu importée) =====
    * src = {champ: 'cours' | 'muscu', cle (unique), titre, categorieId, taille, type}. Gain d'une tâche de cette
-   * catégorie (série, bâtiment, fête, anti-farm), crédité comme une tâche finie. Journal : tacheId null + [champ]: cle.
+   * catégorie (série, bâtiment, fête, anti-farm), crédité comme une tâche finie. Journal : tacheId null + [champ]: cle + categorieId.
    * Coffre seulement si ctx.rng est donné (pas de coffre en rafale lors d'un import).
    */
   M.saisieExterne = function (etat, src, ctx, C) {
@@ -251,7 +251,8 @@
     const ressource = M.ressourceDe(categorie, C);
     const coffre = M.tirerCoffre(ctx.rng, C);
     const entree = {
-      id: ctx.id, tacheId: null, [src.champ]: src.cle, titre: String(src.titre || '').slice(0, 120), horodatage: ctx.horodatage, jour: ctx.jour,
+      id: ctx.id, tacheId: null, [src.champ]: src.cle, categorieId: src.categorieId,   // catégorie notée : bilan et historique (pas de tâche à lire)
+      titre: String(src.titre || '').slice(0, 120), horodatage: ctx.horodatage, jour: ctx.jour,
       valeur: 1, progression: 1, gains: { xp: gain, ressource, quantite: ressource ? gain : 0 }
     };
     if (coffre) entree.coffre = coffre;

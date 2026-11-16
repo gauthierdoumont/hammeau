@@ -10,9 +10,17 @@
   // Lundi de la semaine d'un jour (AAAA-MM-JJ)
   Bi.lundi = (jour) => J.ajouterJours(jour, 1 - J.jourIso(jour));
 
-  // Famille d'une saisie (tâche → catégorie → famille ; présence à un cours → catégorie Cours)
+  /* Catégorie d'une saisie : celle notée dans la saisie (cours, séance de muscu importée), sinon celle de sa tâche.
+   * Repli pour les saisies d'avant la v1.7.2 (sans categorieId) : cours → Cours, muscu → Muscu. Sert aussi à app.js. */
+  Bi.categorieDe = function (etat, s, C) {
+    if (s.categorieId) return s.categorieId;
+    if (s.cours) return C.cours.categorieId;
+    if (s.muscu) return C.muscu.categories.muscu;
+    return etat.taches.find(t => t.id === s.tacheId)?.categorieId;
+  };
+  // Famille d'une saisie (catégorie → famille)
   function familleDe(etat, s, C) {
-    const catId = s.cours ? C.cours.categorieId : etat.taches.find(t => t.id === s.tacheId)?.categorieId;
+    const catId = Bi.categorieDe(etat, s, C);
     return etat.categories.find(c => c.id === catId)?.familleId ?? null;
   }
 

@@ -6,7 +6,7 @@
  *
  * Règles (CLAUDE.md §6), pour chaque jour logique entre dernierJourTraite (exclu) et la limite (incluse), dans l'ordre :
  *  0. lundi franchi → joker remis à C.serie.jokersParSemaine
- *  1. jour couvert par une pause → rien
+ *  1. jour couvert par une pause → rien (les échéances importantes arrivées sont marquées traitées, sans feu)
  *  2. quotidiennes prévues et non faites → moral −5 chacune (min 0)
  *  3. série : jour sans quotidienne prévue = neutre ; sinon validé si ≥ 1 quotidienne faite ET ≥ xpMinJour XP ;
  *     non validé → joker s'il en reste, sinon série = 0
@@ -52,10 +52,17 @@
   };
 
   /* ===== UN JOUR ===== */
+  // Imprévu important dont l'échéance est arrivée et pas encore traité
+  const estAIncendier = (t, jour) => t.type === 'imprevu' && t.important && !t.archivee && !t.incendieApplique && t.echeance && t.echeance <= jour;
   function traiterJour(e, jour, C, rng, evenements) {
     const j = e.joueur;
     if (Tm.jourIso(jour) === 1) j.serie.joker = C.serie.jokersParSemaine;            // 0. lundi franchi
-    if (D.enPause(j, jour)) return;                                                   // 1. pause
+    if (D.enPause(j, jour)) {                                                         // 1. pause
+      // Échéance tombée pendant la pause : marquée « traitée » tout de suite (sans feu ni perte). Sinon, une fois
+      // la pause rangée (actif: false), le jour suivant ne saurait plus qu'elle était couverte → incendie.
+      for (const t of e.taches) if (estAIncendier(t, jour)) t.incendieApplique = true;
+      return;
+    }
 
     const prevues = D.quotidiennesPrevues(e, jour, C);
     const faites = prevues.filter(t => M.progression(t, e.journal, jour) >= 1);
@@ -75,7 +82,7 @@
     }
     // 4. incendie (dure, mais réparable), une seule fois par tâche
     for (const t of e.taches) {
-      if (t.type !== 'imprevu' || !t.important || t.archivee || t.incendieApplique || !t.echeance || t.echeance > jour) continue;
+      if (!estAIncendier(t, jour)) continue;
       t.incendieApplique = true;
       // Échéance tombée PENDANT une pause → jamais d'incendie (choix de Gauthier, 2026-11-16). Marquée « traitée » :
       // une pause suivante remplace l'ancienne, l'incendie ne doit pas revenir plus tard.

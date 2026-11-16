@@ -19,33 +19,140 @@
    * Gère : fuseaux (VTIMEZONE), répétitions (RRULE), exceptions (EXDATE, RECURRENCE-ID), annulés, journées entières.
    * → [{uid, titre, lieu, journee, debut, fin}] ; debut/fin = ISO (heure) ou AAAA-MM-JJ (journée entière)
    * garder(ev) (facultatif) : filtre appliqué AVANT le garde-fou des 5 000 (les événements écartés ne comptent pas).
+   * debutSerie(uid, titre) (facultatif) : début (≥ debut) à partir duquel lire une répétition ; ses exceptions
+   * (RECURRENCE-ID) sont lues depuis debut. Sert au cache : seuls les examens sont lus avant la fenêtre.
    */
-  // Garde-fous d'une répétition : occurrences DANS la fenêtre, et temps passé à avancer jusqu'à la fenêtre
+  // Garde-fous d'une répétition : occurrences DANS la fenêtre, et temps passé dessus (sur tous les chemins)
   const MAX_DANS_FENETRE = 5000, PLAFOND_MS = 250;
   const SECONDES = { SECONDLY: 1, MINUTELY: 60, HOURLY: 3600, DAILY: 86400, WEEKLY: 604800 };
+  const JOUR_MS = 86400000;
   /* Départ rapide d'une répétition fréquente et ancienne (« toutes les heures depuis 2015 ») : on avance DTSTART d'un
-   * nombre ENTIER de périodes (INTERVAL × jour, semaine…) pour arriver juste avant la fenêtre. Les occurrences suivantes
-   * sont les mêmes (même jour de la semaine, même alignement de l'intervalle). Le 1er résultat (le nouveau départ
-   * lui-même) tombe avant la fenêtre, donc il est ignoré. Pas avec COUNT (il se compte depuis le vrai DTSTART),
-   * ni avec plusieurs règles, ni pour MONTHLY / YEARLY (peu d'occurrences : l'itération complète est rapide).
-   * → ICAL.Time (nouveau départ) ou null (partir de DTSTART)
+   * nombre ENTIER k de périodes (INTERVAL × jour, semaine…) pour arriver juste avant `avantMs`. Les occurrences suivantes
+   * sont les mêmes (même jour de la semaine, même alignement de l'intervalle). Le nouveau départ lui-même est ignoré.
+   * COUNT se compte depuis le vrai DTSTART : sans BYxxx, 1 période = 1 occurrence, donc il en reste COUNT − k
+   * (voir iterateur) ; avec BYxxx + COUNT, pas de départ rapide (itération complète, plafonnée).
+   * Plusieurs règles : on avance d'un multiple commun de leurs périodes (sans COUNT). Pas avec RDATE, ni MONTHLY /
+   * YEARLY (peu d'occurrences : l'itération complète est rapide).
+   * → { t: ICAL.Time (nouveau départ), k } ou null (partir de DTSTART)
    */
-  function departRapide(ev, debut, marge) {
-    const regles = ev.component.getAllProperties('rrule');
-    if (regles.length !== 1 || ev.component.hasProperty('rdate')) return null;
-    const r = regles[0].getFirstValue();
-    const pas = SECONDES[r.freq];
-    if (!pas || r.count) return null;
-    const periode = pas * (r.interval || 1);
-    const ecart = (debut.getTime() - marge - ev.startDate.toJSDate().getTime()) / 1000;
-    const k = Math.floor(ecart / periode) - 1;          // une période de marge (changement d'heure)
+  const pgcd = (a, b) => (b ? pgcd(b, a % b) : a);
+  function departRapide(ev, avantMs) {
+    const regles = ev.component.getAllProperties('rrule').map(p => p.getFirstValue());
+    if (!regles.length || ev.component.hasProperty('rdate')) return null;
+    if (regles.length > 1 && regles.some(r => r.count)) return null;
+    let periode = 1;
+    for (const r of regles) {
+      const pas = SECONDES[r.freq];
+      if (!pas || (r.count && Object.keys(r.parts || {}).length)) return null;
+      const p = pas * (r.interval || 1);
+      periode = periode / pgcd(periode, p) * p;
+    }
+    const k = Math.floor((avantMs - ev.startDate.toJSDate().getTime()) / 1000 / periode) - 1;   // une période de marge
     if (k <= 0) return null;
     const t = ev.startDate.clone();
     if (periode % 86400 === 0) t.adjust(k * periode / 86400, 0, 0, 0);   // en jours : même heure locale
     else t.adjust(0, 0, 0, k * periode);
-    return t;
+    return { t, k };
   }
-  Cal.lireEvenements = function (txt, debut, fin, ICAL, garder = null) {
+  // Itérateur d'ical.js depuis DTSTART ou un départ rapide ; avec COUNT, les k périodes sautées sont déjà comptées
+  function iterateur(ev, depart) {
+    const it = ev.iterator(depart ? depart.t : undefined);
+    if (depart && ev.component.getFirstPropertyValue('rrule').count) {
+      const regle = it.ruleIterators?.[0];
+      if (!regle || typeof regle.occurrence_number !== 'number') return null;
+      regle.occurrence_number += depart.k;
+    }
+    return it;
+  }
+
+  /* Occurrences d'UNE répétition dans [debut, fin] → ajouter(...) ; s'arrête au garde-fou des 5 000 ou au plafond de temps.
+   * Les RECURRENCE-ID sont des dates absolues : celles dont la date d'origine est parcourue par l'itération sont vues
+   * en chemin ; les autres (origine avant le départ rapide ou après la fin, nouvelle date dans la fenêtre) sont
+   * cherchées à part, près de leur date d'origine. Celle-ci doit être une vraie occurrence (pas retirée par EXDATE,
+   * ni au-delà de COUNT / UNTIL) : même résultat que l'itération complète.
+   */
+  function repetition(ev, debut, fin, ajouter, ICAL, debutSerie = debut) {
+    const debutMs = debut.getTime(), finMs = fin.getTime();
+    const serieMs = Math.max(debutMs, debutSerie.getTime());   // occurrences sans exception : à partir d'ici
+    const limite = Date.now() + PLAFOND_MS;
+    let tours = 0;
+    const aTemps = () => ((++tours & 255) !== 0 || Date.now() <= limite);
+    const utc = ICAL.Timezone.utcTimezone;
+    const cles = Object.keys(ev.exceptions);
+    const clesUtc = cles.some(k => k.endsWith('Z'));
+    // Même recherche que getOccurrenceDetails d'ical.js (heure locale, puis UTC)
+    const exceptionDe = (t) => {
+      if (!cles.length) return null;
+      const id = t.toString();
+      if (Object.hasOwn(ev.exceptions, id)) return ev.exceptions[id];
+      const idUtc = clesUtc ? t.convertToZone(utc).toString() : null;
+      return idUtc && Object.hasOwn(ev.exceptions, idUtc) ? ev.exceptions[idUtc] : null;
+    };
+    // RANGE=THISANDFUTURE décale toute la suite : la marge avant la fenêtre couvre ce décalage
+    const decalage = Math.max(0, ...ev.rangeExceptions.map(([, id]) => {
+      const x = ev.exceptions[id];
+      return Math.abs(x.startDate.toJSDate().getTime() - x.recurrenceId.toJSDate().getTime());
+    }));
+    const duree = ev.duration;                      // calculée une fois (ical.js la recalcule à chaque lecture)
+    const marge = (duree ? duree.toSeconds() * 1000 : 0) + JOUR_MS + decalage;
+    const sauter = !ev.rangeExceptions.length;      // une occurrence avant la fenêtre peut être passée sans ses détails
+    let n = 0;
+    // Occurrence sans exception : début = t, fin = t + durée (comme getOccurrenceDetails, sans ses conversions de fuseau)
+    const prendre = (t, x, ms) => {
+      if (x || !sauter) { const d = ev.getOccurrenceDetails(t); if (ajouter(d.startDate, d.endDate, d.item)) n++; return; }
+      const f = t.clone();
+      f.addDuration(duree);
+      if (ajouter(t, f, ev, ms)) n++;
+    };
+    // Parcourt les occurrences de « depuis » à « jusqua » (ms) ; rappel(t, ms) → true pour s'arrêter.
+    // paresseux : le rappel calcule lui-même l'instant (ms = undefined) et s'arrête après « jusqua »
+    const parcourir = (depuis, jusqua, rappel, paresseux = false) => {
+      let depart = departRapide(ev, depuis);
+      let it = iterateur(ev, depart);
+      if (!it) { depart = null; it = ev.iterator(); }        // autre version d'ical.js : itération complète
+      for (let t, premier = true; (t = it.next()); premier = false) {
+        if (!aTemps()) return { fini: false, depart };
+        if (premier && depart) continue;                    // le nouveau départ lui-même (avant la fenêtre)
+        const ms = paresseux ? undefined : t.toJSDate().getTime();
+        if (ms > jusqua || rappel(t, ms)) break;
+      }
+      return { fini: true, depart };
+    };
+
+    // 1. Du départ (rapide si possible) jusqu'à la fin de la fenêtre
+    const vues = new Set();                          // exceptions rencontrées en chemin
+    let dernierMs = -Infinity;
+    // Repère rapide « bien avant la fenêtre » sur la date affichée (sans calcul de fuseau, ±14 h au pire : 2 jours de marge)
+    const seuil = new Date(serieMs - marge - 2 * JOUR_MS);
+    const cleSeuil = seuil.getUTCFullYear() * 372 + seuil.getUTCMonth() * 31 + seuil.getUTCDate();
+    const r = parcourir(serieMs - marge, finMs, (t, ms) => {
+      const x = exceptionDe(t);
+      if (x) vues.add(x);
+      else if (sauter && t.year * 372 + (t.month - 1) * 31 + t.day < cleSeuil) return false;   // avant la fenêtre
+      ms ??= t.toJSDate().getTime();
+      if (ms > finMs) return true;
+      dernierMs = ms;
+      if (!x && sauter && ms + marge < serieMs) return false;   // avant la fenêtre, sans exception
+      prendre(t, x, ms);
+      return n >= MAX_DANS_FENETRE;
+    }, true);
+    if (!r.fini) return;
+    // 2. Exceptions déplacées DANS la fenêtre dont la date d'origine n'a pas été parcourue
+    const departMs = r.depart ? r.depart.t.toJSDate().getTime() : -Infinity;
+    for (const x of new Set(Object.values(ev.exceptions))) {
+      if (n >= MAX_DANS_FENETRE) return;
+      if (vues.has(x) || !x.startDate) continue;
+      const xDebut = x.startDate.toJSDate().getTime(), xFin = (x.endDate || x.startDate).toJSDate().getTime();
+      if (xFin < debutMs || xDebut > finMs) continue;
+      // Autour de la date d'origine (±2 jours : RECURRENCE-ID peut être dans un autre fuseau que DTSTART)
+      const oMs = x.recurrenceId.toJSDate().getTime();
+      const de = oMs - 2 * JOUR_MS, a = oMs + 2 * JOUR_MS;
+      if (de > departMs && a <= dernierMs) continue;          // déjà parcouru : ce n'est pas une vraie occurrence
+      if (!parcourir(de, a, (t) => { if (exceptionDe(t) !== x) return false; prendre(t, x); return true; }).fini) return;
+    }
+  }
+
+  Cal.lireEvenements = function (txt, debut, fin, ICAL, garder = null, debutSerie = null) {
     const comp = new ICAL.Component(ICAL.parse(txt));
     comp.getAllSubcomponents('vtimezone').forEach(tz => ICAL.TimezoneService.register(tz));
     const vevents = comp.getAllSubcomponents('vevent');
@@ -54,12 +161,22 @@
     const origines = new Set(vevents.filter(v => !v.hasProperty('recurrence-id')).map(v => v.getFirstPropertyValue('uid')));
     const res = [];
     const texte = (v) => String(v ?? '').replace(/\s+/g, ' ').trim();
-    const ajouter = (dDebut, dFin, item) => {
-      if (item.component?.getFirstPropertyValue('status') === 'CANCELLED') return;
-      const instantDebut = dDebut.toJSDate(), instantFin = (dFin || dDebut).toJSDate();
+    // Titre, lieu, annulé : lus une fois par événement (une répétition fréquente a des milliers d'occurrences)
+    const infos = new Map();
+    const infosDe = (item) => {
+      if (!infos.has(item)) infos.set(item, { annule: item.component?.getFirstPropertyValue('status') === 'CANCELLED',
+        titre: texte(item.summary) || 'Sans titre', lieu: texte(item.location) });
+      return infos.get(item);
+    };
+    // msDebut (facultatif) : instant de début déjà calculé
+    const ajouter = (dDebut, dFin, item, msDebut) => {
+      const i = infosDe(item);
+      if (i.annule) return false;
+      const instantDebut = msDebut === undefined ? dDebut.toJSDate() : new Date(msDebut);
+      const instantFin = dFin ? dFin.toJSDate() : instantDebut;
       if (instantFin < debut || instantDebut > fin) return false;
       const ev = {
-        uid: item.uid, titre: texte(item.summary) || 'Sans titre', lieu: texte(item.location), journee: dDebut.isDate,
+        uid: item.uid, titre: i.titre, lieu: i.lieu, journee: dDebut.isDate,
         debut: dDebut.isDate ? dDebut.toString() : instantDebut.toISOString(),
         fin: dFin ? (dFin.isDate ? dFin.toString() : instantFin.toISOString()) : null
       };
@@ -69,28 +186,14 @@
     };
     for (const v of vevents) {
       if (v.getFirstPropertyValue('status') === 'CANCELLED') continue;
-      if (v.hasProperty('recurrence-id') && origines.has(v.getFirstPropertyValue('uid'))) continue;   // lue avec son origine
-      const ev = new ICAL.Event(v);
-      if (!v.hasProperty('recurrence-id')) {
-        exceptions.filter(x => x.getFirstPropertyValue('uid') === ev.uid).forEach(x => ev.relateException(new ICAL.Event(x)));
-      }
+      const uid = v.getFirstPropertyValue('uid');
+      const estException = v.hasProperty('recurrence-id');
+      if (estException && origines.has(uid)) continue;   // lue avec son origine
+      // Exceptions du MÊME uid seulement (sans cette liste, ical.js relie celles de TOUS les événements du fichier)
+      const ev = new ICAL.Event(v, { exceptions: estException ? [] : exceptions.filter(x => x.getFirstPropertyValue('uid') === uid) });
       if (!ev.isRecurring()) { ajouter(ev.startDate, ev.endDate, ev); continue; }
-      // Répétition : départ rapide près de la fenêtre quand c'est sûr (sans exception), sinon depuis DTSTART.
-      // Avant la fenêtre, sans exception à appliquer, on avance sans détails ; seul le temps passé est plafonné
-      // (les occurrences d'avant la fenêtre ne comptent pas dans le garde-fou des 5 000).
-      const simple = !Object.keys(ev.exceptions).length;
-      const marge = (ev.duration ? ev.duration.toSeconds() * 1000 : 0) + 86400000;
-      const it = ev.iterator((simple && departRapide(ev, debut, marge)) || undefined);
-      const limite = Date.now() + PLAFOND_MS;
-      for (let t, n = 0, tours = 0; n < MAX_DANS_FENETRE && (t = it.next()); tours++) {
-        if (simple && t.toJSDate().getTime() + marge < debut.getTime()) {
-          if (tours % 1000 === 999 && Date.now() > limite) break;   // règle impossible à parcourir à temps
-          continue;
-        }
-        const d = ev.getOccurrenceDetails(t);
-        if (d.startDate.toJSDate() > fin) break;
-        if (ajouter(d.startDate, d.endDate, d.item)) n++;
-      }
+      const depuis = debutSerie?.(uid, texte(ev.summary)) || debut;
+      try { repetition(ev, debut, fin, ajouter, ICAL, depuis); } catch { /* règle illisible : le reste de l'agenda est gardé */ }
     }
     return res.sort(Cal.ordre);
   };
@@ -115,10 +218,11 @@
   };
 
   /* Examens passés gardés dans le cache (en plus de la fenêtre) : la récompense du boss reste prenable
-   * (C.boss.joursApres) et ses dégâts ne passent pas à l'examen suivant tant que celui-ci peut encore apparaître
-   * (C.boss.joursAvant). → nombre de jours avant aujourd'hui
+   * (C.boss.joursApres) et ses dégâts ne passent jamais à un boss encore affiché : un boss reste visible jusqu'à
+   * joursApres après son examen, et une révision compte pour lui jusqu'à joursAvant avant → on garde la somme.
+   * → nombre de jours avant aujourd'hui
    */
-  Cal.joursExamensGardes = (C) => Math.max(C.boss.joursApres, C.boss.joursAvant);
+  Cal.joursExamensGardes = (C) => C.boss.joursAvant + C.boss.joursApres;
 
   /* Ce qu'on stocke dans reglages.calendrierCache (pas le fichier brut) :
    * - les événements de la fenêtre, chacun avec son `jour` logique (calculé une fois ici, pas à chaque affichage) ;
@@ -133,9 +237,20 @@
     const debutLecture = J.instantLocal(depuisExamens, '00:00', C.jour.fuseau);
     const dansFenetre = (ev) => Cal.finInstant(ev, C) >= debut.getTime();
     const examenGarde = (ev) => ev.jour >= depuisExamens && ev.jour < premierJour && Cal.estExamenMarque(ev, examens);
-    // Le jour logique est noté ici, une seule fois (puis lu par jourDe à chaque affichage)
-    const garder = (ev) => { ev.jour = Cal.jourDe(ev, C); return dansFenetre(ev) || examenGarde(ev); };
-    const lus = Cal.lireEvenements(txt, debutLecture < debut ? debutLecture : debut, fin, ICAL, garder);
+    // Le jour logique est noté ici, une seule fois (puis lu par jourDe à chaque affichage). Mémorisé par quart d'heure :
+    // tous les fuseaux décalent d'un multiple de 15 min, et une répétition fréquente en a des milliers.
+    const parQuart = new Map();
+    const jourLogique = (ev) => {
+      if (ev.journee) return ev.debut;
+      const q = Math.floor(Date.parse(ev.debut) / 900000);
+      if (!parQuart.has(q)) parQuart.set(q, J.jourLogique(new Date(q * 900000), C));
+      return parQuart.get(q);
+    };
+    const garder = (ev) => { ev.jour = jourLogique(ev); return dansFenetre(ev) || examenGarde(ev); };
+    // Avant la fenêtre, on ne cherche que des examens : une répétition qui n'en est pas un (titre, marquage) part de la fenêtre
+    const marques = new Set(Object.keys(examens || {}).filter(k => examens[k] === true).map(k => k.slice(0, k.lastIndexOf('|'))));
+    const debutSerie = (uid, titre) => (Cal.estExamen(titre) || marques.has(uid) ? null : debut);
+    const lus = Cal.lireEvenements(txt, debutLecture < debut ? debutLecture : debut, fin, ICAL, garder, debutSerie);
     const cles = new Set(lus.map(Cal.cle));
     const repris = (ancien?.evenements || []).map(ev => (ev.jour ? ev : { ...ev, jour: Cal.jourDe(ev, C) }))
       .filter(ev => examenGarde(ev) && !cles.has(Cal.cle(ev)));
