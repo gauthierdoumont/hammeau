@@ -1,5 +1,17 @@
 # Journal des versions — Hameau
 
+## 0.7.0 — 2026-11-16
+- 🔧 Village : un incendie peut abîmer un bâtiment (grisé, fumée, ⚠️) — on le répare pour 30 % de son coût.
+- 🗺️ Agrandir le hameau : jusqu'à 3 anneaux de terrain (la rivière et les chemins continuent).
+- 🌳 Décorations : arbres, rochers, potager, clôture, puits (ressources) et tours, remparts, porte (💠 gemmes).
+- ⚖️ Moteur complet : type de tâche, série, Repos, anti-farm, bonus des bâtiments, moral.
+- 🎁 Coffres (10 % des tâches terminées) qui s'ouvrent sous tes yeux ; 🎉 écran de fête à chaque niveau.
+- 📅 Les jours passés sont rattrapés en douceur : série et joker, moral, incendies ; message de retour bienveillant.
+- ↩️ « Hier, jusqu'à midi » : tu peux encore cocher ce que tu as fait la veille.
+- ⏸️ Mode pause (jusqu'à 7 jours en arrière : ce qui a été perdu est rendu).
+- ⚡ Prochaine action : une seule tâche proposée, « Pas maintenant » pour la suivante.
+- 👤 Perso : série, moral, historique des 7 derniers jours.
+
 ## 0.6.0 — 2026-11-16
 - 🔨 On construit ! La Mairie d'abord, puis 7 bâtiments qui donnent +5 % de gains par niveau à leur famille de tâches.
 - Placement libre : tu choisis la case (fantôme du bâtiment, case verte ou rouge, « Placer ici »), et tu peux déplacer plus tard.

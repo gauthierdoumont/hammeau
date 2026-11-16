@@ -1,12 +1,12 @@
 # Suivi — Hameau
 
 ## Où on en est
-- Version : 0.6.0 · Étape suivante : **13** (bâtiments endommagés, réparation, extensions, décorations) ou retour à la V1 (5a, 5b, 6, 7, 8). La **1b** (clé + 1er APK) est gardée pour la toute fin · Dernière session : 2026-11-16
+- Version : 0.7.0 · Étapes faites : 1a, 2-7, 9-13 · Reste : **8** (Réglages, mises à jour, v1.0.0), V3 (14, 15a, 15b), V4 (16-19), et la **1b** (clé + 1er APK) tout à la fin · Dernière session : 2026-11-16
 
 ## Dernière session
-- Fait : étape 11 (règles dans `economie.js`, données v2 avec le village, construire / améliorer / déplacer, placement libre, fiche) ; étape 12 (animations, villageois, fumée, nuages, eau, ciel selon l'heure, nuit, sons) ; esthétique de l'appli (tableau de bord, prochain chantier, cartes, écran Perso). Relecture de code : 10 points corrigés (bonus calculé dans le moteur, types de bâtiments vérifiés, particules détruites, redessin partiel…).
-- Testé : `npm test` (63 tests), `npm run e2e` (parcours complet + construction : Mairie, coût, fiche, amélioration, bonus, retour). Captures du village regardées par Claude seulement (surprise).
-- Non testé / à vérifier sur le téléphone : tout (1er APK à la 1b) — en plus : fluidité avec villageois et fumée, sons, toucher précis d'un bâtiment, placement au doigt.
+- Fait : étapes 13 (endommagés, réparation, agrandir, décorations), 5a (moteur complet + coffres + simulation), 5b (coffre animé, fête de niveau), 6 (rattrapage, séries, joker, moral, incendies, pause rétroactive, veille), 7 (Prochaine action, Perso).
+- Testé : `npm test` (87 tests dont `tests/jours.test.js`), `npm run e2e` (parcours complet, 11 sections), `node outils/simulation.js`.
+- Non testé / à vérifier sur le téléphone : tout (1er APK à la 1b).
 
 ## Bugs connus
 - (aucun)
@@ -52,13 +52,17 @@ Tester une variante : `SIM_CONFIG='{"mairie":{"cout":20}}' node outils/simulatio
 | 2026-11-16 | Le bonus des bâtiments est calculé dans le moteur (`M.bonusFamille`), jamais par l'appelant | Aucune future façon de cocher ne peut l'oublier |
 | 2026-11-16 | Ambiance du village selon l'heure (aube 6-8 h, jour 8-18 h, soir 18-21 h, nuit) | « Très beau » demandé par Gauthier |
 | 2026-11-16 | Sons courts CC0 (pose, marteau, fanfare, pièces, clic, validation), désactivables | Étape 12 ; coche d'une tâche = son de pièces |
+| 2026-11-16 | Ordre des étapes demandé : 13 → 5a → 5b → 6 → 7, puis CLAUDE.md condensé | Demande de Gauthier |
+| 2026-11-16 | Coffre : ressources + gemmes hors stats (les stats mesurent l'effort réel) ; hasard injecté (`ctx.rng`) | Tests et simulation reproductibles |
+| 2026-11-16 | Incendie V2 : un bâtiment au hasard est endommagé ; sans village, −20 % de la ressource (max 50) | CLAUDE.md §6 |
+| 2026-11-16 | Pause rétroactive : les pénalités depuis la date choisie sont annulées (moral rendu par différence) | Ne pas effacer ce qui a été gagné depuis |
+| 2026-11-16 | Décorations : retirer = pas de remboursement (dit avant) | Simple et clair |
 | 2026-11-15 | `joueur.xp` = XP dans le niveau en cours, `joueur.xpTotal` = cumul (champ ajouté) | Un changement de courbe ne fera jamais baisser un niveau |
 
 ## À faire plus tard (noté, hors étape)
 - Étape 5a : simulation de l'économie (`outils/simulation.js`, skill `moteur-recompenses`) — impossible avant le moteur de gains.
 - Étape 8 : Réglages → « Sauvegardes automatiques » (liste + Restaurer) et rappel doux d'export après 14 jours (valeur déjà dans `config.js`).
-- Étape 13 : bâtiment endommagé (teinte grise, fumée sombre, ⚠️, Réparer), extensions de terrain, décorations (ressources / gemmes).
-- Étape 5b : écran de fête de niveau + ouverture de coffre (les sons et vibrations de base sont déjà là).
+- Étape 8 : Réglages → sons / vibrations (déjà dans les données), « Sauvegardes automatiques » (liste + Restaurer), rappel d'export après 14 jours, vérification des mises à jour (API GitHub), check-list du skill, v1.0.0.
 - Point de contrôle : poser les 5 questions du skill `reprise-session` §7 après 2-3 jours d'usage.
 - Réglages → Mes catégories : renommer / changer l'emoji d'une catégorie perso.
 
