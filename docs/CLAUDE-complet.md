@@ -156,8 +156,8 @@ Propose **une seule** tâche, dans cet ordre : imprévu avec échéance (la plus
 ## 11. Économie (valeurs de départ dans `config.js`)
 
 Objectif d'équilibrage : **environ 4 mois** d'usage régulier pour tout monter au niveau 5, puis des dépenses qui continuent.
-- **Coût d'un bâtiment au niveau n** : `50 × n²` de la ressource de sa famille + `20 × n²` bois + `20 × n²` pierre. Jardin : moral non dépensable → payé en nourriture.
-- **Mairie au niveau n** : `40 × n²` de chaque ressource. Niveau joueur requis : 1 / 5 / 10 / 16 / 23.
+- **Coût d'un bâtiment au niveau n** : `30 × n²` de la ressource de sa famille + `5 × n²` bois + `5 × n²` pierre (rééquilibré le 2026-11-16, au départ 50 / 20 / 20). Jardin : moral non dépensable → payé en nourriture.
+- **Mairie au niveau n** : `20 × n²` de chaque ressource. Niveau joueur requis : 1 / 3 / 6 / 9 / 12 (rééquilibré le 2026-11-16, au départ 40 et 1 / 5 / 10 / 16 / 23).
 - Niveau max des autres bâtiments = niveau de la Mairie.
 - **Réparation** d'un bâtiment endommagé : 30 % du coût de son niveau actuel.
 - **Dépenses continues** (pour éviter l'ennui une fois tout au max) : extensions de terrain (coût ×1,5 à chaque extension), décorations payables en ressources (communes) ou en gemmes (rares).
@@ -184,6 +184,7 @@ Objectif d'équilibrage : **environ 4 mois** d'usage régulier pour tout monter 
 - [x] 11. Construire / améliorer / coûts / bonus des bâtiments / Mairie (~45 min)
 - [x] 12. Animations, villageois, effets, sons (~45 min)
 - [x] 13. Bâtiments endommagés + réparation, extensions, décorations (~45 min)
+- [x] 2.0 Rééquilibrage validé : bâtiments 30 / 5 / 5, Mairie 20, niveaux de chef 1 / 3 / 6 / 9 / 12 (v0.7.1)
 
 ### V3 — Calendrier + notifications
 - [ ] 14. Notifications locales matin/soir/échéances + permission + reprogrammation (~40 min)

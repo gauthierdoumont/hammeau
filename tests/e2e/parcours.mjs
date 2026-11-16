@@ -397,7 +397,9 @@ function S_ok(e) { return e.schemaVersion === 2 && new Set(e.taches.map(t => t.i
 /* 8. Construire : Mairie d'abord, coût payé, fiche, amélioration (pas de capture : surprise) */
 {
   const { ctx, page, erreurs, externes } = await nouvellePage(412);
-  await page.evaluate(() => Appli.modifier(e => { for (const r of Object.keys(e.joueur.ressources)) e.joueur.ressources[r] = 300; e.joueur.niveau = 6; }));
+  await page.evaluate(() => Appli.modifier(e => { for (const r of Object.keys(e.joueur.ressources)) e.joueur.ressources[r] = 300; e.joueur.niveau = CONFIG.mairie.niveauJoueurRequis[1]; }));
+  // Montants attendus calculés depuis config.js (un rééquilibrage ne casse pas le parcours)
+  const prix = await page.evaluate(() => ({ m1: Economie.cout('mairie', 1, CONFIG).bois, m2: Economie.cout('mairie', 2, CONFIG).bois, ext: Economie.coutExtension(0, CONFIG).bois }));
   await page.click('.onglet[data-aller="village"]');
   await page.waitForFunction(() => window.Village?.estPret(), null, { timeout: 15000 });
   await page.click('#village-bulle-ok');
@@ -412,7 +414,7 @@ function S_ok(e) { return e.schemaVersion === 2 && new Set(e.taches.map(t => t.i
   await page.waitForTimeout(400);
   let e = await page.evaluate(() => Appli.etat());
   verifier(e.village.batiments.length === 1 && e.village.batiments[0].type === 'mairie', 'Mairie construite');
-  verifier(e.joueur.ressources.bois === 260 && e.joueur.ressources.savoir === 260, 'coût payé (40 de chaque)');
+  verifier(e.joueur.ressources.bois === 300 - prix.m1 && e.joueur.ressources.savoir === 300 - prix.m1, `coût payé (${prix.m1} de chaque)`);
   const stocke = JSON.parse(await lire(page));
   verifier(stocke.schemaVersion === 2 && stocke.village.batiments.length === 1, 'village sauvegardé');
   // Placement refusé sur une case occupée (le puits)
@@ -428,7 +430,7 @@ function S_ok(e) { return e.schemaVersion === 2 && new Set(e.taches.map(t => t.i
   await page.click('#btn-ameliorer');
   await page.waitForTimeout(400);
   e = await page.evaluate(() => Appli.etat());
-  verifier(e.village.batiments[0].niveau === 2 && e.joueur.ressources.bois === 100, 'Mairie niveau 2 (160 de chaque payé)');
+  verifier(e.village.batiments[0].niveau === 2 && e.joueur.ressources.bois === 300 - prix.m1 - prix.m2, `Mairie niveau 2 (${prix.m2} de chaque payé)`);
   // Bonus : la Bibliothèque fait gagner plus de Savoir
   await page.click('#btn-construire');
   await page.click('[data-construire="bibliotheque"]');
@@ -451,7 +453,7 @@ function S_ok(e) { return e.schemaVersion === 2 && new Set(e.taches.map(t => t.i
   await page.click('#btn-agrandir');
   await page.waitForTimeout(600);
   e = await page.evaluate(() => Appli.etat());
-  verifier(e.village.extensions === 1 && e.joueur.ressources.bois === 480, 'hameau agrandi (120 bois)');
+  verifier(e.village.extensions === 1 && e.joueur.ressources.bois === 600 - prix.ext, `hameau agrandi (${prix.ext} bois)`);
   verifier(await page.evaluate(() => Village.terrain().anneaux) === 1, 'la scène a ajouté un anneau');
   await page.evaluate(() => Appli.modifier(x => { Economie.endommager(x, () => 0.99); }));
   const bib = await page.evaluate(() => Appli.etat().village.batiments.find(b => b.type === 'bibliotheque'));

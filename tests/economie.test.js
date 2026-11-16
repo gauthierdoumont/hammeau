@@ -16,16 +16,24 @@ function riche(n = 10000) {
   return e;
 }
 
-test('coûts : bâtiment au niveau n = 50n² famille + 20n² bois + 20n² pierre', () => {
-  assert.deepEqual(E.cout('bibliotheque', 1, C), { savoir: 50, bois: 20, pierre: 20 });
-  assert.deepEqual(E.cout('bibliotheque', 3, C), { savoir: 450, bois: 180, pierre: 180 });
-  assert.deepEqual(E.cout('arene', 2, C), { pierre: 280, bois: 80 });              // Corps = pierre : 200 + 80
-  assert.deepEqual(E.cout('scierie', 1, C), { bois: 70, pierre: 20 });             // Discipline = bois
-  assert.deepEqual(E.cout('jardin', 1, C), { nourriture: 50, bois: 20, pierre: 20 }); // Repos → payé en nourriture
+// Attendus calculés depuis CONFIG : un futur rééquilibrage de config.js ne casse pas ces tests
+const B = C.batiments;
+const somme = (...paires) => { const o = {}; for (const [r, q] of paires) o[r] = (o[r] || 0) + q; return o; };
+const coutBat = (fam, n) => somme([fam, B.coutFamille * n * n], ['bois', B.coutBois * n * n], ['pierre', B.coutPierre * n * n]);
+const coutMairie = (n) => Object.fromEntries(['savoir', 'pierre', 'cristaux', 'nourriture', 'bois', 'or'].map(r => [r, C.mairie.cout * n * n]));
+const requis = (n) => C.mairie.niveauJoueurRequis[n - 1];
+
+test('coûts : bâtiment au niveau n = coutFamille·n² famille + coutBois·n² bois + coutPierre·n² pierre', () => {
+  assert.deepEqual(E.cout('bibliotheque', 1, C), coutBat('savoir', 1));
+  assert.deepEqual(E.cout('bibliotheque', 3, C), coutBat('savoir', 3));
+  assert.deepEqual(E.cout('arene', 2, C), coutBat('pierre', 2));              // Corps = pierre : les deux s'additionnent
+  assert.deepEqual(E.cout('scierie', 1, C), coutBat('bois', 1));              // Discipline = bois
+  assert.deepEqual(E.cout('jardin', 1, C), coutBat(B.jardinPayeEn, 1));      // Repos → payé en nourriture
+  assert.equal(Object.keys(E.cout('arene', 2, C)).length, 2);
 });
 
-test('coûts : Mairie au niveau n = 40n² de chaque ressource (pas les gemmes)', () => {
-  assert.deepEqual(E.cout('mairie', 2, C), { savoir: 160, pierre: 160, cristaux: 160, nourriture: 160, bois: 160, or: 160 });
+test('coûts : Mairie au niveau n = mairie.cout·n² de chaque ressource (pas les gemmes)', () => {
+  assert.deepEqual(E.cout('mairie', 2, C), coutMairie(2));
 });
 
 test('déblocage : rien avant la Mairie ; la Mairie demande le niveau de chef', () => {
@@ -35,9 +43,10 @@ test('déblocage : rien avant la Mairie ; la Mairie demande le niveau de chef', 
   assert.equal(E.construire(e, 'taverne', 1, 1, ctx('t'), C).ok, false);
   assert.equal(E.construire(e, 'mairie', 6, 3, ctx('m'), C).ok, true);
   assert.equal(E.possibilite(e, 'taverne', C).bloque, null);
-  assert.equal(E.possibilite(e, 'mairie', C).bloque, 'niveauJoueur');   // niveau 2 de Mairie : chef niveau 5
-  assert.equal(E.possibilite(e, 'mairie', C).requis, 5);
-  e.joueur.niveau = 5;
+  e.joueur.niveau = requis(2) - 1;
+  assert.equal(E.possibilite(e, 'mairie', C).bloque, 'niveauJoueur');   // niveau 2 de Mairie : niveau de chef requis
+  assert.equal(E.possibilite(e, 'mairie', C).requis, requis(2));
+  e.joueur.niveau = requis(2);
   assert.equal(E.ameliorer(e, 'm', C).ok, true);
   assert.equal(E.batiment(e, 'mairie').niveau, 2);
 });
@@ -54,13 +63,14 @@ test('niveau des bâtiments plafonné par la Mairie', () => {
 
 test('construire paie le coût exact ; pas assez de ressources → rien ne change', () => {
   const e = riche(0);
-  Object.assign(e.joueur.ressources, { savoir: 40, pierre: 40, cristaux: 40, nourriture: 40, bois: 39, or: 40 });
+  Object.assign(e.joueur.ressources, coutMairie(1));
+  e.joueur.ressources.bois -= 1;
   const p = E.possibilite(e, 'mairie', C);
   assert.deepEqual(p.manque, { bois: 1 });
   assert.equal(E.faisable(p), false);
   assert.equal(E.construire(e, 'mairie', 6, 3, ctx('m'), C).ok, false);
   assert.equal(e.village.batiments.length, 0);
-  e.joueur.ressources.bois = 40;
+  e.joueur.ressources.bois += 1;
   assert.equal(E.construire(e, 'mairie', 6, 3, ctx('m'), C).ok, true);
   assert.ok(Object.entries(e.joueur.ressources).every(([r, v]) => r === 'gemmes' || v === 0));
   assert.equal(S.verifier(e), true);
@@ -103,13 +113,13 @@ test('le bonus augmente vraiment les gains d\'une tâche', () => {
 
 test('prochain chantier : la Mairie au début, puis le plus proche d\'être payé', () => {
   const e = riche(0);
-  e.joueur.ressources.savoir = 20;
+  e.joueur.ressources.savoir = Math.floor(C.mairie.cout / 2);
   const p = E.prochainChantier(e, C);
   assert.equal(p.type, 'mairie');
   assert.ok(p.progression > 0 && p.progression < 1);
-  Object.assign(e.joueur.ressources, { savoir: 40, pierre: 40, cristaux: 40, nourriture: 40, bois: 40, or: 40 });
+  Object.assign(e.joueur.ressources, coutMairie(1));
   E.construire(e, 'mairie', 6, 3, ctx('m'), C);
-  e.joueur.ressources.bois = 70; e.joueur.ressources.pierre = 20;
+  Object.assign(e.joueur.ressources, coutBat('bois', 1));
   assert.equal(E.prochainChantier(e, C).type, 'scierie');    // tout est payé pour la Scierie
 });
 
@@ -134,10 +144,11 @@ test('endommager : un bâtiment au hasard (hasard injecté), bonus en pause, pui
   assert.equal(touche.id, 'b');
   assert.equal(E.bonus(e, 'esprit', C), 0);
   assert.equal(E.possibilite(e, 'bibliotheque', C).bloque, 'endommage');
-  assert.deepEqual(E.coutReparation('bibliotheque', 1, C), { savoir: 15, bois: 6, pierre: 6 });
+  const rep = Object.fromEntries(Object.entries(coutBat('savoir', 1)).map(([r, q]) => [r, Math.ceil(q * C.reparation.part)]));
+  assert.deepEqual(E.coutReparation('bibliotheque', 1, C), rep);
   const avant = e.joueur.ressources.savoir;
   assert.equal(E.reparer(e, 'b', C).ok, true);
-  assert.equal(avant - e.joueur.ressources.savoir, 15);
+  assert.equal(avant - e.joueur.ressources.savoir, rep.savoir);
   assert.equal(E.bonus(e, 'esprit', C), 0.05);
   assert.equal(E.reparer(e, 'b', C).ok, false);             // déjà réparé
   E.endommager(e, () => 0); E.endommager(e, () => 0);

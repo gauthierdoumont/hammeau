@@ -1,26 +1,17 @@
 # Suivi — Hameau
 
 ## Où on en est
-- Version : 0.7.0 · Prochaine session : suivre **CLAUDE.md §2** dans l'ordre (2.0 rééquilibrage validé → 8 → 14 → 15a → 15b → 16-19 → 1b) · Dernière session : 2026-11-16
+- Version : 0.7.1 · Prochaine session : suivre **CLAUDE.md §2** dans l'ordre (8 → 14 → 15a → 15b → 16-19 → 1b) · Dernière session : 2026-11-16
 
 ## Dernière session
-- Fait : étapes 13 (endommagés, réparation, agrandir, décorations), 5a (moteur complet + coffres + simulation), 5b (coffre animé, fête de niveau), 6 (rattrapage, séries, joker, moral, incendies, pause rétroactive, veille), 7 (Prochaine action, Perso).
-- Testé : `npm test` (87 tests dont `tests/jours.test.js`), `npm run e2e` (parcours complet, 11 sections), `node outils/simulation.js`.
+- Fait : 2.0 rééquilibrage (bâtiments 30/5/5, Mairie 20, niveaux de chef 1/3/6/9/12) ; tests de coûts calculés depuis `CONFIG`.
+- Simulation (200 j, 20 graines, médianes) : tout au niveau 5 → régulier 125 j, intense 62 j, léger > 200 j (Mairie 5 : 83 / 42 / 184 j).
+- Avant : étapes 13, 5a, 5b, 6, 7 (v0.7.0).
+- Testé : `npm test` (87), `npm run e2e` (11 sections), `node outils/simulation.js`.
 - Non testé / à vérifier sur le téléphone : tout (1er APK à la 1b).
 
 ## Bugs connus
 - (aucun)
-
-## Rééquilibrage (simulation `node outils/simulation.js`, 200 jours, 20 graines) — VALIDÉ par Gauthier le 2026-11-16, à appliquer (CLAUDE.md §2.0)
-Valeurs actuelles : le profil « régulier » (7 tâches, 85 % des jours) ne finit pas le village en 200 jours (goulot : bois / pierre,
-puis niveau de chef 23 pour la Mairie 5). Proposition (3 changements, `config.js` seulement) :
-| Réglage | Avant | Après | Effet (régulier, médiane) |
-|---|---|---|---|
-| `batiments` coutFamille / coutBois / coutPierre | 50 / 20 / 20 | 30 / 5 / 5 | bois et pierre ne bloquent plus tout |
-| `mairie.cout` | 40 | 20 | Mairie 3 au jour ~22 au lieu de 52 |
-| `mairie.niveauJoueurRequis` | 1/5/10/16/23 | 1/3/6/9/12 | Mairie 5 vers le jour ~83 |
-→ tout au niveau 5 : régulier ≈ 125 jours (objectif ≈ 4 mois), intense ≈ 62 jours, léger > 200 jours (progrès réguliers quand même).
-Tester une variante : `SIM_CONFIG='{"mairie":{"cout":20}}' node outils/simulation.js`.
 
 ## Retours de Gauthier à traiter
 - (aucun)

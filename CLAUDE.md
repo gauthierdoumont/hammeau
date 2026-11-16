@@ -101,7 +101,7 @@
 - Captures du village : pour Claude seulement (dossier temporaire), jamais envoyées à Gauthier avant la 1b.
 
 ## 4. Feuille de route (cocher ici ET dans `docs/CLAUDE-complet.md`)
-- [ ] 2.0 Rééquilibrage validé (config.js + tests + simulation)
+- [x] 2.0 Rééquilibrage validé (config.js + tests + simulation)
 - [x] 1a · [x] 2 · [x] 3 · [x] 4 · [x] 5a · [x] 5b · [x] 6 · [x] 7 · [x] 9 · [x] 10 · [x] 11 · [x] 12 · [x] 13
 - [ ] 8. Réglages, À propos, vérification des mises à jour, check-list, v1.0.0
 - [ ] 14. Notifications locales

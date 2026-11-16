@@ -107,12 +107,12 @@ window.CONFIG = {
     ordre: ['mairie', 'bibliotheque', 'arene', 'atelier', 'taverne', 'scierie', 'banque', 'jardin'],   // ordre d'affichage
     niveauMax: 5,
     bonusParNiveau: 0.05,  // ↑ = un bâtiment amplifie plus les gains de sa famille
-    coutFamille: 50,       // coût au niveau n = coutFamille × n² de la ressource de la famille
-    coutBois: 20,          // + coutBois × n² bois
-    coutPierre: 20,        // + coutPierre × n² pierre
+    coutFamille: 30,       // coût au niveau n = coutFamille × n² de la ressource de la famille
+    coutBois: 5,           // + coutBois × n² bois
+    coutPierre: 5,         // + coutPierre × n² pierre
     jardinPayeEn: 'nourriture'
   },
-  mairie: { cout: 40, niveauJoueurRequis: [1, 5, 10, 16, 23] }, // cout × n² de chaque ressource
+  mairie: { cout: 20, niveauJoueurRequis: [1, 3, 6, 9, 12] }, // cout × n² de chaque ressource
   reparation: { part: 0.3 },                            // part du coût du niveau actuel
   // Agrandir le hameau : un anneau de terrain en plus tout autour ; chaque anneau coûte ×1,5 le précédent
   extensions: { facteur: 1.5, max: 3, coutBase: { bois: 120, pierre: 120, or: 60 } },

@@ -1,5 +1,11 @@
 # Journal des versions — Hameau
 
+## 0.7.1 — 2026-11-16 · Équilibrage
+- ⚖️ Le village se construit plus vite : bâtiments 30 de leur ressource + 5 bois + 5 pierre (× niveau²), Mairie 20 de chaque (× niveau²).
+- 🏛️ Niveaux de chef demandés par la Mairie : 1 / 3 / 6 / 9 / 12 (au lieu de 1 / 5 / 10 / 16 / 23).
+- 🎯 Village complet en environ 4 mois à rythme régulier (avant : plus de 200 jours).
+- 🧪 Les tests calculent les coûts depuis `config.js` : un prochain rééquilibrage ne les cassera plus.
+
 ## 0.7.0 — 2026-11-16
 - 🔧 Village : un incendie peut abîmer un bâtiment (grisé, fumée, ⚠️) — on le répare pour 30 % de son coût.
 - 🗺️ Agrandir le hameau : jusqu'à 3 anneaux de terrain (la rivière et les chemins continuent).
