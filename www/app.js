@@ -38,6 +38,17 @@ function maintenant() {
 function jourCivil(instant) {        // AAAA-MM-JJ à Bruxelles (même calcul testé que le jour logique)
   return J.partiesLocales(instant, C.jour.fuseau).jour;
 }
+// Hasard (coffres). Dans le navigateur seulement, localStorage « debug_hasard » = jamais | toujours (tests reproductibles)
+function hasard() {
+  if (!NATIF) {
+    try {
+      const d = localStorage.getItem('debug_hasard');
+      if (d === 'jamais') return () => 0.999;
+      if (d === 'toujours') return () => 0;
+    } catch {}
+  }
+  return Math.random;
+}
 function jourActuel() {              // jour logique (la journée finit à 4 h du matin)
   return J.jourLogique(maintenant(), C);
 }
@@ -361,7 +372,7 @@ function cocher(tacheId, quantite = null) {
   const avant = etat;
   let r;
   const ok = modifier(e => {
-    r = M.saisir(e, tacheId, quantite, { id: S.nouvelId(), horodatage: maintenant().toISOString(), jour: jourActuel() }, C);
+    r = M.saisir(e, tacheId, quantite, { id: S.nouvelId(), horodatage: maintenant().toISOString(), jour: jourActuel(), rng: hasard() }, C);
     if (!r.ok) throw refus(r.erreur);
   });
   if (!ok) return false;
@@ -698,7 +709,7 @@ function carteTache(t, bilan) {
       el('span', { class: 'tache-emoji', 'aria-hidden': 'true' }, cat?.emoji ?? '•'), texte)
   );
   if (!fait) {
-    const reste = M.gainRestant(t, bilan, C, M.bonusFamille(etat, cat?.familleId, C));
+    const reste = M.gainRestant(t, bilan, C, M.multiplicateurs(t, etat, C, jourActuel(), cat?.familleId).total);
     const res = M.ressourceDe(cat, C);
     carte.append(el('span', { class: 'gain', 'aria-label': `rapporte ${reste}` }, `+${reste} ${res ? C.ressources.find(r => r.id === res).emoji : 'XP'}`));
     if (t.objectif) carte.append(el('button', { class: 'plus', 'data-saisir': t.id, 'aria-label': `Ajouter des ${t.objectif.unite}` }, '+'));

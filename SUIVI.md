@@ -11,6 +11,17 @@
 ## Bugs connus
 - (aucun)
 
+## Rééquilibrage proposé (simulation `node outils/simulation.js`, 200 jours, 20 graines) — À VALIDER PAR GAUTHIER
+Valeurs actuelles : le profil « régulier » (7 tâches, 85 % des jours) ne finit pas le village en 200 jours (goulot : bois / pierre,
+puis niveau de chef 23 pour la Mairie 5). Proposition (3 changements, `config.js` seulement) :
+| Réglage | Avant | Après | Effet (régulier, médiane) |
+|---|---|---|---|
+| `batiments` coutFamille / coutBois / coutPierre | 50 / 20 / 20 | 30 / 5 / 5 | bois et pierre ne bloquent plus tout |
+| `mairie.cout` | 40 | 20 | Mairie 3 au jour ~22 au lieu de 52 |
+| `mairie.niveauJoueurRequis` | 1/5/10/16/23 | 1/3/6/9/12 | Mairie 5 vers le jour ~83 |
+→ tout au niveau 5 : régulier ≈ 125 jours (objectif ≈ 4 mois), intense ≈ 62 jours, léger > 200 jours (progrès réguliers quand même).
+Tester une variante : `SIM_CONFIG='{"mairie":{"cout":20}}' node outils/simulation.js`.
+
 ## Retours de Gauthier à traiter
 - (aucun)
 

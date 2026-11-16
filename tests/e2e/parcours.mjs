@@ -24,7 +24,7 @@ const pause = (page) => page.waitForTimeout(300);
 async function nouvellePage(largeur = 412, stockageDepart = null) {
   const ctx = await nav.newContext({ viewport: { width: largeur, height: 800 }, deviceScaleFactor: 1, colorScheme: 'dark', acceptDownloads: true });
   // Horloge simulée : lundi 16 novembre 2026, 10 h (Bruxelles) → résultats identiques quel que soit le jour du test
-  await ctx.addInitScript(() => localStorage.setItem('debug_maintenant', '2026-11-16T10:00:00+01:00'));
+  await ctx.addInitScript(() => { localStorage.setItem('debug_maintenant', '2026-11-16T10:00:00+01:00'); localStorage.setItem('debug_hasard', 'jamais'); });
   if (stockageDepart !== null) {
     // Seulement au tout premier chargement (pas aux rechargements)
     await ctx.addInitScript(([cle, val]) => {
@@ -254,16 +254,16 @@ function S_ok(e) { return e.schemaVersion === 2 && new Set(e.taches.map(t => t.i
 
   // Tâche simple : cocher → +25 XP et +25 bois, gain affiché avant
   await ajouter('Faire la vaisselle');
-  verifier((await page.textContent(`.tache[data-tache="${await idDe('Faire la vaisselle')}"] .gain`)).includes('+25 🪵'), 'gain prévu affiché');
+  verifier((await page.textContent(`.tache[data-tache="${await idDe('Faire la vaisselle')}"] .gain`)).includes('+30 🪵'), 'gain prévu affiché (imprévu ×1,2)');
   await page.click(`[data-cocher="${await idDe('Faire la vaisselle')}"]`);
   await page.waitForTimeout(200);
   verifier(await page.locator('.vol').count() === 1, 'le gain s\'envole');
   await page.screenshot({ path: 'tests/captures/etape4-vol.png' });
   await page.waitForTimeout(1000);
   let e = await etatStocke();
-  verifier(e.joueur.xpTotal === 25 && e.joueur.ressources.bois === 25, 'gains enregistrés : ' + JSON.stringify(e.joueur.ressources));
+  verifier(e.joueur.xpTotal === 30 && e.joueur.ressources.bois === 30, 'gains enregistrés : ' + JSON.stringify(e.joueur.ressources));
   verifier(e.taches[0].archivee && e.journal.length === 1 && e.journal[0].jour === '2026-11-16', 'imprévu archivé, journal avec jour logique');
-  verifier((await page.textContent('.pastille-res[data-ressource="bois"] b')) === '25', 'compteur bois à 25');
+  verifier((await page.textContent('.pastille-res[data-ressource="bois"] b')) === '30', 'compteur bois à 30');
   verifier(await page.isVisible('#toast-action'), 'bouton Annuler proposé');
   await page.click('#toast-action');
   await pause(page);

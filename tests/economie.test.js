@@ -97,8 +97,8 @@ test('le bonus augmente vraiment les gains d\'une tâche', () => {
   T.ajouterTache(e, T.creerTache({ nom: 'Lire', categorieId: 'lecture', taille: 'grosse' }, e, C, 't1', 'x').tache);
   const avant = e.joueur.ressources.savoir;
   const r = M.saisir(e, 't1', null, { id: 's1', horodatage: 'x', jour: '2026-11-16' }, C);   // le moteur trouve le bonus tout seul
-  assert.equal(r.gain, 53);                                  // 50 × 1,05 = 52,5 → 53
-  assert.equal(e.joueur.ressources.savoir - avant, 53);
+  assert.equal(r.gain, 63);                                  // 50 × 1,2 (imprévu) × 1,05 = 63
+  assert.equal(e.joueur.ressources.savoir - avant, 63);
 });
 
 test('prochain chantier : la Mairie au début, puis le plus proche d\'être payé', () => {

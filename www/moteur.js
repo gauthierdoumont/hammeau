@@ -1,6 +1,7 @@
 /* moteur.js — Hameau — gains, progression et niveaux — Créé par Gauthier Doumont
  * Fonctions PURES (pas d'horloge, pas de hasard, pas de DOM) : testées dans node (tests/moteur.test.js).
- * Étape 4 : gain de BASE (taille). Les multiplicateurs (type, série, repos, anti-farm) et les coffres arrivent à l'étape 5a.
+ * Gain (CLAUDE.md §5) = base (taille) × type × série × bâtiment × Repos (XP ×0,5) × anti-farm → arrondi une seule fois.
+ * Coffres : hasard INJECTÉ (ctx.rng) → les tests et la simulation sont reproductibles.
  *
  * Principe (robuste aux arrondis et aux modifications de tâche) :
  * - progression = somme des quantités saisies / cible (on additionne des quantités, pas des pourcentages) ;
@@ -13,9 +14,37 @@
   const PRESQUE_UN = 1 - 1e-9;   // 10 × 0,1 = 0,9999999999999999 en informatique : on considère que c'est 100 %
 
   /* ===== GAIN BRUT D'UNE TÂCHE (non arrondi) ===== */
-  // bonus = fraction en plus venant du bâtiment de la famille (ex. 0,10 = +10 %), calculé par Economie.bonus
-  M.brut = function (tache, C, bonus = 0) {
-    return (C.tailles[tache.taille] ?? C.tailles.moyenne) * (1 + bonus);
+  // facteur = produit des multiplicateurs (voir M.multiplicateurs) ; 1 = gain de base
+  M.brut = function (tache, C, facteur = 1) {
+    return (C.tailles[tache.taille] ?? C.tailles.moyenne) * facteur;
+  };
+
+  /* ===== MULTIPLICATEURS (étape 5a) =====
+   * → {type, serie, batiment, repos, antiFarm, total} pour une tâche, un jour donné, dans l'état actuel.
+   * Anti-farm : au-delà de C.antiFarm.seuil tâches TERMINÉES dans le même jour logique, gains × facteur.
+   */
+  M.terminesDuJour = (journal, jour) => journal.filter(s => s.jour === jour && s.progression >= 1).length;
+  M.multiplicateurs = function (tache, etat, C, jour, familleId) {
+    const type = C.types[tache.type] ?? 1;
+    const serie = 1 + Math.min(C.serie.max, (etat.joueur?.serie?.jours || 0) * C.serie.parJour);
+    const batiment = 1 + M.bonusFamille(etat, familleId, C);
+    const repos = familleId === 'repos' ? C.repos.facteurXp : 1;
+    const antiFarm = M.terminesDuJour(etat.journal, jour) >= C.antiFarm.seuil ? C.antiFarm.facteur : 1;
+    return { type, serie, batiment, repos, antiFarm, total: type * serie * batiment * repos * antiFarm };
+  };
+
+  /* ===== COFFRE (10 % de chance quand une tâche passe à 100 %) ===== */
+  const entier = (rng, min, max) => min + Math.floor(rng() * (max - min + 1));
+  M.tirerCoffre = function (rng, C) {
+    if (!rng || rng() >= C.coffre.chance) return null;
+    const communes = C.ressources.map(r => r.id).filter(id => id !== 'gemmes');
+    const ressources = {};
+    for (let i = 0; i < C.coffre.nbRessources; i++) {
+      const libres = communes.filter(r => !(r in ressources));
+      const r = libres[Math.min(libres.length - 1, Math.floor(rng() * libres.length))];
+      ressources[r] = entier(rng, C.coffre.min, C.coffre.max);
+    }
+    return { ressources, gemmes: entier(rng, C.coffre.gemmesMin, C.coffre.gemmesMax) };
   };
 
   /* ===== BONUS DU VILLAGE =====
@@ -82,7 +111,7 @@
   M.estFaite = (tache, bilan) => tache.type === 'quotidienne' ? bilan.progression >= 1 : !!tache.archivee;
 
   // Ce qu'il reste à gagner sur la tâche (affiché sur la carte : « +25 📜 »)
-  M.gainRestant = (tache, bilan, C, bonus = 0) => Math.max(0, Math.round(M.brut(tache, C, bonus)) - bilan.deja);
+  M.gainRestant = (tache, bilan, C, facteur = 1) => Math.max(0, Math.round(M.brut(tache, C, facteur)) - bilan.deja);
 
   // Quantité qu'il reste à faire pour un objectif chiffré
   M.reste = (tache, bilan) => tache.objectif ? arrondi(Math.max(0, tache.objectif.cible - bilan.somme)) : 0;
@@ -104,8 +133,9 @@
 
   /* ===== SAISIE =====
    * Modifie `etat` (à appeler dans modifier()). quantite = nombre saisi pour un objectif chiffré,
-   * ou null = « terminer » (cocher, ou « tout le reste »). ctx = {id, horodatage, jour}.
-   * Le bonus du bâtiment de la famille est calculé ici (M.bonusFamille).
+   * ou null = « terminer » (cocher, ou « tout le reste »). ctx = {id, horodatage, jour, rng?}.
+   * Tous les multiplicateurs (dont le bonus du bâtiment) sont calculés ici : aucun appelant ne peut les oublier.
+   * ctx.rng (Math.random dans l'appli) sert au coffre ; sans rng, pas de coffre (tests déterministes).
    * → {ok: true, gain, ressource, progression, terminee, niveauxGagnes} ou {ok: false, erreur}
    */
   M.saisir = function (etat, tacheId, quantite, ctx, C) {
@@ -127,13 +157,18 @@
       apres = finaliser(tache, b.somme + valeur, 0).progression;
     }
 
-    const bonus = M.bonusFamille(etat, categorie?.familleId, C);
-    const gain = Math.max(0, Math.round(M.brut(tache, C, bonus) * apres) - b.deja);
+    const familleId = categorie?.familleId;
+    const mult = M.multiplicateurs(tache, etat, C, ctx.jour, familleId);
+    const gain = Math.max(0, Math.round(M.brut(tache, C, mult.total) * apres) - b.deja);
     const ressource = M.ressourceDe(categorie, C);
-    etat.journal.push({
+    const terminee = apres >= 1;
+    const coffre = terminee && b.progression < 1 ? M.tirerCoffre(ctx.rng, C) : null;
+    const entree = {
       id: ctx.id, tacheId, horodatage: ctx.horodatage, jour: ctx.jour, valeur,
       progression: apres, gains: { xp: gain, ressource, quantite: ressource ? gain : 0 }
-    });
+    };
+    if (coffre) entree.coffre = coffre;
+    etat.journal.push(entree);
 
     const j = etat.joueur;
     const niv = M.ajouterXp(j.xp, j.niveau, gain, C);
@@ -141,10 +176,19 @@
     if (ressource) j.ressources[ressource] += gain;
     if (categorie) j.gagneTotal[categorie.familleId] = (j.gagneTotal[categorie.familleId] || 0) + gain;
     j.stats = { ...j.stats, ...M.stats(j.gagneTotal, C) };
+    // Coffre : ressources + gemmes (bonus de hasard : n'entre pas dans les stats, qui mesurent l'effort réel)
+    if (coffre) {
+      for (const [r, q] of Object.entries(coffre.ressources)) j.ressources[r] += q;
+      j.ressources.gemmes += coffre.gemmes;
+    }
+    // Moral : +1 par tâche terminée, +5 pour une tâche Repos (plafond 100)
+    if (terminee && b.progression < 1) {
+      const plus = familleId === 'repos' ? C.repos.moral : C.moral.parTache;
+      j.moral = Math.min(C.moral.max, j.moral + plus);
+    }
 
-    const terminee = apres >= 1;
     if (terminee && tache.type !== 'quotidienne') { tache.archivee = true; tache.termineeLe = ctx.horodatage; }
-    return { ok: true, gain, ressource, progression: apres, terminee, niveauxGagnes: niv.niveauxGagnes };
+    return { ok: true, gain, ressource, progression: apres, terminee, niveauxGagnes: niv.niveauxGagnes, multiplicateurs: mult, coffre };
   };
 
   /* ===== LISTES DU JOUR =====

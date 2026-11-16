@@ -170,7 +170,7 @@ Objectif d'équilibrage : **environ 4 mois** d'usage régulier pour tout monter 
 - [x] 3. Familles et catégories + ajout express de tâche + « Plus d'options » + catégories perso (~45 min)
 - [x] 4. Écran Aujourd'hui : listes par type, cocher, progression partielle, **XP + ressource de base + animation « +25 »** (~45 min)
 - 🔁 **Point de contrôle** : Gauthier l'utilise 2-3 jours, puis on ajuste.
-- [ ] 5a. Moteur complet : multiplicateurs, anti-farm, stats cumulées, niveaux, coffres (~45 min)
+- [x] 5a. Moteur complet : multiplicateurs, anti-farm, stats cumulées, niveaux, coffres (~45 min)
 - [ ] 5b. Retour visuel : vibrations, sons, écran de fête, ouverture de coffre (~40 min)
 - [ ] 6. Jour logique, rattrapage, séries, joker, moral, incendies, pause rétroactive, saisie de la veille + tests unitaires (~45 min)
 - [ ] 7. Prochaine action + écran Perso (~40 min)
