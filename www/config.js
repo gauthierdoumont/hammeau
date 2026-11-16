@@ -132,6 +132,17 @@ window.CONFIG = {
   },
 
   /* ===== Données ===== */
+  /* ===== Rappels (notifications locales, V3) ===== */
+  notifications: {
+    matinDefaut: '08:00',      // heure proposée quand on rallume le rappel du matin
+    soirDefaut: '20:00',       // heure proposée quand on rallume le rappel du soir
+    joursAvance: 7,            // rappels programmés d'avance (si l'appli n'est pas rouverte) ; ↑ = plus de rappels génériques
+    echeancesMax: 20,          // rappels « veille d'échéance » programmés au maximum
+    testSecondes: 10,          // « Tester une notification »
+    relanceJours: 3,           // après un « Plus tard », une seule nouvelle proposition après ce nombre de jours
+    propositionsMax: 2         // propositions d'activer les rappels au total (jamais d'insistance)
+  },
+
   donnees: {
     rappelExportJours: 14,   // rappel doux d'export après ce nombre de jours
     sauvegardesHebdo: 4,     // copies automatiques hebdomadaires gardées

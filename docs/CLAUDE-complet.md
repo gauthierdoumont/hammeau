@@ -187,7 +187,7 @@ Objectif d'équilibrage : **environ 4 mois** d'usage régulier pour tout monter 
 - [x] 2.0 Rééquilibrage validé : bâtiments 30 / 5 / 5, Mairie 20, niveaux de chef 1 / 3 / 6 / 9 / 12 (v0.7.1)
 
 ### V3 — Calendrier + notifications
-- [ ] 14. Notifications locales matin/soir/échéances + permission + reprogrammation (~40 min)
+- [x] 14. Notifications locales matin/soir/échéances + permission + reprogrammation (~40 min)
 - [ ] 15a. Lecture iCal (CapacitorHttp + ical.js + cache + `tests/exemple.ics`) (~45 min)
 - [ ] 15b. Affichage des cours dans Aujourd'hui + « J'y étais » → Savoir (~40 min)
 

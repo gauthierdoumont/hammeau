@@ -1,16 +1,19 @@
 # Suivi — Hameau
 
 ## Où on en est
-- Version : 1.0.0 · Prochaine session : suivre **CLAUDE.md §2** dans l'ordre (14 → 15a → 15b → 16-19 → 1b) · Dernière session : 2026-11-16
+- Version : 1.1.0 · Prochaine session : suivre **CLAUDE.md §2** dans l'ordre (15a → 15b → 16-19 → 1b) · Dernière session : 2026-11-16
 
 ## Dernière session
 - Fait : 2.0 rééquilibrage (v0.7.1, tests de coûts calculés depuis `CONFIG`) puis étape 8 (v1.0.0) : Sons / Vibrations,
   Sauvegardes automatiques + Restaurer, rappel d'export (carte sur Aujourd'hui), Vérifier les mises à jour (`@capacitor/browser`).
+- Étape 14 (v1.1.0) : rappels locaux (`www/notifications.js`, fonction pure testée), explication avant la permission,
+  reprogrammation à chaque sauvegarde (anti-rebond 1,5 s) et à l'ouverture, petite icône `ic_stat_hameau` (`scripts/icone-notif.js`).
 - Simulation 2.0 (200 j, 20 graines, médianes) : tout au niveau 5 → régulier 125 j, intense 62 j, léger > 200 j.
 - Check-list `appli-native` : navigateur 360/412/1100 px OK, hors ligne OK, export/import OK, appId inchangé, pas de server.url,
   aucun secret. Reste : workflow ✅ + Release (impossible avant la 1b, clé de signature).
-- Testé : `npm test` (94), `npm run e2e` (12 sections), `node outils/simulation.js`.
-- Non testé / à vérifier sur le téléphone : tout (1er APK à la 1b), dont l'ouverture de la page GitHub par `@capacitor/browser`.
+- Testé : `npm test` (103), `npm run e2e` (13 sections, plugin de notifications simulé), `node outils/simulation.js`.
+- Non testé / à vérifier sur le téléphone : tout (1er APK à la 1b), dont l'ouverture de la page GitHub par `@capacitor/browser`,
+  l'arrivée des rappels à l'heure (optimisation de batterie MagicOS à désactiver pour Hameau) et la petite icône.
 
 ## Bugs connus
 - (aucun)
@@ -54,6 +57,8 @@
 | 2026-11-16 | Décorations : retirer = pas de remboursement (dit avant) | Simple et clair |
 | 2026-11-16 | Restaurer une copie : jours déjà traités sur le téléphone non rejoués, adresse iCal du téléphone gardée | Restaurer ne doit jamais faire payer des « jours manqués » |
 | 2026-11-16 | Rappel d'export : compté depuis la 1re saisie si jamais exporté ; ✕ = caché jusqu'à la prochaine ouverture | Doux, jamais d'insistance, aucun champ de données en plus |
+| 2026-11-16 | Rappel coupé = heure vide dans `reglages.notifMatin` / `notifSoir` ; veille d'échéance à l'heure du soir (sinon du matin) | Pas de nouveau champ stocké (pas de migration) |
+| 2026-11-16 | Proposition d'activer les rappels : à l'ouverture s'il y a une tâche, 2 fois max (3 jours d'écart), suivi hors des données | Jamais d'insistance |
 | 2026-11-15 | `joueur.xp` = XP dans le niveau en cours, `joueur.xpTotal` = cumul (champ ajouté) | Un changement de courbe ne fera jamais baisser un niveau |
 
 ## À faire plus tard (noté, hors étape)

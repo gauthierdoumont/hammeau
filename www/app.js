@@ -10,6 +10,7 @@ const Economie = window.Economie;
 const Jours = window.Jours;
 const J = window.Temps;
 const MAJ = window.MisesAJour;
+const N = window.Notifications;
 const CLE = S.CLE;
 const NOMS_TYPES = { quotidienne: '🔁 Quotidiennes', imprevu: '⚡ Imprévus', bonus: '⭐ Bonus' };
 const JOURS_COURTS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
@@ -76,6 +77,7 @@ function sauver(e) {
   try { localStorage.setItem(CLE, txt); }
   catch (x) { message('Sauvegarde impossible', 'Le téléphone refuse d\'enregistrer (' + x.message + '). Fais un export par sécurité.'); return false; }
   PL.Preferences?.set({ key: CLE, value: txt }).catch(console.error);
+  replanifierBientot();
   return true;
 }
 
@@ -282,11 +284,89 @@ async function verifierMisesAJour() {
   if (ouvrir && r.url) ouvrirLien(r.url);
 }
 
-/* ===== RÉGLAGES : sons, vibrations, rappel d'export ===== */
+/* ===== RAPPELS (notifications locales) =====
+ * Tout est recalculé (notifications.js) et reprogrammé à chaque sauvegarde (tâche cochée, réglage…) et à l'ouverture.
+ */
+const CLE_PROPOSITION = CLE + '_proposition_rappels';   // sur ce téléphone seulement (pas dans l'export)
+let minuteurRappels;
+function replanifierBientot() {
+  clearTimeout(minuteurRappels);
+  minuteurRappels = setTimeout(() => replanifier().catch(console.error), 1500);
+}
+async function permissionRappels() {
+  if (!PL.LocalNotifications) return 'absent';
+  try { return (await PL.LocalNotifications.checkPermissions()).display; } catch { return 'absent'; }
+}
+async function replanifier() {
+  if (!etat || !PL.LocalNotifications || (await permissionRappels()) !== 'granted') return;
+  const { notifications: enAttente } = await PL.LocalNotifications.getPending();
+  const anciennes = enAttente.filter(n => n.id !== N.ID_TEST).map(n => ({ id: n.id }));
+  if (anciennes.length) await PL.LocalNotifications.cancel({ notifications: anciennes });
+  const liste = N.construire(etat, maintenant(), C).map(n => ({
+    id: n.id, title: n.title, body: n.body, smallIcon: 'ic_stat_hameau',
+    schedule: { at: new Date(n.at), allowWhileIdle: true }
+  }));
+  if (liste.length) await PL.LocalNotifications.schedule({ notifications: liste });
+}
+// Écran d'explication AVANT la demande d'Android. auto = proposé par l'appli (au plus 2 fois), sinon demandé par un bouton.
+async function proposerRappels(auto) {
+  const etatPermission = await permissionRappels();
+  if (etatPermission === 'absent') return false;
+  if (etatPermission === 'granted') return true;
+  if (etatPermission === 'denied') {
+    if (!auto) message('Rappels coupés par le téléphone', 'Pour les recevoir : Paramètres du téléphone → Applications → Hameau → Notifications → autoriser.');
+    return false;
+  }
+  if (auto) {
+    let suivi = null;
+    try { suivi = JSON.parse(localStorage.getItem(CLE_PROPOSITION)); } catch {}
+    if (!N.proposerPermission(suivi, maintenant(), C)) return false;
+    try { localStorage.setItem(CLE_PROPOSITION, JSON.stringify({ fois: (suivi?.fois || 0) + 1, dernier: maintenant().toISOString() })); } catch {}
+  }
+  const oui = await dialogue('Des petits rappels ? 🔔',
+    '<p>Hameau peut te faire signe <b>le matin</b> avec ton programme du jour, <b>le soir</b> s\'il reste des quotidiennes, et <b>la veille</b> d\'une échéance.</p>' +
+    '<p class="discret">Jamais de reproche, rien pendant une pause. Heures réglables (ou tout couper) dans Réglages.</p>',
+    [{ texte: 'Plus tard', valeur: false }, { texte: 'Oui, avec plaisir', valeur: true, principal: true }]);
+  if (!oui) return false;
+  const r = await PL.LocalNotifications.requestPermissions().catch(() => ({ display: 'denied' }));
+  if (r.display !== 'granted') {
+    if (!auto) message('Pas de souci', 'Tu pourras les activer plus tard : Paramètres du téléphone → Applications → Hameau → Notifications.');
+    return false;
+  }
+  try { localStorage.setItem(CLE_PROPOSITION, JSON.stringify({ fois: C.notifications.propositionsMax, dernier: maintenant().toISOString() })); } catch {}
+  toast('Rappels activés 🔔');
+  replanifier().catch(console.error);
+  return true;
+}
+async function testerRappel() {
+  if (!PL.LocalNotifications) return toast('Les rappels marchent dans l\'appli installée sur le téléphone.');
+  if (!(await proposerRappels(false))) return;
+  await PL.LocalNotifications.schedule({ notifications: [{
+    id: N.ID_TEST, title: '🔔 Test de rappel', body: 'Les rappels de Hameau marchent ✅', smallIcon: 'ic_stat_hameau',
+    schedule: { at: new Date(Date.now() + C.notifications.testSecondes * 1000), allowWhileIdle: true }
+  }] });
+  toast(`Rappel de test dans ${C.notifications.testSecondes} secondes ⏳`);
+}
+function changerRappel(cle, defaut) {
+  const champ = document.getElementById(cle === 'notifMatin' ? 'notif-matin' : 'notif-soir');
+  const interrupteur = document.getElementById(cle === 'notifMatin' ? 'notif-matin-actif' : 'notif-soir-actif');
+  const heure = N.heureValide(champ.value) ? champ.value : defaut;
+  modifier(x => { x.reglages[cle] = interrupteur.checked ? heure : ''; });
+  if (interrupteur.checked) proposerRappels(false).catch(console.error);
+}
+
+/* ===== RÉGLAGES : sons, vibrations, rappels, rappel d'export ===== */
 let rappelExportCache = false;    // « ✕ » : caché jusqu'à la prochaine ouverture de l'appli (jamais d'insistance)
 function rendreReglages() {
   document.getElementById('reglage-sons').checked = etat.reglages.sons !== false;
   document.getElementById('reglage-vibrations').checked = etat.reglages.vibrations !== false;
+  for (const [cle, id, defaut] of [['notifMatin', 'notif-matin', C.notifications.matinDefaut], ['notifSoir', 'notif-soir', C.notifications.soirDefaut]]) {
+    const actif = N.heureValide(etat.reglages[cle]);
+    const champ = document.getElementById(id);
+    if (document.activeElement !== champ) champ.value = actif ? etat.reglages[cle] : defaut;
+    champ.disabled = !actif;
+    document.getElementById(id + '-actif').checked = actif;
+  }
   document.getElementById('rappel-export').hidden = rappelExportCache || !S.rappelExport(etat, maintenant().toISOString(), C);
 }
 
@@ -547,7 +627,7 @@ function rattraperJours() {
   } catch (x) { console.error('Rattrapage impossible', x); return null; }
 }
 function afficherRetour(m) {
-  dialogue(m.titre, m.lignes.map(l => `<p>${echapper(l)}</p>`).join(''), [{ texte: 'C\'est parti', valeur: true, principal: true }]);
+  return dialogue(m.titre, m.lignes.map(l => `<p>${echapper(l)}</p>`).join(''), [{ texte: 'C\'est parti', valeur: true, principal: true }]);
 }
 
 // Le matin, les quotidiennes d'hier pas encore cochées (on peut encore les noter jusqu'à midi)
@@ -848,7 +928,10 @@ async function demarrer() {
   afficher('aujourdhui');
   rendre();
   sauvegardeHebdo();
-  if (retour) afficherRetour(retour);
+  if (retour) await afficherRetour(retour);
+  // Rappels : proposés seulement quand il y a déjà une tâche (sinon rien d'utile à rappeler)
+  if (etat.taches.some(t => !t.archivee)) await proposerRappels(true).catch(console.error);
+  replanifierBientot();
 }
 
 /* ===== RENDU ===== */
@@ -1246,6 +1329,19 @@ document.getElementById('btn-mises-a-jour').addEventListener('click', () => veri
 document.getElementById('btn-rappel-export').addEventListener('click', exporter);
 document.getElementById('btn-rappel-plus-tard').addEventListener('click', () => { rappelExportCache = true; rendreReglages(); });
 
+// Rappels : heures, interrupteurs, test ; toucher une notification → écran Aujourd'hui
+document.getElementById('notif-matin-actif').addEventListener('change', () => changerRappel('notifMatin', C.notifications.matinDefaut));
+document.getElementById('notif-soir-actif').addEventListener('change', () => changerRappel('notifSoir', C.notifications.soirDefaut));
+document.getElementById('notif-matin').addEventListener('change', () => changerRappel('notifMatin', C.notifications.matinDefaut));
+document.getElementById('notif-soir').addEventListener('change', () => changerRappel('notifSoir', C.notifications.soirDefaut));
+document.getElementById('btn-tester-notif').addEventListener('click', () => testerRappel().catch(x => { console.error(x); message('Test impossible', String(x.message || x)); }));
+PL.LocalNotifications?.addListener('localNotificationActionPerformed', () => {
+  if (!etat || document.body.classList.contains('bloque')) return;
+  document.querySelectorAll('dialog[open]').forEach(d => d.close());
+  historique.length = 1;
+  afficher('aujourdhui');
+});
+
 // Bouton retour Android : ferme la fenêtre ouverte ou revient à l'écran précédent, sinon quitte
 PL.App?.addListener('backButton', () => { if (!retourEcranPrecedent()) PL.App.exitApp(); });
 
@@ -1259,7 +1355,7 @@ function verifierNouveauJour() {
   if (jourActuel() !== jourAffiche || retour || etat.etat.dernierJourTraite !== avant) rendre();
   if (retour) afficherRetour(retour);
 }
-PL.App?.addListener('resume', () => { verifierNouveauJour(); sauvegardeHebdo(); });
+PL.App?.addListener('resume', () => { verifierNouveauJour(); sauvegardeHebdo(); replanifierBientot(); });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) verifierNouveauJour(); });
 setInterval(verifierNouveauJour, 60 * 1000);
 

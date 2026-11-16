@@ -1,5 +1,13 @@
 # Journal des versions — Hameau
 
+## 1.1.0 — 2026-11-16 · Rappels
+- 🔔 **Rappels** : le matin ton programme du jour, le soir s'il reste des quotidiennes (« Plus que 2 quotidiennes et ta série passe à 6 jours 🔥 »),
+  et la veille d'une échéance. Jamais de reproche, rien pendant une pause.
+- Une explication d'abord, puis Android demande l'autorisation ; « Plus tard » = une seule autre proposition quelques jours après.
+- Réglages → Rappels : heure du matin et du soir, interrupteurs, « Tester un rappel » (arrive en 10 secondes).
+- Toujours à jour : les rappels sont recalculés à chaque tâche cochée et à chaque ouverture. Toucher un rappel ouvre Aujourd'hui.
+- Petite icône Hameau dans la barre d'état.
+
 ## 1.0.0 — 2026-11-16 · Première version complète
 - 🔊 Réglages : interrupteurs **Sons** et **Vibrations** (gardés après redémarrage).
 - 🛟 **Sauvegardes automatiques** : la liste des copies (une par semaine + avant chaque opération délicate), avec « Restaurer ».

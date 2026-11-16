@@ -1,6 +1,6 @@
 {
   "name": "hameau",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Hameau — tes tâches de la vraie vie font grandir ton village (appli Android)",
   "private": true,
   "author": "Gauthier Doumont",
@@ -24,6 +24,7 @@
     "@capacitor/core": "^8.6.2",
     "@capacitor/filesystem": "^8.1.5",
     "@capacitor/haptics": "^8.0.2",
+    "@capacitor/local-notifications": "^8.3.1",
     "@capacitor/preferences": "^8.0.1",
     "@capacitor/share": "^8.0.3"
   },

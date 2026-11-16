@@ -643,6 +643,79 @@ function S_ok(e) { return e.schemaVersion === 2 && new Set(e.taches.map(t => t.i
   await ctx.close();
 }
 
+/* 13. Étape 14 : rappels. Le plugin Android est simulé (faux « Capacitor ») : explication avant la permission,
+ * programmation recalculée à chaque changement, interrupteurs, test. Horloge réelle (le faux natif ignore debug_maintenant). */
+{
+  // 1. Un état réel avec une quotidienne et une échéance (créé dans un navigateur normal)
+  const ctx0 = await nav.newContext({ viewport: { width: 412, height: 800 } });
+  const p0 = await ctx0.newPage();
+  await p0.goto(URL_APPLI); await pause(p0);
+  await p0.evaluate(() => Appli.modifier(e => {
+    Taches.ajouterTache(e, Taches.creerTache({ nom: 'Lire', categorieId: 'lecture', type: 'quotidienne' }, e, CONFIG, 'q1', new Date(Date.now() - 86400000).toISOString()).tache);
+  }));
+  const etatDepart = await lire(p0);
+  await ctx0.close();
+
+  // 2. Même état, avec le plugin de notifications simulé
+  const ctx = await nav.newContext({ viewport: { width: 360, height: 800 }, colorScheme: 'dark', locale: 'fr-BE' });
+  await ctx.addInitScript(([cle, val]) => {
+    if (!sessionStorage.getItem('init')) { localStorage.setItem(cle, val); sessionStorage.setItem('init', '1'); }
+    const r = window.__rappels = { permission: 'prompt', programmes: [], demandes: 0 };
+    window.Capacitor = { isNativePlatform: () => true, Plugins: { LocalNotifications: {
+      checkPermissions: async () => ({ display: r.permission }),
+      requestPermissions: async () => { r.demandes++; r.permission = 'granted'; return { display: 'granted' }; },
+      getPending: async () => ({ notifications: r.programmes.map(n => ({ id: n.id })) }),
+      cancel: async ({ notifications }) => { const ids = notifications.map(n => n.id); r.programmes = r.programmes.filter(n => !ids.includes(n.id)); },
+      schedule: async ({ notifications }) => { r.programmes.push(...notifications); },
+      addListener: () => ({ remove() {} })
+    } } };
+  }, [CLE, etatDepart]);
+  const page = await ctx.newPage();
+  const erreurs = [];
+  page.on('pageerror', e => erreurs.push(e.message));
+  page.on('console', m => m.type() === 'error' && erreurs.push(m.text()));
+  await page.goto(URL_APPLI);
+  // Explication AVANT la demande d'Android (un éventuel message de retour passe d'abord)
+  await page.waitForSelector('#dialogue[open]');
+  if (!(await page.textContent('#dialogue-titre')).includes('rappels')) { await page.click('#dialogue-boutons .principal'); await page.waitForSelector('#dialogue[open]'); }
+  verifier((await page.textContent('#dialogue-titre')).includes('Des petits rappels'), 'explication avant la permission');
+  verifier(await page.evaluate(() => __rappels.demandes) === 0, 'aucune demande Android avant le « oui »');
+  await page.click('#dialogue-boutons .principal');
+  await page.waitForTimeout(2200);
+  let r = await page.evaluate(() => ({ ...__rappels, programmes: __rappels.programmes.map(n => ({ id: n.id, at: n.schedule.at.getTime(), icone: n.smallIcon, texte: n.title + ' ' + n.body })) }));
+  verifier(r.demandes === 1 && r.programmes.length >= 6, 'rappels programmés après le oui : ' + r.programmes.length);
+  verifier(r.programmes.every(n => n.at > Date.now() && n.icone === 'ic_stat_hameau'), 'jamais dans le passé, petite icône');
+  verifier(new Set(r.programmes.map(n => n.id)).size === r.programmes.length, 'IDs uniques (reprogrammation sans doublon)');
+  verifier(r.programmes.every(n => !/\b(raté|échec|seulement|oublié|paresse|tu dois)\b/i.test(n.texte)), 'textes positifs');
+  // Cocher la quotidienne → le rappel de ce soir disparaît (recalculé)
+  await page.evaluate(() => { const t = Appli.etat().taches[0]; document.querySelector(`[data-cocher="${t.id}"]`)?.click(); });
+  await page.waitForTimeout(2200);
+  r = await page.evaluate(() => __rappels.programmes.map(n => ({ id: n.id, jour: n.schedule.at.toDateString() })));
+  verifier(!r.some(n => n.id === 11), 'quotidienne cochée : pas de rappel ce soir');
+  // Réglages : couper le soir, changer l'heure du matin, tester
+  await page.click('.onglet[data-aller="reglages"]');
+  verifier(await page.isChecked('#notif-matin-actif') && await page.isChecked('#notif-soir-actif'), 'rappels matin et soir actifs');
+  await page.click('#notif-soir-actif');
+  await page.fill('#notif-matin', '07:15');
+  await page.dispatchEvent('#notif-matin', 'change');
+  await page.waitForTimeout(2200);
+  const e = await page.evaluate(() => Appli.etat().reglages);
+  verifier(e.notifSoir === '' && e.notifMatin === '07:15', 'réglages des rappels : ' + JSON.stringify([e.notifMatin, e.notifSoir]));
+  r = await page.evaluate(() => __rappels.programmes.map(n => ({ id: n.id, h: n.schedule.at.toLocaleTimeString('fr-BE', { timeZone: 'Europe/Brussels', hour: '2-digit', minute: '2-digit' }) })));
+  verifier(r.every(n => n.id < 11 && n.h === '07:15'), 'seulement le matin, à 07:15 : ' + JSON.stringify(r.slice(0, 3)));
+  verifier(await page.isDisabled('#notif-soir'), 'heure du soir grisée quand le rappel est coupé');
+  await page.click('#btn-tester-notif');
+  await page.waitForTimeout(300);
+  verifier(await page.evaluate(() => __rappels.programmes.some(n => n.id === 9999)), 'rappel de test programmé');
+  await page.screenshot({ path: 'tests/captures/etape14-rappels.png', fullPage: true });
+  verifier(!(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)), 'rappels à 360 px : pas de défilement horizontal');
+  // Relancer l'appli : plus de proposition (déjà acceptée)
+  await page.reload(); await page.waitForTimeout(1000);
+  verifier(!(await page.isVisible('#dialogue[open]')) || !(await page.textContent('#dialogue-titre')).includes('rappels'), 'pas de nouvelle proposition après le oui');
+  verifier(!erreurs.length, 'erreurs console (rappels) : ' + erreurs);
+  await ctx.close();
+}
+
 await nav.close(); serveur.close();
-console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso, cocher, village, construction, décorations, agrandir, réparer, coffre, fête, jours, prochaine action, perso, réglages, sauvegardes, rappel d\'export, mises à jour');
+console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso, cocher, village, construction, décorations, agrandir, réparer, coffre, fête, jours, prochaine action, perso, réglages, sauvegardes, rappel d\'export, mises à jour, rappels');
 process.exit(echecs.length ? 1 : 0);
