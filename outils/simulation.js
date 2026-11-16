@@ -29,6 +29,9 @@ function mulberry32(a) { return function () {
 const choisir = (rng, poids) => { let x = rng() * poids.reduce((a, [, p]) => a + p, 0); for (const [v, p] of poids) { if ((x -= p) < 0) return v; } return poids[0][0]; };
 // Jalons du chef = niveaux demandés par la Mairie (au-delà du 1er) : suivent config.js à chaque rééquilibrage
 const NIVEAUX_CHEF = [...new Set(C.mairie.niveauJoueurRequis.filter(n => n > 1))].sort((a, b) => a - b);
+// Jalons de la Mairie (1, milieu, max) et « tout au max » : tirés de config.js (nombre de bâtiments, niveau max)
+const NIV_MAX = C.batiments.niveauMax;
+const NIVEAUX_MAIRIE = [...new Set([1, Math.ceil(NIV_MAX / 2), NIV_MAX])];
 const jourDe = (i) => new Date(Date.UTC(2026, 0, 5 + i)).toISOString().slice(0, 10);   // 5 janvier 2026 = un lundi
 
 function simuler(profil, graine) {
@@ -76,7 +79,7 @@ function simuler(profil, graine) {
     }
     for (const n of NIVEAUX_CHEF) if (e.joueur.niveau >= n) jalons.niveau[n] ??= i + 1;
     const bats = e.village.batiments;
-    if (jalons.tout5 === null && bats.length === 8 && bats.every(b => b.niveau >= C.batiments.niveauMax)) jalons.tout5 = i + 1;
+    if (jalons.tout5 === null && bats.length === C.batiments.ordre.length && bats.every(b => b.niveau >= NIV_MAX)) jalons.tout5 = i + 1;
   }
   const goulotPrincipal = Object.entries(goulot).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '—';
   return { jalons, goulot: goulotPrincipal, antiFarm: joursAntiFarm / JOURS, niveauFinal: e.joueur.niveau,
@@ -92,10 +95,10 @@ for (const [nom, profil] of Object.entries(PROFILS)) {
   const m = (f) => aff(mediane(runs.map(f)));
   const goulots = {}; runs.forEach(r => { goulots[r.goulot] = (goulots[r.goulot] || 0) + 1; });
   lignes.push(`| ${nom} | ${NIVEAUX_CHEF.map(n => m(r => r.jalons.niveau[n])).join(' | ')} | ` +
-    `${m(r => r.jalons.mairie[1])} / ${m(r => r.jalons.mairie[3])} / ${m(r => r.jalons.mairie[5])} | ${m(r => r.jalons.tout5)} | ` +
+    `${NIVEAUX_MAIRIE.map(n => m(r => r.jalons.mairie[n])).join(' / ')} | ${m(r => r.jalons.tout5)} | ` +
     `${Object.entries(goulots).sort((a, b) => b[1] - a[1])[0][0]} | ${Math.round(mediane(runs.map(r => r.antiFarm)) * 100)} % |`);
 }
 console.log(`Simulation sur ${JOURS} jours, ${GRAINES} graines, médianes (en jours) :\n`);
-console.log(`| Profil | ${NIVEAUX_CHEF.map((n, i) => (i ? 'niv. ' : 'Chef niv. ') + n).join(' | ')} | Mairie 1 / 3 / 5 | Tout niveau 5 | Ressource goulot | Jours anti-farm |`);
+console.log(`| Profil | ${NIVEAUX_CHEF.map((n, i) => (i ? 'niv. ' : 'Chef niv. ') + n).join(' | ')} | Mairie ${NIVEAUX_MAIRIE.join(' / ')} | Tout niveau ${NIV_MAX} | Ressource goulot | Jours anti-farm |`);
 console.log('|' + '---|'.repeat(NIVEAUX_CHEF.length + 5));
 console.log(lignes.join('\n'));

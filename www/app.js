@@ -115,12 +115,19 @@ function refus(texte) { const x = new Error(texte); x.pourUtilisateur = texte; r
 
 // « Annuler » : revient à l'état d'avant, seulement si rien n'a changé entre-temps
 // (le rattrapage des jours ne remplace l'état que s'il a vraiment changé : un simple tick ne bloque pas « Annuler »)
+// Exception : l'agenda actualisé en silence entre-temps ne bloque pas ; son cache récent est gardé.
+const sansCacheAgenda = (e) => ({ ...e, reglages: { ...e.reglages, calendrierCache: null } });
+function memeSaufCacheAgenda(a, b) {
+  return a === b || JSON.stringify(sansCacheAgenda(a)) === JSON.stringify(sansCacheAgenda(b));
+}
 function proposerAnnulation(texte, avant) {
   const apres = etat;
   toast(texte, {
     texte: 'Annuler', delai: 5000, action: () => {
-      if (etat !== apres) return toast('Trop tard pour annuler.');
-      remplacerEtat(avant, { verifier: false });   // « avant » était l'état courant, déjà vérifié
+      if (!memeSaufCacheAgenda(etat, apres)) return toast('Trop tard pour annuler.');
+      const cache = etat.reglages.calendrierCache;
+      // « avant » et le cache actuel ont déjà été vérifiés chacun de leur côté
+      remplacerEtat(cache === avant.reglages.calendrierCache ? avant : { ...avant, reglages: { ...avant.reglages, calendrierCache: cache } }, { verifier: false });
       toast('Annulé ↩️');
     }
   });
@@ -307,13 +314,22 @@ async function permissionRappels() {
   if (!PL.LocalNotifications) return 'absent';
   try { return (await PL.LocalNotifications.checkPermissions()).display; } catch { return 'absent'; }
 }
-async function replanifier() {
+// Les appels passent l'un après l'autre (file) : deux replanifications qui se croisent pourraient sinon
+// laisser une notification périmée (l'une annule pendant que l'autre programme).
+let fileRappels = Promise.resolve();
+function replanifier() {
+  fileRappels = fileRappels.catch(() => {}).then(replanifierMaintenant);
+  return fileRappels;
+}
+// Chaque rappel est « inexact » (à quelques minutes près, isExactNotification: false) : sinon, sans le droit
+// « alarmes exactes » (refusé par défaut sur Android 14+), chaque programmation ouvrirait l'écran « Alarmes et rappels ».
+async function replanifierMaintenant() {
   if (!etat || !PL.LocalNotifications || (await permissionRappels()) !== 'granted') return;
   const { notifications: enAttente } = await PL.LocalNotifications.getPending();
   const anciennes = enAttente.filter(n => n.id !== N.ID_TEST).map(n => ({ id: n.id }));
   if (anciennes.length) await PL.LocalNotifications.cancel({ notifications: anciennes });
   const liste = N.construire(etat, maintenant(), C).map(n => ({
-    id: n.id, title: n.title, body: n.body, smallIcon: 'ic_stat_hameau',
+    id: n.id, title: n.title, body: n.body, smallIcon: 'ic_stat_hameau', isExactNotification: false,
     schedule: { at: new Date(n.at), allowWhileIdle: true }
   }));
   if (liste.length) await PL.LocalNotifications.schedule({ notifications: liste });
@@ -352,7 +368,7 @@ async function testerRappel() {
   if (!PL.LocalNotifications) return toast('Les rappels marchent dans l\'appli installée sur le téléphone.');
   if (!(await proposerRappels(false))) return;
   await PL.LocalNotifications.schedule({ notifications: [{
-    id: N.ID_TEST, title: '🔔 Test de rappel', body: 'Les rappels de Hameau marchent ✅', smallIcon: 'ic_stat_hameau',
+    id: N.ID_TEST, title: '🔔 Test de rappel', body: 'Les rappels de Hameau marchent ✅', smallIcon: 'ic_stat_hameau', isExactNotification: false,
     schedule: { at: new Date(Date.now() + C.notifications.testSecondes * 1000), allowWhileIdle: true }
   }] });
   toast(`Rappel de test dans ${C.notifications.testSecondes} secondes ⏳`);
@@ -360,7 +376,12 @@ async function testerRappel() {
 function changerRappel(cle, defaut) {
   const champ = document.getElementById(cle === 'notifMatin' ? 'notif-matin' : 'notif-soir');
   const interrupteur = document.getElementById(cle === 'notifMatin' ? 'notif-matin-actif' : 'notif-soir-actif');
-  const heure = N.heureValide(champ.value) ? champ.value : defaut;
+  // Avant la bascule du jour (4 h), le rappel tomberait sur le mauvais jour : on garde l'heure d'avant
+  if (interrupteur.checked && champ.value && !N.heureValide(champ.value, C)) {
+    champ.value = N.heureValide(etat.reglages[cle], C) ? etat.reglages[cle] : defaut;
+    toast(`Les rappels se règlent entre ${N.heureMin(C)} et ${N.heureMax} 🕓`);
+  }
+  const heure = N.heureValide(champ.value, C) ? champ.value : defaut;
   modifier(x => { x.reglages[cle] = interrupteur.checked ? heure : ''; });
   if (interrupteur.checked) proposerRappels(false).catch(console.error);
 }
@@ -398,6 +419,8 @@ async function actualiserAgenda(silencieux) {
   try {
     const cache = lireAgenda(await telechargerAgenda(adresse));
     agendaHorsLigne = false;
+    // Agenda retiré ou changé pendant le téléchargement : ce cache est celui de l'ancienne adresse, on le jette
+    if (etat?.reglages.icsUrl !== adresse) return;
     modifier(x => { x.reglages.calendrierCache = cache; });
     if (!silencieux) toast(`Agenda à jour 📅 ${cache.evenements.length} événements`);
   } catch (x) {
@@ -483,8 +506,9 @@ function rendreReglages() {
   document.getElementById('reglage-sons').checked = etat.reglages.sons !== false;
   document.getElementById('reglage-vibrations').checked = etat.reglages.vibrations !== false;
   for (const [cle, id, defaut] of [['notifMatin', 'notif-matin', C.notifications.matinDefaut], ['notifSoir', 'notif-soir', C.notifications.soirDefaut]]) {
-    const actif = N.heureValide(etat.reglages[cle]);
+    const actif = N.heureValide(etat.reglages[cle], C);
     const champ = document.getElementById(id);
+    champ.min = N.heureMin(C); champ.max = N.heureMax;    // tirés de config.js (la bascule du jour)
     if (document.activeElement !== champ) champ.value = actif ? etat.reglages[cle] : defaut;
     champ.disabled = !actif;
     document.getElementById(id + '-actif').checked = actif;
@@ -1150,7 +1174,7 @@ async function demarrer() {
   document.body.classList.remove('demarrage');
 
   if (d.type === 'illisible') {
-    console.error('Données illisibles :', d.erreur);
+    console.error('Données illisibles :', String(d.erreur).replace(/(https?|webcal):\/\/\S*/gi, '…'));   // le message peut citer le texte (adresse de l'agenda)
     brutIllisible = brut;
     document.body.classList.add('bloque');
     return afficher('recuperation');
@@ -1547,7 +1571,7 @@ document.getElementById('btn-importer').addEventListener('click', choisirFichier
 document.getElementById('btn-importer-recup').addEventListener('click', choisirFichierImport);
 document.getElementById('btn-secours').addEventListener('click', essayerCopieSecours);
 document.getElementById('btn-envoyer-brut').addEventListener('click', () =>
-  partagerFichier(`hameau_illisible_${jourCivil(maintenant())}.txt`, brutIllisible || '', 'text/plain').catch(console.error));
+  partagerFichier(`hameau_illisible_${jourCivil(maintenant())}.txt`, S.sansAdresseAgenda(brutIllisible || ''), 'text/plain').catch(console.error));   // jamais l'adresse secrète de l'agenda
 document.getElementById('fichier-import').addEventListener('change', (e) => {
   const f = e.target.files?.[0];
   if (f) importerFichier(f).catch(x => { console.error(x); message('Import impossible', String(x.message || x)); });

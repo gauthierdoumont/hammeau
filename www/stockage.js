@@ -190,13 +190,35 @@
   /* ===== CE QUI RESTE CELUI DU TÉLÉPHONE (import comme restauration) =====
    * - l'adresse iCal (jamais dans un export) ;
    * - les jours déjà traités ici ne sont PAS rejoués : importer ou restaurer une copie d'il y a 10 jours
-   *   ne doit jamais faire payer 10 jours de « jours manqués ».
+   *   ne doit jamais faire payer 10 jours de « jours manqués » ;
+   * - ni les incendies : une échéance déjà passée sur le téléphone ne rebrûle pas (le rattrapage regarde
+   *   toutes les échéances ≤ au jour traité, pas seulement celles du jour).
    */
   function garderDuTelephone(etat, etatActuel) {
     etat.reglages.icsUrl = etatActuel?.reglages?.icsUrl || '';
     const traiteIci = etatActuel?.etat?.dernierJourTraite;
-    if (traiteIci && (!etat.etat.dernierJourTraite || etat.etat.dernierJourTraite < traiteIci)) etat.etat.dernierJourTraite = traiteIci;
+    if (traiteIci && (!etat.etat.dernierJourTraite || etat.etat.dernierJourTraite < traiteIci)) {
+      etat.etat.dernierJourTraite = traiteIci;
+      for (const t of etat.taches) {
+        if (t.type === 'imprevu' && t.important && t.echeance && t.echeance <= traiteIci) t.incendieApplique = true;
+      }
+    }
+    const brules = new Set((etatActuel?.taches || []).filter(t => t.incendieApplique).map(t => t.id));
+    for (const t of etat.taches) if (brules.has(t.id)) t.incendieApplique = true;
   }
+
+  /* Texte illisible envoyé « pour analyse » : on retire l'adresse secrète de l'agenda avant de le partager.
+   * JSON valide → on supprime reglages.icsUrl ; abîmé (ou au cas où) → la valeur de chaque "icsUrl" est vidée,
+   * même coupée en plein milieu (fin du texte).
+   */
+  S.sansAdresseAgenda = function (texte) {
+    let txt = String(texte ?? '');
+    try {
+      const e = JSON.parse(txt);
+      if (estObjet(e?.reglages) && 'icsUrl' in e.reglages) { delete e.reglages.icsUrl; txt = JSON.stringify(e); }
+    } catch { /* abîmé : expression régulière ci-dessous */ }
+    return txt.replace(/("icsUrl"\s*:\s*)"(?:[^"\\]|\\.)*(?:"|$)/g, '$1""');
+  };
 
   /* ===== IMPORT =====
    * → {ok: true, etat, apercu, actuel} ou {ok: false, message}

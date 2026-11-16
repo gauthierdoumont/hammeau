@@ -32,7 +32,7 @@ test('matin et soir : IDs fixes, jamais dans le passé, une semaine d\'avance', 
   const l = N.construire(e, LUNDI_10H, C);
   const matins = l.filter(n => n.type === 'matin'), soirs = l.filter(n => n.type === 'soir');
   assert.deepEqual(matins.map(n => n.id), [2, 3, 4, 5, 6, 7]);            // 8 h aujourd'hui est déjà passé
-  assert.deepEqual(soirs.map(n => n.id), [11, 12, 13, 14, 15, 16, 17]);
+  assert.deepEqual(soirs.map(n => n.id), [100, 101, 102, 103, 104, 105, 106]);   // soir = 100 + i
   assert.equal(soirs[0].at, '2026-11-16T19:00:00.000Z');                    // 20 h à Bruxelles
   assert.equal(matins[0].at, '2026-11-17T07:00:00.000Z');
   assert.ok(l.every(n => Date.parse(n.at) > LUNDI_10H.getTime() + 60000));
@@ -51,12 +51,51 @@ test('matin du lendemain : programme précis ; après : texte générique positi
 test('soir : seulement s\'il reste des quotidiennes, formulé en gain', () => {
   const e = etatAvec([{ nom: 'Lire', type: 'quotidienne' }, { nom: 'Courir', type: 'quotidienne', categorieId: 'course' }]);
   e.joueur.serie.jours = 5;
-  let soir = N.construire(e, LUNDI_10H, C).find(n => n.id === 11);
+  let soir = N.construire(e, LUNDI_10H, C).find(n => n.id === 100);
   assert.equal(soir.body, 'Plus que 2 quotidiennes et ta série passe à 6 jours 🔥');
   for (const t of e.taches) M.saisir(e, t.id, null, { id: 'j' + t.id, horodatage: LUNDI_10H.toISOString(), jour: '2026-11-16' }, C);
-  soir = N.construire(e, LUNDI_10H, C).find(n => n.id === 11);
+  soir = N.construire(e, LUNDI_10H, C).find(n => n.id === 100);
   assert.equal(soir, undefined);                                           // tout est fait : pas de rappel ce soir
   assert.ok(N.construire(etatAvec(), LUNDI_10H, C).every(n => n.type !== 'soir'));   // aucune quotidienne
+});
+
+test('soir : « ta série passe à N » promis seulement si le minimum d\'XP du jour est atteignable', () => {
+  // Une petite quotidienne (10 × série) n'atteint pas xpMinJour (30) : phrase positive sans promesse
+  const e = etatAvec([{ nom: 'Boire un verre d\'eau', type: 'quotidienne', taille: 'petite' }]);
+  e.joueur.serie.jours = 5;
+  const gainPetite = Math.round(C.tailles.petite * M.multiplicateurs(e.taches[0], e, C, '2026-11-16', e.categories.find(c => c.id === 'lecture').familleId).total);
+  assert.ok(gainPetite < C.serie.xpMinJour, 'hypothèse du test : ' + gainPetite);
+  let soir = N.construire(e, LUNDI_10H, C).find(n => n.id === N.ID_SOIR);
+  assert.equal(soir.body, 'Plus que 1 quotidienne et ton hameau grandit 🌱');
+  // Déjà de l'XP gagnée aujourd'hui (une autre tâche) : XP du jour + petite quotidienne ≥ minimum → promesse tenue
+  e.journal.push({ id: 'x', tacheId: null, horodatage: LUNDI_10H.toISOString(), jour: '2026-11-16', valeur: 1, progression: 1,
+    gains: { xp: C.serie.xpMinJour - gainPetite, ressource: null, quantite: 0 } });
+  soir = N.construire(e, LUNDI_10H, C).find(n => n.id === N.ID_SOIR);
+  assert.equal(soir.body, 'Plus que 1 quotidienne et ta série passe à 6 jours 🔥');
+  // Jours suivants (générique) : la série « continue », sans chiffre (elle dépend de ce qui sera fait d'ici là)
+  const e2 = etatAvec([{ nom: 'Lire', type: 'quotidienne' }, { nom: 'Courir', type: 'quotidienne', categorieId: 'course' }]);
+  e2.joueur.serie.jours = 5;
+  assert.equal(N.construire(e2, LUNDI_10H, C).find(n => n.id === N.ID_SOIR + 2).body, 'Tes quotidiennes du jour et ta série continue 🔥');
+});
+
+test('heures des rappels : de la bascule du jour (4 h) à 23:59 seulement', () => {
+  assert.equal(N.heureMin(C), '04:00');
+  assert.equal(N.heureValide('03:59', C), false);       // encore le jour logique de la veille
+  assert.equal(N.heureValide('00:30', C), false);
+  assert.equal(N.heureValide('04:00', C), true);
+  assert.equal(N.heureValide('23:59', C), true);
+  assert.equal(N.heureValide('24:00', C), false);
+  assert.equal(N.heureValide('8:00', C), false);
+  const e = etatAvec([{ nom: 'Lire', type: 'quotidienne' }]);
+  e.reglages.notifMatin = '02:00';                       // valeur d'avant la règle : ignorée (pas de rappel au mauvais jour)
+  assert.ok(N.construire(e, LUNDI_10H, C).every(n => n.type !== 'matin'));
+});
+
+test('IDs : le soir (100 + i) ne recouvre jamais le matin (1 + i), même avec 30 jours d\'avance', () => {
+  const C2 = { ...C, notifications: { ...C.notifications, joursAvance: 30 } };
+  const l = N.construire(etatAvec([{ nom: 'Lire', type: 'quotidienne' }]), LUNDI_10H, C2);
+  assert.equal(new Set(l.map(n => n.id)).size, l.length);
+  assert.ok(l.some(n => n.type === 'soir' && n.id === 129));
 });
 
 test('veille d\'échéance à l\'heure du soir ; aucun mot culpabilisant', () => {
@@ -96,7 +135,7 @@ test('à 2 h du matin, « aujourd\'hui » est encore la veille (jour logique)', 
   const e = etatAvec([{ nom: 'Lire', type: 'quotidienne' }]);
   const l = N.construire(e, new Date('2026-11-17T01:00:00Z'), C);           // mardi 2 h → jour logique lundi
   assert.equal(l.find(n => n.id === 2).at, '2026-11-17T07:00:00.000Z');   // matin de mardi = « demain » (id 2)
-  assert.equal(l.find(n => n.id === 11), undefined);                        // le soir du lundi est passé
+  assert.equal(l.find(n => n.id === 100), undefined);                        // le soir du lundi est passé
 });
 
 test('proposer d\'activer les rappels : 1re fois oui, puis une seule relance après quelques jours', () => {

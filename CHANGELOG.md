@@ -1,5 +1,20 @@
 # Journal des versions — Hameau
 
+## 1.4.1 — 2026-11-16 · Corrections (vérification 2)
+- 🔔 Rappels « à quelques minutes près » : Android ne montre plus l'écran « Alarmes et rappels » à chaque programmation.
+- 🔒 Le texte envoyé « pour analyse » (données illisibles) ne contient jamais l'adresse secrète de ton agenda.
+- 📅 Agenda retiré ou changé pendant un téléchargement : l'ancien agenda n'est plus enregistré.
+- ↩️ « Annuler » marche aussi quand l'agenda s'est actualisé tout seul entre-temps (il reste à jour).
+- 🔥 Restaurer ou importer une vieille copie ne rallume pas un incendie déjà passé sur le téléphone.
+- 🌙 Le rappel du soir ne promet « ta série passe à N jours » que si c'est encore possible ce jour-là ; sinon, un mot positif.
+- 🕓 Heures des rappels : de 04:00 à 23:59 (avant 4 h, on est encore la veille dans Hameau).
+- 📅 Agenda : un cours qui se répète depuis longtemps (ex. depuis 2010) s'affiche bien.
+- 🎯 « Cours interrompu » n'est plus pris pour un examen ; « Interro » et « interrogation » oui.
+- 📌 Une journée entière sur plusieurs jours (congé, stage…) s'affiche chaque jour.
+- 📅 Un cours déplacé dont l'original n'est pas dans le fichier s'affiche quand même.
+- 🧰 Coulisses : numéros des rappels du soir à partir de 100 ; rappels reprogrammés l'un après l'autre ;
+  colonnes de la simulation tirées de `config.js`.
+
 ## 1.4.0 — 2026-11-16 · Surprises du jour
 - 🎲 Environ un jour sur trois, une **surprise** sur Aujourd'hui — toujours un bonus, jamais une perte :
   - 🧳 **Marchand ambulant** : ta ressource la plus abondante contre la plus rare, avec un bonus de 50 % (« Non merci » ne coûte rien).

@@ -3,7 +3,8 @@
  * La programmation réelle (plugin @capacitor/local-notifications) est dans app.js : tout est recalculé
  * à chaque ouverture et à chaque changement (tâche cochée…), sinon le message du soir serait périmé.
  *
- * IDs fixes : 1-7 matin (J0 à J6) · 11-17 soir · 1000+ veilles d'échéance · 9999 test.
+ * IDs fixes : 1+i matin · 100+i soir (i = jour 0 à joursAvance − 1) · 1000+ veilles d'échéance · 9999 test.
+ * Heures acceptées : de la bascule du jour logique (4 h) à 23:59, sinon le rappel tomberait sur le mauvais jour.
  * Ton : toujours un gain à prendre, jamais un reproche. Rien pendant une pause.
  */
 (function (racine) {
@@ -15,7 +16,11 @@
 
   N.ID_TEST = 9999;
   const pluriel = (n, mot) => `${n} ${mot}${n > 1 ? 's' : ''}`;
-  N.heureValide = (h) => typeof h === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(h);
+  N.ID_SOIR = 100;
+  N.heureMin = (C) => String(C.jour.heureBascule).padStart(2, '0') + ':00';
+  N.heureMax = '23:59';
+  // « HH:MM » entre la bascule (incluse) et minuit : avant 4 h, on serait encore dans le jour logique de la veille
+  N.heureValide = (h, C) => typeof h === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(h) && h >= N.heureMin(C);
 
   // Imprévus encore à faire (pas archivés), avec échéance
   function echeances(etat) {
@@ -37,20 +42,34 @@
     return { title: '☀️ Ton programme du jour', body: morceaux.join(' · ') + ' — à toi de jouer !' };
   }
 
-  // Soir : seulement s'il reste des quotidiennes, formulé en gain
+  // La série ne grandit que si la journée atteint C.serie.xpMinJour : XP déjà gagnée ce jour + gain estimé des quotidiennes restantes
+  function serieAssuree(etat, jour, taches, C) {
+    const deja = etat.journal.filter(s => s.jour === jour).reduce((a, s) => a + (s.gains?.xp || 0), 0);
+    const reste = taches.reduce((a, t) => {
+      const famille = etat.categories.find(c => c.id === t.categorieId)?.familleId;
+      return a + M.gainRestant(t, M.bilan(t, etat.journal, jour), C, M.multiplicateurs(t, etat, C, jour, famille).total);
+    }, 0);
+    return deja + reste >= C.serie.xpMinJour;
+  }
+
+  // Soir : seulement s'il reste des quotidiennes, formulé en gain. Le nombre de jours n'est promis que pour ce soir
+  // (les jours suivants, la série dépend de ce qui sera fait d'ici là) et seulement s'il est atteignable.
   function texteSoir(etat, jour, precis, C) {
-    const n = precis ? restantes(etat, jour, C).length : Jours.quotidiennesPrevues(etat, jour, C).length;
+    const taches = precis ? restantes(etat, jour, C) : Jours.quotidiennesPrevues(etat, jour, C);
+    const n = taches.length;
     if (!n) return null;
     const serie = etat.joueur.serie?.jours || 0;
-    const gain = serie > 0 ? `et ta série passe à ${serie + 1} jours 🔥` : 'et ta série démarre 🔥';
+    const gain = !serieAssuree(etat, jour, taches, C) ? 'et ton hameau grandit 🌱'
+      : serie <= 0 ? 'et ta série démarre 🔥'
+      : precis ? `et ta série passe à ${serie + 1} jours 🔥` : 'et ta série continue 🔥';
     if (!precis) return { title: '🌙 Encore un peu de temps', body: `Tes quotidiennes du jour ${gain}` };
     return { title: '🌙 Belle fin de journée', body: `Plus que ${pluriel(n, 'quotidienne')} ${gain}` };
   }
 
   N.construire = function (etat, instant, C) {
     const r = etat.reglages || {};
-    const matin = N.heureValide(r.notifMatin) ? r.notifMatin : null;
-    const soir = N.heureValide(r.notifSoir) ? r.notifSoir : null;
+    const matin = N.heureValide(r.notifMatin, C) ? r.notifMatin : null;
+    const soir = N.heureValide(r.notifSoir, C) ? r.notifSoir : null;
     const fuseau = C.jour.fuseau;
     const aujourdhui = J.jourLogique(instant, C);
     const apres = instant.getTime() + 60 * 1000;          // jamais dans le passé (ni dans la minute)
@@ -66,7 +85,7 @@
       if (Jours.enPause(etat.joueur, jour)) continue;
       const precis = i <= 1;
       if (matin) ajouter(1 + i, jour, matin, texteMatin(etat, jour, precis, C), 'matin');
-      if (soir) ajouter(11 + i, jour, soir, texteSoir(etat, jour, i === 0, C), 'soir');
+      if (soir) ajouter(N.ID_SOIR + i, jour, soir, texteSoir(etat, jour, i === 0, C), 'soir');
     }
     // Veille d'échéance : à l'heure du soir (sinon du matin), la veille
     const heureVeille = soir || matin;

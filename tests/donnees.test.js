@@ -245,6 +245,54 @@ test('restaurer : garde l\'adresse iCal du téléphone et ne rejoue pas les jour
   assert.equal(S.verifier(r.etat, C), true);
 });
 
+test('restaurer / importer une copie d\'avant un incendie déjà traité sur le téléphone : il ne rebrûle pas', () => {
+  const T = require('../www/taches.js');
+  const D = require('../www/jours.js');
+  const avecDossier = (dernier) => {
+    const e = S.etatInitial(C);
+    e.etat.dernierJourTraite = dernier;
+    T.ajouterTache(e, T.creerTache({ nom: 'Dossier', categorieId: 'papiers', echeance: '2026-11-12', important: true }, e, C, 'd1', '2026-11-01T08:00:00.000Z').tache);
+    T.ajouterTache(e, T.creerTache({ nom: 'Plus tard', categorieId: 'papiers', echeance: '2026-11-30', important: true }, e, C, 'd2', '2026-11-01T08:00:00.000Z').tache);
+    return e;
+  };
+  const copie = avecDossier('2026-11-09');                   // avant l'échéance du 12
+  const actuel = avecDossier('2026-11-15');
+  actuel.taches[0].incendieApplique = true;                  // déjà brûlé sur le téléphone
+  const restaure = S.preparerRestauration(JSON.stringify(copie), actuel, C);
+  const importe = S.analyserImport(JSON.stringify(S.pourExport(copie, '2026-11-09T10:00:00.000Z')), actuel, C);
+  for (const r of [restaure, importe]) {
+    assert.equal(r.ok, true);
+    assert.equal(r.etat.taches.find(t => t.id === 'd1').incendieApplique, true);
+    assert.ok(!r.etat.taches.find(t => t.id === 'd2').incendieApplique, 'échéance à venir : rien ne change');
+    const apres = D.rattraper(r.etat, new Date('2026-11-17T14:00:00+01:00'), C);
+    assert.equal(apres.evenements.filter(v => v.type === 'incendie').length, 0);
+  }
+  // Tâche finie (archivée) sur le téléphone avant l'échéance, mais encore ouverte dans la copie : pas d'incendie non plus
+  const actuel2 = avecDossier('2026-11-15');
+  actuel2.taches[0].archivee = true;
+  const r2 = S.preparerRestauration(JSON.stringify(copie), actuel2, C);
+  assert.equal(r2.etat.taches.find(t => t.id === 'd1').incendieApplique, true);
+  assert.equal(S.verifier(r2.etat, C), true);
+});
+
+test('texte illisible envoyé pour analyse : jamais l\'adresse secrète de l\'agenda (JSON valide ou abîmé)', () => {
+  const SECRET = 'https://agenda.exemple.invalid/private-secret-fictif/basic.ics';
+  const e = S.etatInitial(C);
+  e.reglages.icsUrl = SECRET;
+  const valide = S.sansAdresseAgenda(JSON.stringify(e));
+  assert.ok(!valide.includes('private-secret'));
+  assert.equal(JSON.parse(valide).reglages.icsUrl, undefined);
+  assert.equal(JSON.parse(valide).joueur.niveau, e.joueur.niveau);               // le reste est intact
+  const abime = JSON.stringify(e).slice(0, -40) + '{{abîmé';
+  const r = S.sansAdresseAgenda(abime);
+  assert.ok(!r.includes('private-secret') && r.includes('"icsUrl":""') && r.includes('{{abîmé'));
+  // Coupé en plein milieu de l'adresse (fin du fichier)
+  const coupe = '{"reglages":{"sons":true,"icsUrl" : "https://agenda.exemple.invalid/private-secret-fic';
+  assert.equal(S.sansAdresseAgenda(coupe), '{"reglages":{"sons":true,"icsUrl" : ""');
+  assert.equal(S.sansAdresseAgenda(null), '');
+  assert.equal(S.sansAdresseAgenda('rien à voir'), 'rien à voir');
+});
+
 test('restaurer : copie abîmée, vide ou trop récente → refus clair, rien ne change', () => {
   const actuel = S.etatInitial(C);
   const avant = JSON.stringify(actuel);

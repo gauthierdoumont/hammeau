@@ -337,6 +337,25 @@ function S_ok(e) { return e.schemaVersion === SCHEMA && new Set(e.taches.map(t =
   e = await etatStocke();
   verifier(e.joueur.xpTotal === xpPlantes && !e.taches.find(t => t.id === plantes).archivee, 'Annuler après le tick : tout revient comme avant');
 
+  // « Annuler » après une actualisation silencieuse de l'agenda (seul le cache change) : annulé, cache récent gardé
+  await page.click(`[data-cocher="${plantes}"]`);
+  await page.waitForTimeout(200);
+  await page.evaluate(() => Appli.modifier(x => { x.reglages.calendrierCache = { chargeLe: new Date().toISOString(), evenements: [] }; }));
+  await page.click('#toast-action');
+  await pause(page);
+  verifier((await page.textContent('#toast-texte')).includes('Annulé'), 'Annuler après l\'agenda actualisé : annulé, pas « trop tard »');
+  e = await etatStocke();
+  verifier(e.joueur.xpTotal === xpPlantes && e.reglages.calendrierCache?.evenements, 'Annuler après l\'agenda : coche annulée, cache récent gardé');
+  // Vraie modification entre-temps → « Trop tard » (puis on remet l'état comme avant pour la suite)
+  await page.evaluate(() => { window.__sauve = etat; });
+  await page.click(`[data-cocher="${plantes}"]`);
+  await page.waitForTimeout(200);
+  await page.evaluate(() => Appli.modifier(x => { x.reglages.vibrations = !x.reglages.vibrations; }));
+  await page.click('#toast-action');
+  await pause(page);
+  verifier((await page.textContent('#toast-texte')).includes('Trop tard'), 'vraie modification entre-temps : « Trop tard »');
+  await page.evaluate(() => remplacerEtat(window.__sauve, { verifier: false }));
+
   // Montée de niveau
   await page.evaluate(() => { etat.joueur.xp = 95; });
   await page.click(`[data-cocher="${garage}"]`);
@@ -698,16 +717,17 @@ function S_ok(e) { return e.schemaVersion === SCHEMA && new Set(e.taches.map(t =
   verifier(await page.evaluate(() => __rappels.demandes) === 0, 'aucune demande Android avant le « oui »');
   await page.click('#dialogue-boutons .principal');
   await page.waitForTimeout(2200);
-  let r = await page.evaluate(() => ({ ...__rappels, programmes: __rappels.programmes.map(n => ({ id: n.id, at: n.schedule.at.getTime(), icone: n.smallIcon, texte: n.title + ' ' + n.body })) }));
+  let r = await page.evaluate(() => ({ ...__rappels, programmes: __rappels.programmes.map(n => ({ id: n.id, at: n.schedule.at.getTime(), icone: n.smallIcon, exacte: n.isExactNotification, texte: n.title + ' ' + n.body })) }));
   verifier(r.demandes === 1 && r.programmes.length >= 6, 'rappels programmés après le oui : ' + r.programmes.length);
   verifier(r.programmes.every(n => n.at > Date.now() && n.icone === 'ic_stat_hameau'), 'jamais dans le passé, petite icône');
   verifier(new Set(r.programmes.map(n => n.id)).size === r.programmes.length, 'IDs uniques (reprogrammation sans doublon)');
+  verifier(r.programmes.every(n => n.exacte === false), 'rappels inexacts (pas d\'écran « Alarmes et rappels » sur Android 14+)');
   verifier(r.programmes.every(n => !/\b(raté|échec|seulement|oublié|paresse|tu dois)\b/i.test(n.texte)), 'textes positifs');
   // Cocher la quotidienne → le rappel de ce soir disparaît (recalculé)
   await page.evaluate(() => { const t = Appli.etat().taches[0]; document.querySelector(`[data-cocher="${t.id}"]`)?.click(); });
   await page.waitForTimeout(2200);
   r = await page.evaluate(() => __rappels.programmes.map(n => ({ id: n.id, jour: n.schedule.at.toDateString() })));
-  verifier(!r.some(n => n.id === 11), 'quotidienne cochée : pas de rappel ce soir');
+  verifier(!r.some(n => n.id === 100), 'quotidienne cochée : pas de rappel ce soir');
   // Réglages : couper le soir, changer l'heure du matin, tester
   await page.click('.onglet[data-aller="reglages"]');
   verifier(await page.isChecked('#notif-matin-actif') && await page.isChecked('#notif-soir-actif'), 'rappels matin et soir actifs');
@@ -718,11 +738,11 @@ function S_ok(e) { return e.schemaVersion === SCHEMA && new Set(e.taches.map(t =
   const e = await page.evaluate(() => Appli.etat().reglages);
   verifier(e.notifSoir === '' && e.notifMatin === '07:15', 'réglages des rappels : ' + JSON.stringify([e.notifMatin, e.notifSoir]));
   r = await page.evaluate(() => __rappels.programmes.map(n => ({ id: n.id, h: n.schedule.at.toLocaleTimeString('fr-BE', { timeZone: 'Europe/Brussels', hour: '2-digit', minute: '2-digit' }) })));
-  verifier(r.every(n => n.id < 11 && n.h === '07:15'), 'seulement le matin, à 07:15 : ' + JSON.stringify(r.slice(0, 3)));
+  verifier(r.every(n => n.id < 100 && n.h === '07:15'), 'seulement le matin, à 07:15 : ' + JSON.stringify(r.slice(0, 3)));
   verifier(await page.isDisabled('#notif-soir'), 'heure du soir grisée quand le rappel est coupé');
   await page.click('#btn-tester-notif');
   await page.waitForTimeout(300);
-  verifier(await page.evaluate(() => __rappels.programmes.some(n => n.id === 9999)), 'rappel de test programmé');
+  verifier(await page.evaluate(() => __rappels.programmes.some(n => n.id === 9999 && n.isExactNotification === false)), 'rappel de test programmé (inexact)');
   await page.screenshot({ path: 'tests/captures/etape14-rappels.png', fullPage: true });
   verifier(!(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)), 'rappels à 360 px : pas de défilement horizontal');
   // Relancer l'appli : plus de proposition (déjà acceptée)
