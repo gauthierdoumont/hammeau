@@ -14,6 +14,7 @@ const N = window.Notifications;
 const Cal = window.Calendrier;
 const Sur = window.Surprises;
 const Boss = window.Boss;
+const Bilan = window.Bilan;
 const CLE = S.CLE;
 const NOMS_TYPES = { quotidienne: '🔁 Quotidiennes', imprevu: '⚡ Imprévus', bonus: '⭐ Bonus' };
 const JOURS_COURTS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
@@ -752,6 +753,84 @@ function echangerMarchand() {
   toast('Échange fait 🤝');
 }
 
+/* ===== BILAN DE LA SEMAINE (étape 18) =====
+ * Graphiques en SVG fait main (aucune bibliothèque en ligne). Une seule teinte (or) : la couleur ne porte
+ * jamais seule l'information, chaque barre est étiquetée ; un tableau donne les mêmes chiffres.
+ */
+let decalageBilan = 0;                    // 0 = cette semaine, -1 = semaine dernière
+let carteBilanCachee = false;             // ✕ sur la carte du lundi : jusqu'à la prochaine ouverture
+const NS_SVG = 'http://www.w3.org/2000/svg';
+function svg(balise, attributs = {}, ...enfants) {
+  const n = document.createElementNS(NS_SVG, balise);
+  for (const [k, v] of Object.entries(attributs)) n.setAttribute(k, v);
+  n.append(...enfants.filter(x => x !== '' && x != null));
+  return n;
+}
+const JOURS_LONGS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+function bilanAffiche() {
+  return Bilan.semaine(etat, J.ajouterJours(Bilan.lundi(jourActuel()), 7 * decalageBilan), C);
+}
+function rendreBilan() {
+  const b = bilanAffiche();
+  document.querySelectorAll('#bilan-semaine [data-semaine]').forEach(x => x.setAttribute('aria-checked', String(+x.dataset.semaine === decalageBilan)));
+  const court = (j) => dateEcheanceLongue(j).replace(/ \d{4}$/, '');
+  document.getElementById('bilan-dates').textContent = `Du ${court(b.lundi)} au ${court(b.dimanche)}`;
+  document.getElementById('bilan-accroche').textContent = Bilan.accroche(b);
+  document.getElementById('bilan-tuiles').replaceChildren(...[[nombre(b.xp), 'XP gagnée'], [nombre(b.taches), b.taches > 1 ? 'tâches finies' : 'tâche finie'], [`${b.joursActifs}/7`, 'jours actifs']]
+    .map(([v, l]) => el('div', { class: 'bilan-tuile' }, el('b', {}, v), el('small', {}, l))));
+  rendreGrapheJours(b);
+  // Familles : barres horizontales triées, nom et valeur écrits sur chaque ligne
+  const max = Math.max(1, ...b.familles.map(f => f.xp));
+  document.getElementById('bilan-familles').replaceChildren(...(b.familles.length ? b.familles.map(f => {
+    const fam = C.familles.find(x => x.id === f.id);
+    const barre = el('i', {});
+    barre.style.width = `${Math.max(2, Math.round((f.xp / max) * 100))}%`;
+    return el('div', { class: 'bilan-famille' }, el('span', {}, `${fam.emoji} ${fam.nom}`), el('span', {}, barre), el('b', {}, nombre(f.xp)));
+  }) : [el('p', { class: 'bilan-vide' }, 'Rien encore cette semaine : la première tâche ouvrira le bal ✨')]));
+  // Tableau (mêmes chiffres, pour tout le monde)
+  document.getElementById('bilan-table').replaceChildren(
+    el('thead', {}, el('tr', {}, el('th', {}, 'Jour'), el('th', {}, 'XP'), el('th', {}, 'Tâches'))),
+    el('tbody', {}, ...b.jours.map((j, i) => el('tr', {}, el('td', {}, `${JOURS_LONGS[i]} ${+j.jour.slice(8)}`), el('td', {}, nombre(j.xp)), el('td', {}, nombre(j.taches))))));
+}
+function rendreGrapheJours(b) {
+  const L = 336, H = 170, bas = 140, haut = 22, pas = L / 7, largeur = pas - 10;   // 2 px d'écart minimum entre barres
+  const max = Math.max(1, ...b.jours.map(j => j.xp));
+  const meilleur = b.meilleurJour?.jour;
+  const info = document.getElementById('bilan-info');
+  info.textContent = b.xp ? 'Touche un jour pour le détail.' : '';
+  const g = svg('svg', { viewBox: `0 0 ${L} ${H}`, role: 'img', 'aria-label': 'XP gagnée chaque jour de la semaine' });
+  g.append(svg('line', { class: 'axe', x1: 0, x2: L, y1: bas + .5, y2: bas + .5 }));
+  b.jours.forEach((j, i) => {
+    const x = i * pas + (pas - largeur) / 2;
+    const h = j.xp ? Math.max(4, Math.round(((bas - haut) * j.xp) / max)) : 0;
+    const r = Math.min(4, largeur / 2, h);
+    // Barre à bouts arrondis en haut seulement (posée sur l'axe)
+    const d = h ? `M${x},${bas} V${bas - h + r} Q${x},${bas - h} ${x + r},${bas - h} H${x + largeur - r} Q${x + largeur},${bas - h} ${x + largeur},${bas - h + r} V${bas} Z` : '';
+    const groupe = svg('g', { 'data-jour': j.jour, tabindex: '0', role: 'button', 'aria-label': `${JOURS_LONGS[i]} : ${j.xp} XP, ${j.taches} tâches` },
+      svg('rect', { class: 'colonne', x: i * pas, y: 0, width: pas, height: H }),
+      d ? svg('path', { class: 'barre', d }) : '',
+      svg('text', { x: x + largeur / 2, y: bas + 18, 'text-anchor': 'middle' }, JOURS_COURTS[i]),
+      j.jour === meilleur && j.xp ? svg('text', { class: 'valeur', x: x + largeur / 2, y: bas - h - 6, 'text-anchor': 'middle' }, nombre(j.xp)) : '');
+    const montrer = () => {
+      g.querySelectorAll('.choisie').forEach(n => n.classList.remove('choisie'));
+      groupe.classList.add('choisie');
+      info.textContent = `${JOURS_LONGS[i][0].toUpperCase() + JOURS_LONGS[i].slice(1)} ${+j.jour.slice(8)} : ${nombre(j.xp)} XP · ${j.taches} tâche${j.taches > 1 ? 's' : ''}`;
+    };
+    groupe.addEventListener('click', montrer);
+    groupe.addEventListener('mouseenter', montrer);
+    groupe.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); montrer(); } });
+    g.append(groupe);
+  });
+  document.getElementById('bilan-jours').replaceChildren(g);
+}
+// Le lundi : carte « Ton bilan est prêt » si la semaine passée a vu au moins une tâche
+function rendreCarteBilan() {
+  const jour = jourActuel();
+  const passee = J.jourIso(jour) === 1 && !carteBilanCachee ? Bilan.semaine(etat, J.ajouterJours(jour, -7), C) : null;
+  document.getElementById('carte-bilan').hidden = !passee?.xp;
+  if (passee?.xp) document.getElementById('carte-bilan-texte').textContent = `${nombre(passee.xp)} XP la semaine dernière. Un coup d'œil ?`;
+}
+
 /* ===== EXAMENS = BOSS (étape 17) =====
  * Dégâts recalculés depuis le journal (boss.js) : rien à stocker, toujours juste après un Annuler.
  */
@@ -1227,6 +1306,7 @@ function afficher(nom) {
   const onglet = ecran.dataset.parent || nom;
   document.querySelectorAll('.onglet').forEach(b => b.classList.toggle('actif', b.dataset.aller === onglet));
   if (nom === 'apropos') remplirApropos();
+  if (nom === 'bilan' && etat) rendreBilan();
   if (nom === 'sauvegardes') rendreSauvegardes().catch(console.error);
   if (nom === 'perso' && etat) rendrePerso();
   rendreSousTitre(nom);
@@ -1241,6 +1321,7 @@ function rendre() {
   rendreListes();
   rendreCategories();
   rendreCours();
+  rendreCarteBilan();
   rendreBoss();
   rendreSurprise();
   rendreHier();
@@ -1613,6 +1694,14 @@ document.getElementById('liste-sauvegardes').addEventListener('click', (e) => {
 document.getElementById('btn-mises-a-jour').addEventListener('click', () => verifierMisesAJour().catch(x => { console.error(x); message('Réessaie plus tard', String(x.message || x)); }));
 document.getElementById('btn-rappel-export').addEventListener('click', exporter);
 document.getElementById('btn-rappel-plus-tard').addEventListener('click', () => { rappelExportCache = true; rendreReglages(); });
+
+// Bilan de la semaine
+document.getElementById('bilan-semaine').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-semaine]');
+  if (b) { decalageBilan = +b.dataset.semaine; rendreBilan(); }
+});
+document.getElementById('btn-carte-bilan').addEventListener('click', () => { decalageBilan = -1; aller('bilan'); });
+document.getElementById('btn-carte-bilan-fermer').addEventListener('click', () => { carteBilanCachee = true; rendreCarteBilan(); });
 
 // Examens = boss : récompense le jour J
 document.getElementById('liste-boss').addEventListener('click', (e) => {

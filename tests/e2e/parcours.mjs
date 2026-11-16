@@ -914,6 +914,45 @@ function S_ok(e) { return e.schemaVersion === SCHEMA && new Set(e.taches.map(t =
   await ctx.close();
 }
 
+/* 18. Étape 18 : bilan de la semaine (graphiques SVG locaux) + carte du lundi */
+{
+  const { ctx, page, erreurs, externes } = await nouvellePage(360);
+  verifier(await page.isHidden('#carte-bilan'), 'lundi sans rien la semaine d\'avant : pas de carte');
+  // Semaine dernière (9-15/11) : 3 tâches sur 2 jours ; cette semaine : 1 tâche
+  await page.evaluate(() => Appli.modifier(e => {
+    const faire = (id, jour, categorieId, taille) => {
+      Taches.ajouterTache(e, Taches.creerTache({ nom: 'Bilan ' + id, categorieId, taille }, e, CONFIG, id, '2026-11-01T08:00:00.000Z').tache);
+      Moteur.saisir(e, id, null, { id: 's' + id, horodatage: jour + 'T10:00:00.000Z', jour }, CONFIG);
+    };
+    faire('b1', '2026-11-10', 'lecture', 'grosse'); faire('b2', '2026-11-12', 'muscu', 'moyenne'); faire('b3', '2026-11-12', 'menage', 'petite');
+    faire('b4', '2026-11-16', 'lecture', 'moyenne');
+  }));
+  verifier(await page.isVisible('#carte-bilan') && (await page.textContent('#carte-bilan')).includes('XP la semaine dernière'), 'lundi : carte « bilan prêt »');
+  await page.click('#btn-carte-bilan');
+  await pause(page);
+  verifier((await page.textContent('#titre')) === 'Bilan', 'écran Bilan');
+  verifier((await page.textContent('#bilan-dates')).includes('9 novembre') && (await page.textContent('#bilan-dates')).includes('15 novembre'), 'semaine dernière : ' + await page.textContent('#bilan-dates'));
+  verifier((await page.textContent('#bilan-tuiles')).includes('3') && (await page.textContent('#bilan-tuiles')).includes('2/7'), 'tuiles : 3 tâches, 2 jours actifs');
+  verifier(await page.locator('#bilan-jours svg .barre').count() === 2, '2 barres (2 jours actifs)');
+  verifier(await page.locator('.bilan-famille').count() === 3 && (await page.textContent('#bilan-familles')).includes('Esprit'), '3 familles étiquetées');
+  await page.click('#bilan-jours [data-jour="2026-11-12"]');
+  verifier((await page.textContent('#bilan-info')).startsWith('Mercredi 12') && (await page.textContent('#bilan-info')).includes('2 tâches'), 'toucher un jour : détail');
+  await page.screenshot({ path: 'tests/captures/etape18-bilan.png', fullPage: true });
+  await page.click('[data-semaine="0"]');
+  verifier((await page.textContent('#bilan-tuiles')).includes('1/7'), 'cette semaine : 1 jour actif');
+  await page.click('.bilan-tableau summary');
+  verifier(await page.locator('#bilan-table tbody tr').count() === 7, 'tableau : 7 jours');
+  verifier(!/\b(raté|échec|seulement|oublié|paresse|tu dois)\b/i.test(await page.textContent('#ecran-bilan')), 'aucun mot culpabilisant');
+  verifier(!(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)), 'Bilan à 360 px : pas de défilement horizontal');
+  await page.evaluate(() => retourEcranPrecedent());
+  verifier((await page.textContent('#titre')) === "Aujourd'hui", 'retour : Aujourd\'hui');
+  await page.click('#btn-carte-bilan-fermer');
+  verifier(await page.isHidden('#carte-bilan'), '✕ : carte cachée');
+  verifier(!externes.length, 'ressources externes (bilan) : ' + externes);
+  verifier(!erreurs.length, 'erreurs console (bilan) : ' + erreurs);
+  await ctx.close();
+}
+
 await nav.close(); serveur.close();
-console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso, cocher, village, construction, décorations, agrandir, réparer, coffre, fête, jours, prochaine action, perso, réglages, sauvegardes, rappel d\'export, mises à jour, rappels, agenda, cours du jour, surprises, boss');
+console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso, cocher, village, construction, décorations, agrandir, réparer, coffre, fête, jours, prochaine action, perso, réglages, sauvegardes, rappel d\'export, mises à jour, rappels, agenda, cours du jour, surprises, boss, bilan');
 process.exit(echecs.length ? 1 : 0);

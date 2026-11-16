@@ -40,6 +40,14 @@
         <h3 class="intertitre">🎓 Cours du jour</h3>
         <div id="liste-cours"></div>
       </div>
+      <!-- Le lundi : le bilan de la semaine passée est prêt -->
+      <div class="rappel-export carte-bilan" id="carte-bilan" hidden>
+        <button type="button" class="rappel-export-action" id="btn-carte-bilan">
+          <span class="rappel-export-icone" aria-hidden="true">📊</span>
+          <span class="rappel-export-texte"><b>Ton bilan de la semaine est prêt</b><small id="carte-bilan-texte"></small></span>
+        </button>
+        <button type="button" class="rappel-export-plus-tard" id="btn-carte-bilan-fermer" aria-label="Plus tard">✕</button>
+      </div>
       <!-- Examens = boss : chaque révision 📚 fait des dégâts, récompense le jour J -->
       <div class="boss-zone" id="boss-zone" hidden>
         <h3 class="intertitre">⚔️ Examens à venir</h3>
@@ -159,6 +167,31 @@
       <div class="carte" id="perso-village"></div>
       <h3 class="intertitre">Ces 7 derniers jours</h3>
       <div class="historique" id="perso-historique"></div>
+      <button type="button" class="bouton large bouton-bilan" data-aller="bilan">📊 Bilan de la semaine</button>
+    </section>
+
+    <!-- Bilan de la semaine (ouvert depuis Perso ou la carte du lundi) : graphiques SVG locaux -->
+    <section class="ecran" id="ecran-bilan" data-titre="Bilan" data-parent="perso">
+      <div class="segments segments-2" id="bilan-semaine" role="radiogroup" aria-label="Semaine">
+        <button type="button" role="radio" data-semaine="-1" aria-checked="false">Semaine dernière</button>
+        <button type="button" role="radio" data-semaine="0" aria-checked="true">Cette semaine</button>
+      </div>
+      <p class="discret bilan-dates" id="bilan-dates"></p>
+      <p class="bilan-accroche" id="bilan-accroche"></p>
+      <div class="bilan-tuiles" id="bilan-tuiles"></div>
+      <div class="carte bilan-carte">
+        <h3 class="bilan-titre">XP par jour</h3>
+        <div class="bilan-graphe" id="bilan-jours"></div>
+        <p class="bilan-info" id="bilan-info" aria-live="polite"></p>
+      </div>
+      <div class="carte bilan-carte">
+        <h3 class="bilan-titre">Par famille</h3>
+        <div id="bilan-familles"></div>
+      </div>
+      <details class="bilan-tableau">
+        <summary>Voir en tableau</summary>
+        <table id="bilan-table"></table>
+      </details>
     </section>
 
     <!-- Écran Réglages -->
@@ -643,6 +676,7 @@
   <script src="lib/ical.min.js"></script>
   <script src="calendrier.js"></script>
   <script src="boss.js"></script>
+  <script src="bilan.js"></script>
   <script src="sons.js"></script>
   <script src="village.js"></script>
   <script src="village-ui.js"></script>

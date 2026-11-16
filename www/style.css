@@ -942,3 +942,34 @@ select.champ { appearance: none; -webkit-appearance: none; color: var(--texte); 
 .boss.vaincu .boss-pv i { background: var(--discipline); }
 .boss-detail { color: var(--texte-doux); font-size: .875rem; }
 .boss .bouton { width: 100%; margin-top: 8px; min-height: 44px; }
+
+/* ===== ÉTAPE 18 : bilan de la semaine (une seule teinte, chaque barre étiquetée) ===== */
+.bouton-bilan { margin-top: 16px; }
+.segments-2 { grid-template-columns: repeat(2, 1fr); margin-bottom: 10px; }
+.bilan-dates { margin: 0 4px 4px; }
+.bilan-accroche { margin: 0 4px 12px; font-family: var(--police-titre); font-size: 1.1rem; color: var(--texte); }
+.bilan-tuiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+.bilan-tuile { padding: 10px 8px; text-align: center; background: var(--surface); border: 1px solid var(--bord); border-radius: var(--rayon-menu); }
+.bilan-tuile b { display: block; font-size: 1.5rem; font-variant-numeric: tabular-nums; color: var(--texte); }
+.bilan-tuile small { color: var(--texte-doux); font-size: .8rem; }
+.bilan-carte { margin-bottom: 10px; }
+.bilan-titre { margin: 0 0 8px; font-size: .95rem; color: var(--texte-doux); font-weight: 600; }
+.bilan-graphe svg { display: block; width: 100%; height: auto; overflow: visible; }
+.bilan-graphe .barre { fill: var(--accent); }
+.bilan-graphe .colonne { fill: transparent; cursor: pointer; }
+.bilan-graphe .colonne:focus-visible { outline: none; fill: var(--or-voile); }
+.bilan-graphe .choisie .barre { fill: var(--lisere); }
+.bilan-graphe .axe { stroke: var(--bord); stroke-width: 1; }
+.bilan-graphe text { fill: var(--texte-doux); font-size: 12px; font-family: inherit; }
+.bilan-graphe .valeur { fill: var(--texte); font-weight: 700; }
+.bilan-info { min-height: 1.3em; margin: 6px 0 0; color: var(--texte-doux); font-size: .875rem; text-align: center; }
+.bilan-famille { display: grid; grid-template-columns: 7.5em 1fr auto; align-items: center; gap: 8px; min-height: 30px; font-size: .9rem; }
+.bilan-famille span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bilan-famille i { display: block; height: 12px; min-width: 4px; background: var(--accent); border-radius: 0 4px 4px 0; }
+.bilan-famille b { font-variant-numeric: tabular-nums; }
+.bilan-vide { color: var(--texte-doux); text-align: center; margin: 8px 0; }
+.bilan-tableau { margin: 0 4px 16px; color: var(--texte-doux); }
+.bilan-tableau summary { min-height: var(--toucher); display: flex; align-items: center; cursor: pointer; color: var(--accent); font-weight: 600; }
+.bilan-tableau table { width: 100%; border-collapse: collapse; font-size: .9rem; color: var(--texte); }
+.bilan-tableau th, .bilan-tableau td { padding: 6px 4px; border-bottom: 1px solid var(--bord); text-align: left; }
+.bilan-tableau td:not(:first-child), .bilan-tableau th:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
