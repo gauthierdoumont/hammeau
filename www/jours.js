@@ -10,7 +10,7 @@
  *  2. quotidiennes prévues et non faites → moral −5 chacune (min 0)
  *  3. série : jour sans quotidienne prévue = neutre ; sinon validé si ≥ 1 quotidienne faite ET ≥ xpMinJour XP ;
  *     non validé → joker s'il en reste, sinon série = 0
- *  4. imprévu « important » à l'échéance dépassée → incendie, UNE seule fois par tâche :
+ *  4. imprévu « important » à l'échéance dépassée → incendie, UNE seule fois par tâche (jamais si l'échéance tombait en pause) :
  *     un bâtiment au hasard est endommagé ; sans bâtiment, perte de 20 % de la ressource (max 50)
  * Limite : « hier » n'est traité qu'après midi (on peut encore dire « je l'ai fait hier » le matin).
  * Chaque pénalité est un événement réversible {jour, type, avant, …} : une pause rétroactive les annule.
@@ -77,6 +77,9 @@
     for (const t of e.taches) {
       if (t.type !== 'imprevu' || !t.important || t.archivee || t.incendieApplique || !t.echeance || t.echeance > jour) continue;
       t.incendieApplique = true;
+      // Échéance tombée PENDANT une pause → jamais d'incendie (choix de Gauthier, 2026-11-16). Marquée « traitée » :
+      // une pause suivante remplace l'ancienne, l'incendie ne doit pas revenir plus tard.
+      if (D.enPause(j, t.echeance)) continue;
       const ev = { jour, type: 'incendie', tacheId: t.id, nom: t.nom };
       const bat = E.endommager(e, rng);
       if (bat) ev.batiment = bat.id;

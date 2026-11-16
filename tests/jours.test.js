@@ -218,6 +218,21 @@ test('incendie : une seule fois par tâche ; bâtiment endommagé, ou perte de 2
   assert.equal(D.rattraper(e3, a('2026-11-16'), C).evenements.filter(v => v.type === 'incendie').length, 0);
 });
 
+test('incendie : une échéance tombée pendant une pause n\'en provoque jamais (même après une autre pause)', () => {
+  const e = etatDe('2026-11-09', { nom: 'Dossier', categorieId: 'papiers', echeance: '2026-11-12', important: true },
+    { nom: 'Après la pause', categorieId: 'papiers', echeance: '2026-11-14', important: true });
+  e.joueur.ressources.or = 300;
+  e.joueur.pause = { actif: true, depuis: '2026-11-10', jusqua: '2026-11-13' };
+  let r = D.rattraper(e, a('2026-11-16'), C);
+  const incendies = r.evenements.filter(v => v.type === 'incendie');
+  assert.deepEqual(incendies.map(v => v.nom), ['Après la pause']);    // l'échéance hors pause compte toujours
+  assert.equal(r.etat.taches[0].incendieApplique, true);               // traitée sans incendie
+  // Une nouvelle pause remplace l'ancienne : l'échéance du 12 ne brûle toujours pas
+  r.etat.joueur.pause = { actif: true, depuis: '2026-11-20', jusqua: '2026-11-21' };
+  r = D.rattraper(r.etat, a('2026-11-25'), C);
+  assert.equal(r.evenements.filter(v => v.type === 'incendie').length, 0);
+});
+
 test('1er lancement : on démarre à hier, rien à rattraper ; message de retour seulement si utile', () => {
   const e = S.etatInitial(C);
   const r = D.rattraper(e, a('2026-11-16'), C);

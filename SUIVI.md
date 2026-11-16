@@ -1,7 +1,7 @@
 # Suivi — Hameau
 
 ## Où on en est
-- Version : 1.6.1 · Données : **schéma v3** · Prochaine session : suivre **CLAUDE.md §2** dans l'ordre (19 → 1b) · Dernière session : 2026-11-16
+- Version : 1.6.2 · Données : **schéma v3** · Prochaine session : suivre **CLAUDE.md §2** dans l'ordre (19 → 1b) · Dernière session : 2026-11-16
 
 ## Dernière session
 - Fait : 2.0 rééquilibrage (v0.7.1, tests de coûts calculés depuis `CONFIG`) puis étape 8 (v1.0.0) : Sons / Vibrations,
@@ -25,7 +25,7 @@
 - Simulation 2.0 (200 j, 20 graines, médianes) : tout au niveau 5 → régulier 125 j, intense 62 j, léger > 200 j.
 - Check-list `appli-native` : navigateur 360/412/1100 px OK, hors ligne OK, export/import OK, appId inchangé, pas de server.url,
   aucun secret. Reste : workflow ✅ + Release (impossible avant la 1b, clé de signature).
-- Testé : `npm test` (145), `npm run e2e` (18 sections, plugin de notifications simulé, agenda d'exemple), `node outils/simulation.js`.
+- Testé : `npm test` (146), `npm run e2e` (18 sections, plugin de notifications simulé, agenda d'exemple), `node outils/simulation.js`.
 - Non testé / à vérifier sur le téléphone : tout (1er APK à la 1b), dont l'ouverture de la page GitHub par `@capacitor/browser`,
   l'arrivée des rappels à l'heure (optimisation de batterie MagicOS à désactiver pour Hameau) et la petite icône,
   la lecture du vrai Google Agenda (impossible à tester ici : le navigateur bloque).
@@ -34,8 +34,7 @@
 - (aucun)
 
 ## Retours de Gauthier à traiter
-- [ ] Question produit (vérificateur, P5) : un imprévu important dont l'échéance tombe PENDANT une pause brûle le 1er jour après la pause.
-  Proposition : ignorer ces échéances (ou les repousser à la fin de la pause). En attente de sa réponse.
+- (aucun)
 
 ## Décisions (ne pas reposer la question)
 | Date | Décision | Pourquoi |
@@ -80,6 +79,8 @@
 | 2026-11-16 | Cours du jour = tous les événements à heure fixe du jour ; journées entières en simple ligne 📌 | Tout est centralisé dans Google Agenda |
 | 2026-11-16 | Surprises : marchand (échange ×1,5 facultatif), tempête = défi 3 tâches → +30 bois +30 pierre, fête +20 % ; 30 %/jour, rien en pause | Le hasard ne donne que des bonus |
 | 2026-11-16 | Boss : apparaît 14 j avant, 200 PV, dégâts = XP des révisions 📚 (le plus proche d'abord, surplus au suivant) ; récompense le jour J, au moins 25 % | On ne « perd » jamais contre un boss |
+| 2026-11-16 | Échéance d'un imprévu important tombée pendant une pause → jamais d'incendie (tâche marquée traitée) | Choix de Gauthier (P5) : « aucune pénalité pendant une pause » |
+| 2026-11-16 | Étape 19 : la source est son appli HTML muscu (format d'export à lire dans son dépôt) | Réponse de Gauthier |
 | 2026-11-15 | `joueur.xp` = XP dans le niveau en cours, `joueur.xpTotal` = cumul (champ ajouté) | Un changement de courbe ne fera jamais baisser un niveau |
 
 ## À faire plus tard (noté, hors étape)

@@ -1,5 +1,8 @@
 # Journal des versions — Hameau
 
+## 1.6.2 — 2026-11-16 · Pause encore plus douce
+- ⏸️ Une échéance importante qui tombe **pendant une pause** ne provoque plus jamais d'incendie, même après la pause.
+
 ## 1.6.1 — 2026-11-16 · Corrections (vérification 2)
 - 🔔 Rappels « à quelques minutes près » : Android ne montre plus l'écran « Alarmes et rappels » à chaque programmation.
 - 🔒 Le texte envoyé « pour analyse » (données illisibles) ne contient jamais l'adresse secrète de ton agenda.
