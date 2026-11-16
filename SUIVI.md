@@ -1,7 +1,7 @@
 # Suivi — Hameau
 
 ## Où on en est
-- Version : 0.7.0 · Étapes faites : 1a, 2-7, 9-13 · Reste : **8** (Réglages, mises à jour, v1.0.0), V3 (14, 15a, 15b), V4 (16-19), et la **1b** (clé + 1er APK) tout à la fin · Dernière session : 2026-11-16
+- Version : 0.7.0 · Prochaine session : suivre **CLAUDE.md §2** dans l'ordre (2.0 rééquilibrage validé → 8 → 14 → 15a → 15b → 16-19 → 1b) · Dernière session : 2026-11-16
 
 ## Dernière session
 - Fait : étapes 13 (endommagés, réparation, agrandir, décorations), 5a (moteur complet + coffres + simulation), 5b (coffre animé, fête de niveau), 6 (rattrapage, séries, joker, moral, incendies, pause rétroactive, veille), 7 (Prochaine action, Perso).
@@ -11,7 +11,7 @@
 ## Bugs connus
 - (aucun)
 
-## Rééquilibrage proposé (simulation `node outils/simulation.js`, 200 jours, 20 graines) — À VALIDER PAR GAUTHIER
+## Rééquilibrage (simulation `node outils/simulation.js`, 200 jours, 20 graines) — VALIDÉ par Gauthier le 2026-11-16, à appliquer (CLAUDE.md §2.0)
 Valeurs actuelles : le profil « régulier » (7 tâches, 85 % des jours) ne finit pas le village en 200 jours (goulot : bois / pierre,
 puis niveau de chef 23 pour la Mairie 5). Proposition (3 changements, `config.js` seulement) :
 | Réglage | Avant | Après | Effet (régulier, médiane) |
@@ -52,6 +52,8 @@ Tester une variante : `SIM_CONFIG='{"mairie":{"cout":20}}' node outils/simulatio
 | 2026-11-16 | Le bonus des bâtiments est calculé dans le moteur (`M.bonusFamille`), jamais par l'appelant | Aucune future façon de cocher ne peut l'oublier |
 | 2026-11-16 | Ambiance du village selon l'heure (aube 6-8 h, jour 8-18 h, soir 18-21 h, nuit) | « Très beau » demandé par Gauthier |
 | 2026-11-16 | Sons courts CC0 (pose, marteau, fanfare, pièces, clic, validation), désactivables | Étape 12 ; coche d'une tâche = son de pièces |
+| 2026-11-16 | Rééquilibrage validé (bâtiments 30/5/5 × n², Mairie 20 × n², niveaux de chef 1/3/6/9/12) | Village complet ≈ 125 jours au lieu de > 200 |
+| 2026-11-16 | CLAUDE.md = « prochaines choses à faire » pour la session suivante : tout le reste dans l'ordre (2.0, 8, 14, 15a, 15b, 16-19, 1b en dernier) | Demande de Gauthier |
 | 2026-11-16 | Ordre des étapes demandé : 13 → 5a → 5b → 6 → 7, puis CLAUDE.md condensé | Demande de Gauthier |
 | 2026-11-16 | Coffre : ressources + gemmes hors stats (les stats mesurent l'effort réel) ; hasard injecté (`ctx.rng`) | Tests et simulation reproductibles |
 | 2026-11-16 | Incendie V2 : un bâtiment au hasard est endommagé ; sans village, −20 % de la ressource (max 50) | CLAUDE.md §6 |
