@@ -1,7 +1,7 @@
 # Suivi — Hameau
 
 ## Où on en est
-- Version : 1.5.0 · Données : **schéma v3** · Prochaine session : suivre **CLAUDE.md §2** dans l'ordre (18 → 19 → 1b) · Dernière session : 2026-11-16
+- Version : 1.6.0 · Données : **schéma v3** · Prochaine session : suivre **CLAUDE.md §2** dans l'ordre (19 → 1b) · Dernière session : 2026-11-16
 
 ## Dernière session
 - Fait : 2.0 rééquilibrage (v0.7.1, tests de coûts calculés depuis `CONFIG`) puis étape 8 (v1.0.0) : Sons / Vibrations,
@@ -16,12 +16,14 @@
   (`M.bonusFete`, `M.releverDefi`) ; `etat.etat.surprise` = champ facultatif complété (pas de migration).
 - Étape 17 (v1.5.0) : examens = boss (`www/boss.js`) ; dégâts recalculés depuis le journal (rien de stocké),
   récompense notée dans `agenda.recompenses` (champ facultatif complété, pas de migration).
+- Étape 18 (v1.6.0) : bilan de la semaine (`www/bilan.js` pur, graphiques SVG faits main, une seule teinte + étiquettes :
+  la palette des familles échoue au validateur `dataviz` sur fond sombre, donc la couleur ne porte jamais l'information seule).
 - Vérification par sous-agents (vérificateur → correcteur) : 10 corrections fusionnées en v1.2.1 (Annuler après le tick de 60 s,
   import sans rejouer les jours, pause relancée le même matin, `remplacerEtat()` seule porte de remplacement complet, valeurs → config).
 - Simulation 2.0 (200 j, 20 graines, médianes) : tout au niveau 5 → régulier 125 j, intense 62 j, léger > 200 j.
 - Check-list `appli-native` : navigateur 360/412/1100 px OK, hors ligne OK, export/import OK, appId inchangé, pas de server.url,
   aucun secret. Reste : workflow ✅ + Release (impossible avant la 1b, clé de signature).
-- Testé : `npm test` (134), `npm run e2e` (17 sections, plugin de notifications simulé, agenda d'exemple), `node outils/simulation.js`.
+- Testé : `npm test` (137), `npm run e2e` (18 sections, plugin de notifications simulé, agenda d'exemple), `node outils/simulation.js`.
 - Non testé / à vérifier sur le téléphone : tout (1er APK à la 1b), dont l'ouverture de la page GitHub par `@capacitor/browser`,
   l'arrivée des rappels à l'heure (optimisation de batterie MagicOS à désactiver pour Hameau) et la petite icône,
   la lecture du vrai Google Agenda (impossible à tester ici : le navigateur bloque).

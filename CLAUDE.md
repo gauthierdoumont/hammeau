@@ -107,7 +107,7 @@
 - [x] 14. Notifications locales
 - [x] 15a. Lecture iCal
 - [x] 15b. Cours du jour + « J'y étais » + examens
-- [x] 16. Événements aléatoires · [x] 17. Examens = boss · [ ] 18. Bilan hebdomadaire · [ ] 19. Import muscu
+- [x] 16. Événements aléatoires · [x] 17. Examens = boss · [x] 18. Bilan hebdomadaire · [ ] 19. Import muscu
 - [ ] 1b. Clé de signature + 4 secrets + 1er build + installation sur le Honor — **en tout dernier**
 - [ ] 🔁 Point de contrôle après 2-3 jours d'usage réel
 

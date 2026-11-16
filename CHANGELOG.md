@@ -1,5 +1,12 @@
 # Journal des versions — Hameau
 
+## 1.6.0 — 2026-11-16 · Bilan de la semaine
+- 📊 **Bilan de la semaine** (Perso → « Bilan de la semaine ») : XP gagnée, tâches finies, jours actifs,
+  XP par jour (touche un jour pour le détail) et répartition par famille. « Semaine dernière » ou « Cette semaine ».
+- Le lundi, petite carte « Ton bilan de la semaine est prêt » sur Aujourd'hui (✕ = plus tard).
+- Toujours positif : « +20 % d'XP », « 5 jours actifs sur 7 », ou « Semaine au calme » — jamais de reproche.
+- Graphiques dessinés par l'appli (hors ligne), une seule couleur et chaque barre étiquetée ; « Voir en tableau » pour les chiffres.
+
 ## 1.5.0 — 2026-11-16 · Examens = boss
 - ⚔️ **Examens à venir** sur Aujourd'hui : chaque examen de ton agenda devient un boss 14 jours avant (compte à rebours, 200 PV).
 - 📚 Chaque révision lui fait des dégâts (son XP) : « ⚔️ 30 dégâts à « Interrogation Consolidation » ! ». Annuler rend les PV.

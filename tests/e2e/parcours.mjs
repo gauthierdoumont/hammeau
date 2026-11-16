@@ -936,7 +936,7 @@ function S_ok(e) { return e.schemaVersion === SCHEMA && new Set(e.taches.map(t =
   verifier(await page.locator('#bilan-jours svg .barre').count() === 2, '2 barres (2 jours actifs)');
   verifier(await page.locator('.bilan-famille').count() === 3 && (await page.textContent('#bilan-familles')).includes('Esprit'), '3 familles étiquetées');
   await page.click('#bilan-jours [data-jour="2026-11-12"]');
-  verifier((await page.textContent('#bilan-info')).startsWith('Mercredi 12') && (await page.textContent('#bilan-info')).includes('2 tâches'), 'toucher un jour : détail');
+  verifier((await page.textContent('#bilan-info')).startsWith('Jeudi 12') && (await page.textContent('#bilan-info')).includes('2 tâches'), 'toucher un jour : détail : ' + await page.textContent('#bilan-info'));
   await page.screenshot({ path: 'tests/captures/etape18-bilan.png', fullPage: true });
   await page.click('[data-semaine="0"]');
   verifier((await page.textContent('#bilan-tuiles')).includes('1/7'), 'cette semaine : 1 jour actif');

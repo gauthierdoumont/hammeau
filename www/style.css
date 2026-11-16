@@ -957,7 +957,8 @@ select.champ { appearance: none; -webkit-appearance: none; color: var(--texte); 
 .bilan-graphe svg { display: block; width: 100%; height: auto; overflow: visible; }
 .bilan-graphe .barre { fill: var(--accent); }
 .bilan-graphe .colonne { fill: transparent; cursor: pointer; }
-.bilan-graphe .colonne:focus-visible { outline: none; fill: var(--or-voile); }
+.bilan-graphe g[tabindex]:focus { outline: none; }
+.bilan-graphe g[tabindex]:focus-visible .colonne { fill: var(--or-voile); }   /* clavier : voile doré au lieu du cadre du navigateur */
 .bilan-graphe .choisie .barre { fill: var(--lisere); }
 .bilan-graphe .axe { stroke: var(--bord); stroke-width: 1; }
 .bilan-graphe text { fill: var(--texte-doux); font-size: 12px; font-family: inherit; }
