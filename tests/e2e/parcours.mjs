@@ -5,14 +5,15 @@ import http from 'node:http'; import fs from 'node:fs'; import path from 'node:p
 
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png',
   '.json': 'application/json', '.ogg': 'audio/ogg', '.woff2': 'font/woff2', '.svg': 'image/svg+xml' };
+const PORT = Number(process.env.PORT_E2E) || 4173;   // autre port pour lancer deux parcours en même temps
 const serveur = http.createServer((req, res) => {
   let p = decodeURIComponent(req.url.split('?')[0]); if (p.endsWith('/')) p += 'index.html';
   fs.readFile(path.join('www', p), (e, d) => {
     if (e) { res.writeHead(404); return res.end(); }
     res.writeHead(200, { 'Content-Type': TYPES[path.extname(p)] || 'application/octet-stream' }); res.end(d);
   });
-}).listen(4173);
-const URL_APPLI = 'http://localhost:4173/';
+}).listen(PORT);
+const URL_APPLI = `http://localhost:${PORT}/`;
 const CLE = 'hameau_v1';
 const FIXTURE = 'tests/fixtures/etat-v1.json';
 
@@ -35,11 +36,11 @@ async function nouvellePage(largeur = 412, stockageDepart = null) {
   const erreurs = [], externes = [];
   page.on('pageerror', e => erreurs.push(e.message));
   page.on('console', m => m.type() === 'error' && !/illisibles/.test(m.text()) && erreurs.push(m.text()));
-  page.on('request', r => { if (!r.url().startsWith('http://localhost:4173')) externes.push(r.url()); });
+  page.on('request', r => { if (!r.url().startsWith(URL_APPLI.slice(0, -1))) externes.push(r.url()); });
   await page.goto(URL_APPLI);
   // Hors ligne : toute adresse extérieure est refusée (setOffline bloquerait aussi le serveur local, alors que
   // sur le téléphone les fichiers sont DANS l'appli). Les tentatives sont quand même comptées dans « externes ».
-  await ctx.route(url => !String(url).startsWith('http://localhost:4173'), route => route.abort());
+  await ctx.route(url => !String(url).startsWith(URL_APPLI.slice(0, -1)), route => route.abort());
   await pause(page);
   return { ctx, page, erreurs, externes };
 }
