@@ -126,7 +126,8 @@ test('export → import = même état (hors meta), adresse iCal de l\'appareil c
   surAppareil.reglages.icsUrl = 'https://exemple.invalid/autre.ics';
   const r = S.analyserImport(texte, surAppareil, C);
   assert.equal(r.ok, true);
-  assert.deepEqual(sansMeta(r.etat), { ...original, reglages: { ...original.reglages, icsUrl: 'https://exemple.invalid/autre.ics' } });
+  const attendu = S.completer(original, C);              // (les champs ajoutés depuis sont complétés)
+  assert.deepEqual(sansMeta(r.etat), { ...attendu, reglages: { ...attendu.reglages, icsUrl: 'https://exemple.invalid/autre.ics' } });
   assert.deepEqual(r.apercu, { niveau: 1, xpTotal: 26, taches: 2, saisies: 2, exporteLe: '2026-11-15T10:00:00.000Z' });
   assert.deepEqual(r.actuel, { niveau: 1, xpTotal: 0, taches: 0, saisies: 0 });
 });

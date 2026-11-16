@@ -7,6 +7,7 @@ const S = window.Stockage;
 const T = window.Taches;
 const M = window.Moteur;
 const Economie = window.Economie;
+const Jours = window.Jours;
 const J = window.Temps;
 const CLE = S.CLE;
 const NOMS_TYPES = { quotidienne: '🔁 Quotidiennes', imprevu: '⚡ Imprévus', bonus: '⭐ Bonus' };
@@ -391,6 +392,95 @@ function cocher(tacheId, quantite = null) {
   return true;
 }
 
+/* ===== JOURS : rattrapage, retour d'absence, veille, pause (étape 6) ===== */
+// Applique le rattrapage à l'état ; renvoie le message de retour à afficher (ou null)
+function rattraperJours() {
+  try {
+    const r = Jours.rattraper(etat, maintenant(), C, hasard());
+    S.verifier(r.etat, C);
+    etat = r.etat;
+    const nomBatiment = (id) => {
+      const b = etat.village?.batiments.find(x => x.id === id);
+      const def = b && window.CATALOGUE_VILLAGE?.batiments[b.type];
+      return def ? `${def.emoji} ${def.nom}` : 'un bâtiment';
+    };
+    return Jours.messageRetour(r, etat, C, nomBatiment);
+  } catch (x) { console.error('Rattrapage impossible', x); return null; }
+}
+function afficherRetour(m) {
+  dialogue(m.titre, m.lignes.map(l => `<p>${echapper(l)}</p>`).join(''), [{ texte: 'C\'est parti', valeur: true, principal: true }]);
+}
+
+// Le matin, les quotidiennes d'hier pas encore cochées (on peut encore les noter jusqu'à midi)
+function rendreHier() {
+  const zone = document.getElementById('hier');
+  const m = maintenant();
+  if (!Jours.hierOuvert(m, C) || Jours.enPause(etat.joueur, J.ajouterJours(jourActuel(), -1))) { zone.hidden = true; return; }
+  const hier = J.ajouterJours(jourActuel(), -1);
+  const restantes = Jours.quotidiennesPrevues(etat, hier, C).filter(t => M.progression(t, etat.journal, hier) < 1);
+  zone.hidden = !restantes.length;
+  document.getElementById('liste-hier').replaceChildren(...restantes.map(t => {
+    const cat = T.categorie(etat, t.categorieId);
+    const ligne = el('div', { class: 'tache hier-tache' },
+      el('button', { class: 'case', 'data-hier': t.id, 'aria-label': 'Fait hier : ' + t.nom }),
+      el('span', { class: 'tache-corps' }, el('span', { class: 'tache-emoji', 'aria-hidden': 'true' }, cat?.emoji ?? '•'),
+        el('span', { class: 'tache-texte' }, el('span', { class: 'tache-nom' }, t.nom), el('small', {}, 'Fait hier ? Touche la case'))));
+    ligne.style.setProperty('--famille', cat ? `var(--${cat.familleId})` : '');
+    return ligne;
+  }));
+}
+function cocherHier(tacheId) {
+  const hier = J.ajouterJours(jourActuel(), -1);
+  if (!Jours.hierOuvert(maintenant(), C)) return toast('Hier est déjà bouclé : place à aujourd\'hui ✨');
+  const avant = etat;
+  let r;
+  const ok = modifier(e => {
+    r = M.saisir(e, tacheId, null, { id: S.nouvelId(), horodatage: maintenant().toISOString(), jour: hier, rng: hasard() }, C);
+    if (!r.ok) throw refus(r.erreur);
+  });
+  if (!ok) return;
+  vibrer('LIGHT');
+  window.Sons?.jouer('pieces');
+  proposerAnnulation(`Noté pour hier ✅ +${r.gain} XP`, avant);
+  if (r.coffre) celebrer({ type: 'coffre', coffre: r.coffre });
+  if (r.niveauxGagnes) celebrer({ type: 'niveau', niveau: etat.joueur.niveau, gagnes: r.niveauxGagnes });
+}
+
+// Pause : depuis aujourd'hui ou jusqu'à 7 jours en arrière ; reprise à tout moment
+function rendrePause() {
+  const p = etat.joueur.pause;
+  const active = !!p?.actif && !p.jusqua;
+  document.getElementById('bandeau-pause').hidden = !active;
+  if (active) document.getElementById('pause-depuis').textContent = dateEcheance(p.depuis);
+  document.getElementById('info-pause').textContent = active ? `En pause depuis le ${dateEcheance(p.depuis)} · touche pour reprendre`
+    : 'Malade, blocus, vacances : aucune pénalité, série gelée';
+}
+async function gererPause() {
+  const p = etat.joueur.pause;
+  if (p?.actif && !p.jusqua) return reprendre();
+  const auj = jourActuel();
+  const options = Array.from({ length: C.pause.retroJoursMax + 1 }, (_, i) => {
+    const j = J.ajouterJours(auj, -i);
+    return `<option value="${j}">${i === 0 ? 'Aujourd\'hui' : i === 1 ? 'Hier' : 'Le ' + dateEcheance(j)}</option>`;
+  }).join('');
+  const ok = await dialogue('⏸️ Mettre en pause',
+    '<p>Malade, blocus, vacances : pendant la pause, aucune pénalité et ta série est gelée.</p>' +
+    `<label class="etiquette-champ">Depuis quand ?<select class="champ" id="pause-debut">${options}</select></label>` +
+    '<p class="discret">Tu peux choisir un jour passé : ce qui a été perdu depuis est rendu.</p>',
+    [{ texte: 'Annuler', valeur: false }, { texte: 'Mettre en pause', valeur: true, principal: true }]);
+  if (!ok) return;
+  const depuis = document.getElementById('pause-debut').value;
+  let r;
+  if (modifier(e => {
+    r = Jours.activerPause(e, depuis, maintenant(), C, hasard());
+    if (!r.ok) throw refus(r.erreur);
+    Object.assign(e, r.etat);
+  })) toast(r.annules ? 'Pause activée ⏸️ Ce qui avait été perdu est rendu.' : 'Pause activée ⏸️ Prends soin de toi.');
+}
+function reprendre() {
+  if (modifier(e => { Object.assign(e, Jours.finirPause(e, maintenant(), C)); })) toast('Bon retour ! ▶️ On reprend en douceur.');
+}
+
 /* ===== CÉLÉBRATIONS : coffre et montée de niveau (étape 5b) =====
  * Une à la fois (file d'attente) ; un toucher n'importe où accélère puis ferme ; jamais bloquant.
  */
@@ -614,10 +704,12 @@ async function demarrer() {
   }
   if (d.aMigrer) await sauvegardeAvant('migration-v' + S.SCHEMA, brut);
   etat = d.etat;
+  const retour = rattraperJours();      // jours écoulés depuis la dernière ouverture (avant le 1er affichage)
   sauver(etat);
   afficher('aujourdhui');
   rendre();
   sauvegardeHebdo();
+  if (retour) afficherRetour(retour);
 }
 
 /* ===== RENDU ===== */
@@ -643,6 +735,8 @@ function rendre() {
   if (!etat) return;
   rendreListes();
   rendreCategories();
+  rendreHier();
+  rendrePause();
   window.VillageUI?.rendre(etat);
   if (document.getElementById('ecran-perso').classList.contains('actif')) rendrePerso();
   rendreSousTitre(historique[historique.length - 1]);
@@ -880,10 +974,11 @@ function toast(texte, option = null) {
 
 /* ===== ÉVÉNEMENTS ===== */
 document.addEventListener('click', (e) => {
-  const cible = e.target.closest('[data-aller], [data-action], [data-fermer], [data-cocher], [data-saisir], [data-modifier]');
+  const cible = e.target.closest('[data-aller], [data-action], [data-fermer], [data-cocher], [data-hier], [data-saisir], [data-modifier]');
   if (!cible) return;
   if (cible.dataset.aller) return aller(cible.dataset.aller);
   if (cible.dataset.cocher) return cocher(cible.dataset.cocher);
+  if (cible.dataset.hier) return cocherHier(cible.dataset.hier);
   if (cible.dataset.saisir) return ouvrirSaisie(cible.dataset.saisir);
   if (cible.dataset.modifier) return ouvrirAjout(etat.taches.find(t => t.id === cible.dataset.modifier));
   if ('fermer' in cible.dataset) return cible.closest('dialog')?.close();
@@ -918,6 +1013,8 @@ document.getElementById('ajout-objectif').addEventListener('change', (e) => {
 });
 document.getElementById('form-ajout').addEventListener('submit', (e) => { e.preventDefault(); enregistrerTache(); });
 document.getElementById('btn-supprimer').addEventListener('click', supprimerTacheEditee);
+document.getElementById('btn-pause').addEventListener('click', gererPause);
+document.getElementById('btn-reprendre').addEventListener('click', reprendre);
 
 // Feuille de saisie d'un objectif chiffré
 document.getElementById('feuille-saisie').addEventListener('click', (e) => {
@@ -955,8 +1052,12 @@ PL.App?.addListener('backButton', () => { if (!retourEcranPrecedent()) PL.App.ex
 // Nouvelle journée (4 h du matin) ou retour sur l'appli restée ouverte en arrière-plan :
 // on redessine pour que les quotidiennes d'hier ne restent pas « faites »
 function verifierNouveauJour() {
-  if (!etat) return;
-  if (jourActuel() !== jourAffiche) rendre();
+  if (!etat || document.body.classList.contains('bloque')) return;
+  const avant = etat.etat.dernierJourTraite;
+  const retour = rattraperJours();
+  if (etat.etat.dernierJourTraite !== avant) sauver(etat);
+  if (jourActuel() !== jourAffiche || retour || etat.etat.dernierJourTraite !== avant) rendre();
+  if (retour) afficherRetour(retour);
 }
 PL.App?.addListener('resume', () => { verifierNouveauJour(); sauvegardeHebdo(); });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) verifierNouveauJour(); });

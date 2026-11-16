@@ -496,6 +496,46 @@ function S_ok(e) { return e.schemaVersion === 2 && new Set(e.taches.map(t => t.i
   await ctx.close();
 }
 
+/* 10. Étape 6 : retour après 3 jours, « hier jusqu'à midi », pause rétroactive */
+{
+  const { ctx, page, erreurs } = await nouvellePage(412);
+  await page.evaluate(() => Appli.modifier(e => {
+    Taches.ajouterTache(e, Taches.creerTache({ nom: 'Lecture du soir', categorieId: 'lecture', type: 'quotidienne' }, e, CONFIG, 'q1', '2026-11-01T08:00:00.000Z').tache);
+    e.etat.dernierJourTraite = '2026-11-12';
+    e.joueur.serie = { jours: 4, joker: 0 };
+  }));
+  await page.reload();
+  await page.waitForSelector('#dialogue[open]');
+  const texte = await page.textContent('#dialogue');
+  verifier(/Content de te revoir/.test(texte) && /repart de zéro/.test(texte), 'message de retour neutre : ' + texte);
+  verifier(!/raté|échec|oublié/i.test(texte), 'aucun mot culpabilisant');
+  await page.click('#dialogue-boutons .principal');
+  let e = await page.evaluate(() => Appli.etat());
+  verifier(e.etat.dernierJourTraite === '2026-11-14' && e.joueur.moral === 70, 'rattrapage des 13 et 14 (le 15 attend midi) : ' + e.joueur.moral);
+  verifier(await page.isVisible('#hier') && (await page.textContent('#liste-hier')).includes('Lecture du soir'), 'encart « hier » le matin');
+  await page.click('[data-hier="q1"]');
+  await pause(page);
+  e = await page.evaluate(() => Appli.etat());
+  verifier(e.journal.some(x => x.jour === '2026-11-15' && x.tacheId === 'q1'), 'saisie pour la veille (jour logique 15)');
+  verifier(!(await page.isVisible('#hier')), 'encart « hier » vidé');
+  // Pause rétroactive depuis le 13 : le moral perdu est rendu, la série aussi
+  await page.click('.onglet[data-aller="reglages"]');
+  await page.click('#btn-pause');
+  await page.waitForSelector('#dialogue[open] #pause-debut');
+  await page.selectOption('#pause-debut', '2026-11-13');
+  await page.click('#dialogue-boutons .principal');
+  await pause(page);
+  e = await page.evaluate(() => Appli.etat());
+  verifier(e.joueur.pause.actif && e.joueur.moral === 81 && e.joueur.serie.jours === 4, `pause : moral ${e.joueur.moral}, série ${e.joueur.serie.jours}`);
+  await page.click('.onglet[data-aller="aujourdhui"]');
+  verifier(await page.isVisible('#bandeau-pause'), 'bandeau « en pause »');
+  await page.click('#btn-reprendre');
+  await pause(page);
+  verifier(!(await page.isVisible('#bandeau-pause')), 'reprise');
+  verifier(!erreurs.length, 'erreurs console (jours) : ' + erreurs);
+  await ctx.close();
+}
+
 await nav.close(); serveur.close();
-console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso, cocher, village, construction, décorations, agrandir, réparer, coffre, fête');
+console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso, cocher, village, construction, décorations, agrandir, réparer, coffre, fête, jours');
 process.exit(echecs.length ? 1 : 0);

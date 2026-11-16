@@ -788,3 +788,14 @@ body.village-placement-actif .village-construire { display: none; }
   .recompenses span { opacity: 1; transform: none; animation: none !important; }
   .coffre-couvercle { transition: none; }
 }
+
+/* ===== ÉTAPE 6 : pause, « hier jusqu'à midi » ===== */
+.bandeau-pause {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; padding: 10px 12px;
+  border-radius: var(--rayon-menu); background: var(--surface); border: 1px solid var(--repos); color: var(--texte);
+}
+.bandeau-pause .bouton { min-height: 40px; flex: none; }
+.hier { margin-bottom: 4px; }
+.hier .tache { opacity: .92; border-style: dashed; border-left-style: solid; }
+#ecran-aujourdhui .hier .intertitre { color: var(--texte-doux); }
+select.champ { appearance: none; -webkit-appearance: none; color: var(--texte); }

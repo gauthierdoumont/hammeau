@@ -39,7 +39,7 @@
         serie: { jours: 0, joker: C.serie.jokersParSemaine },
         pause: { actif: false, depuis: null, jusqua: null }
       },
-      etat: { dernierJourTraite: null },
+      etat: { dernierJourTraite: null, evenements: [] },   // evenements : pénalités récentes, annulables par une pause
       village: { batiments: [], extensions: 0, decorations: [] },
       reglages: {
         notifMatin: '08:00',
