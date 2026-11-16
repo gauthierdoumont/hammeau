@@ -57,6 +57,55 @@ test('examens : mots entiers, sans accents ni majuscules', () => {
   assert.equal(Cal.estExamen('Attestation de stage à faire signer'), false);
   assert.equal(Cal.estExamen('Contestation'), false);
   assert.equal(Cal.estExamen('Cours de comptabilité'), false);
+  assert.equal(Cal.estExamen('Cours interrompu'), false);            // « interro… » ne suffit pas
+  assert.equal(Cal.estExamen('Interrompre la série'), false);
+  assert.equal(Cal.estExamen('Interro'), true);
+  assert.equal(Cal.estExamen('Interros de math'), true);
+  assert.equal(Cal.estExamen('interrogation écrite'), true);
+  assert.equal(Cal.estExamen('Interrogations orales'), true);
+});
+
+/* Petits agendas FICTIFS en mémoire (CRLF, comme Google) */
+const agenda = (...evenements) => ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Hameau//tests FICTIFS//FR',
+  ...evenements.flatMap(lignes => ['BEGIN:VEVENT', 'DTSTAMP:20100101T000000Z', ...lignes, 'END:VEVENT']), 'END:VCALENDAR'].join('\r\n');
+
+test('répétition très ancienne (tous les jours depuis 2010) : les occurrences de la fenêtre sont bien là', () => {
+  const ics = agenda(
+    ['UID:quotidien@exemple.invalid', 'DTSTART:20100104T070000Z', 'DTEND:20100104T073000Z', 'RRULE:FREQ=DAILY', 'SUMMARY:Méditation'],
+    ['UID:hebdo@exemple.invalid', 'DTSTART:20100104T080000Z', 'DTEND:20100104T090000Z', 'RRULE:FREQ=WEEKLY;BYDAY=MO',
+      'EXDATE:20261123T080000Z', 'SUMMARY:Réunion du lundi'],
+    ['UID:hebdo@exemple.invalid', 'RECURRENCE-ID:20261130T080000Z', 'DTSTART:20261130T100000Z', 'DTEND:20261130T110000Z', 'SUMMARY:Réunion déplacée']);
+  const cache = Cal.construireCache(ics, new Date('2026-11-16T09:00:00Z'), C, ICAL);
+  const quotidien = cache.evenements.filter(e => e.uid === 'quotidien@exemple.invalid');
+  assert.equal(quotidien.length, C.calendrier.joursAvant + C.calendrier.joursApres + 1);   // un par jour de la fenêtre
+  assert.equal(quotidien[0].debut, '2026-11-15T07:00:00.000Z');
+  const lundis = cache.evenements.filter(e => e.uid === 'hebdo@exemple.invalid').map(e => e.debut).slice(0, 4);
+  assert.deepEqual(lundis, ['2026-11-16T08:00:00.000Z', '2026-11-30T10:00:00.000Z', '2026-12-07T08:00:00.000Z', '2026-12-14T08:00:00.000Z']);   // EXDATE et RECURRENCE-ID gardés
+});
+
+test('journée entière sur plusieurs jours : affichée chaque jour (fin exclue) ; heure fixe : le jour du début', () => {
+  const ics = agenda(
+    ['UID:vacances@exemple.invalid', 'DTSTART;VALUE=DATE:20261221', 'DTEND;VALUE=DATE:20261224', 'SUMMARY:Congé d\'hiver'],
+    ['UID:soiree@exemple.invalid', 'DTSTART:20261221T220000Z', 'DTEND:20261222T010000Z', 'SUMMARY:Soirée tardive']);
+  const cache = Cal.construireCache(ics, new Date('2026-12-20T09:00:00Z'), C, ICAL);
+  const titres = (jour) => Cal.duJour(cache, jour, C).map(e => e.titre);
+  assert.deepEqual(titres('2026-12-20'), []);
+  assert.deepEqual(Cal.journeesDuJour(cache, '2026-12-21', C).map(e => e.titre), ['Congé d\'hiver']);
+  // La soirée va du 21 à 23 h au 22 à 2 h (Bruxelles) : affichée le 21 seulement (« J'y étais » une seule fois)
+  assert.deepEqual(Cal.coursDuJour(cache, '2026-12-21', C).map(e => e.titre), ['Soirée tardive']);
+  assert.deepEqual(Cal.coursDuJour(cache, '2026-12-22', C).map(e => e.titre), []);
+  assert.deepEqual(titres('2026-12-23'), ['Congé d\'hiver']);
+  assert.deepEqual(titres('2026-12-24'), []);                            // DTEND exclu
+  assert.deepEqual(Cal.journeesDuJour(cache, '2026-12-22', C).map(e => e.titre), ['Congé d\'hiver']);
+});
+
+test('RECURRENCE-ID sans événement d\'origine dans le fichier : lu comme un événement simple', () => {
+  const ics = agenda(['UID:orphelin@exemple.invalid', 'RECURRENCE-ID:20261116T080000Z', 'DTSTART:20261117T080000Z',
+    'DTEND:20261117T090000Z', 'SUMMARY:Cours déplacé seul']);
+  const evs = Cal.lireEvenements(ics, ...TOUT, ICAL);
+  assert.equal(evs.length, 1);
+  assert.equal(evs[0].titre, 'Cours déplacé seul');
+  assert.equal(evs[0].debut, '2026-11-17T08:00:00.000Z');
 });
 
 test('cache : fenêtre J−1 à J+120 (Bruxelles), actualisation après N minutes', () => {

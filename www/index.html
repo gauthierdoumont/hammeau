@@ -237,7 +237,7 @@
           </span>
           <span class="ligne-texte">
             <label for="notif-matin-actif">Le matin</label><small>Ton programme du jour</small>
-            <input type="time" class="champ heure" id="notif-matin" aria-label="Heure du rappel du matin">
+            <input type="time" class="champ heure" id="notif-matin" min="04:00" max="23:59" aria-label="Heure du rappel du matin">
           </span>
           <input type="checkbox" class="interrupteur" id="notif-matin-actif" role="switch" aria-label="Rappel du matin">
         </div>
@@ -250,7 +250,7 @@
           </span>
           <span class="ligne-texte">
             <label for="notif-soir-actif">Le soir</label><small>S'il reste des quotidiennes, et la veille d'une échéance</small>
-            <input type="time" class="champ heure" id="notif-soir" aria-label="Heure du rappel du soir">
+            <input type="time" class="champ heure" id="notif-soir" min="04:00" max="23:59" aria-label="Heure du rappel du soir">
           </span>
           <input type="checkbox" class="interrupteur" id="notif-soir-actif" role="switch" aria-label="Rappel du soir">
         </div>
