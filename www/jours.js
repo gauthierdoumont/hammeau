@@ -1,5 +1,7 @@
 /* jours.js — Hameau — rattrapage des jours écoulés, séries, joker, moral, incendies, pause, veille — Créé par Gauthier Doumont
  * Fonctions PURES : l'instant et le hasard sont passés en paramètre ; l'état reçu n'est JAMAIS modifié (copie).
+ * Exception voulue : D.rattraper sans rien à faire renvoie le MÊME objet (change: false), sans copie,
+ * pour que l'appli ne remplace pas son état à chaque minute (sinon « Annuler » croirait que tout a changé).
  * Testées dans node : tests/jours.test.js (0, 1, 10 jours, heure d'été/hiver, lundi, pause, incendie unique…).
  *
  * Règles (CLAUDE.md §6), pour chaque jour logique entre dernierJourTraite (exclu) et la limite (incluse), dans l'ordre :
@@ -20,7 +22,8 @@
   const M = enNode ? require('./moteur.js') : racine.Moteur;
   const E = enNode ? require('./economie.js') : racine.Economie;
   const D = {};
-  const GARDER_JOURS = 8;   // les événements de plus de 8 jours ne peuvent plus être annulés (pause : 7 jours max)
+  // Les événements plus vieux que la pause rétroactive la plus lointaine (+1 jour) ne peuvent plus être annulés
+  const garderJours = (C) => C.pause.retroJoursMax + 1;
 
   const clone = (v) => JSON.parse(JSON.stringify(v));
 
@@ -91,16 +94,18 @@
   }
 
   /* ===== RATTRAPAGE ===== */
-  // → { etat (copie), evenements (nouveaux), jours (nombre de jours traités) }
+  // → { etat (copie, ou le même objet si change = false), evenements (nouveaux), jours (nombre de jours traités), change }
   D.rattraper = function (etat, instant, C, rng = Math.random) {
-    const e = clone(etat);
-    e.etat.evenements ||= [];
     const auj = Tm.jourLogique(instant, C);
     const limite = D.limite(instant, C);
+    const plusVieux = Tm.ajouterJours(auj, -garderJours(C));
+    if (rienATraiter(etat, limite, plusVieux)) return { etat, evenements: [], jours: 0, change: false };
+    const e = clone(etat);
+    e.etat.evenements ||= [];
     const nouveaux = [];
     if (!e.etat.dernierJourTraite) {                     // 1er lancement : rien à rattraper
       e.etat.dernierJourTraite = Tm.ajouterJours(auj, -1);
-      return { etat: e, evenements: nouveaux, jours: 0 };
+      return { etat: e, evenements: nouveaux, jours: 0, change: true };
     }
     let n = 0;
     for (let jour = Tm.ajouterJours(e.etat.dernierJourTraite, 1); jour <= limite; jour = Tm.ajouterJours(jour, 1)) {
@@ -112,10 +117,17 @@
     const p = e.joueur.pause;
     if (p?.actif && p.jusqua && e.etat.dernierJourTraite >= p.jusqua) e.joueur.pause = { actif: false, depuis: null, jusqua: null };
     // On garde les événements récents (annulables par une pause rétroactive)
-    const plusVieux = Tm.ajouterJours(auj, -GARDER_JOURS);
     e.etat.evenements = [...e.etat.evenements, ...nouveaux].filter(v => v.jour >= plusVieux);
-    return { etat: e, evenements: nouveaux, jours: n };
+    return { etat: e, evenements: nouveaux, jours: n, change: true };
   };
+  // Aucun jour à traiter, aucune pause à ranger, aucun vieil événement à oublier → rien ne changerait
+  function rienATraiter(etat, limite, plusVieux) {
+    const dernier = etat.etat?.dernierJourTraite;
+    if (!dernier || limite > dernier || !Array.isArray(etat.etat.evenements)) return false;
+    const p = etat.joueur.pause;
+    if (p?.actif && p.jusqua && dernier >= p.jusqua) return false;
+    return etat.etat.evenements.every(v => v.jour >= plusVieux);
+  }
 
   /* ===== PAUSE (malade, blocus, vacances) — activable jusqu'à 7 jours en arrière ===== */
   D.premierJourPause = (instant, C) => Tm.ajouterJours(Tm.jourLogique(instant, C), -C.pause.retroJoursMax);
@@ -142,7 +154,12 @@
     // Les jours depuis « depuis » seront retraités… en pause : ils ne coûtent plus rien
     const veille = Tm.ajouterJours(depuis, -1);
     if (e.etat.dernierJourTraite && e.etat.dernierJourTraite > veille) e.etat.dernierJourTraite = veille;
-    e.joueur.pause = { actif: true, depuis, jusqua: null };
+    // Reprise puis nouvelle pause le même matin : la fin de l'ancienne (jusqua) n'est pas encore traitée.
+    // On prolonge l'ancienne au lieu de l'écraser, sinon ce dernier jour serait compté comme un jour normal.
+    const ancienne = etat.joueur.pause;
+    const prolonger = ancienne?.actif && ancienne.depuis && ancienne.jusqua && (etat.etat.dernierJourTraite || '') < ancienne.jusqua;
+    const debut = prolonger && ancienne.depuis < depuis ? ancienne.depuis : depuis;
+    e.joueur.pause = { actif: true, depuis: debut, jusqua: null };
     const r = D.rattraper(e, instant, C, rng);
     return { ok: true, etat: r.etat, annules: annules.length };
   };

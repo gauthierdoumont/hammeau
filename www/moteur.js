@@ -133,7 +133,7 @@
 
   /* ===== SAISIE =====
    * Modifie `etat` (à appeler dans modifier()). quantite = nombre saisi pour un objectif chiffré,
-   * ou null = « terminer » (cocher, ou « tout le reste »). ctx = {id, horodatage, jour, rng?}.
+   * ou null = « terminer » (cocher, ou « tout le reste »). ctx = {id, horodatage, jour, rng?, veille?}.
    * Tous les multiplicateurs (dont le bonus du bâtiment) sont calculés ici : aucun appelant ne peut les oublier.
    * ctx.rng (Math.random dans l'appli) sert au coffre ; sans rng, pas de coffre (tests déterministes).
    * → {ok: true, gain, ressource, progression, terminee, niveauxGagnes} ou {ok: false, erreur}
@@ -143,7 +143,8 @@
     if (!tache || tache.archivee) return { ok: false, erreur: 'Tâche introuvable.' };
     const categorie = etat.categories.find(c => c.id === tache.categorieId);
     const b = M.bilan(tache, etat.journal, ctx.jour);
-    if (tache.type === 'quotidienne' && b.progression >= 1) return { ok: false, erreur: 'Déjà fait aujourd\'hui ✅' };
+    // Le texte suit le jour coché (ctx.veille = coche « fait hier ») : sinon on lirait « aujourd'hui » pour hier
+    if (tache.type === 'quotidienne' && b.progression >= 1) return { ok: false, erreur: ctx.veille ? 'Déjà noté pour hier ✅' : 'Déjà fait aujourd\'hui ✅' };
 
     const cible = tache.objectif ? tache.objectif.cible : 1;
     let valeur, apres;

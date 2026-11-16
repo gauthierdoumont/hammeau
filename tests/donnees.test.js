@@ -149,6 +149,32 @@ test('import depuis l\'écran de récupération (aucun état actuel)', () => {
   assert.equal(r.etat.reglages.icsUrl, '');
 });
 
+test('import d\'un vieil export : les jours déjà traités sur le téléphone ne sont pas rejoués', () => {
+  const vieux = S.etatInitial(C);
+  vieux.joueur.niveau = 4;
+  vieux.etat.dernierJourTraite = '2026-11-05';                   // export d'il y a 10 jours
+  const actuel = S.etatInitial(C);
+  actuel.etat.dernierJourTraite = '2026-11-15';
+  const r = S.analyserImport(JSON.stringify(S.pourExport(vieux, '2026-11-06T10:00:00.000Z')), actuel, C);
+  assert.equal(r.ok, true);
+  assert.equal(r.etat.joueur.niveau, 4);
+  assert.equal(r.etat.etat.dernierJourTraite, '2026-11-15');   // max(importé, actuel) : rien à payer
+  // Export plus récent que le téléphone : on garde sa date (rien n'est retraité deux fois)
+  vieux.etat.dernierJourTraite = '2026-11-15';
+  actuel.etat.dernierJourTraite = '2026-11-10';
+  assert.equal(S.analyserImport(JSON.stringify(vieux), actuel, C).etat.etat.dernierJourTraite, '2026-11-15');
+});
+
+test('verifier : bornes du moral lues dans config.js quand C est fourni (0-100 sans C)', () => {
+  const e = S.etatInitial(C);
+  e.joueur.moral = 100;
+  assert.equal(S.verifier(e), true);
+  const C2 = { ...C, moral: { ...C.moral, max: 90 } };
+  assert.throws(() => S.verifier(e, C2), /moral hors de 0-90/);
+  e.joueur.moral = 90;
+  assert.equal(S.verifier(e, C2), true);
+});
+
 test('sauvegardes hebdo : nom = lundi de la semaine ; on garde les plus récentes', () => {
   assert.equal(S.nomHebdo('2026-11-15'), 'hebdo-2026-11-09'); // dimanche
   assert.equal(S.nomHebdo('2026-11-16'), 'hebdo-2026-11-16'); // lundi

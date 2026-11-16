@@ -1,5 +1,15 @@
 # Journal des versions — Hameau
 
+## 1.0.1 — 2026-11-16 · Corrections
+- ↩️ « Annuler » marche à nouveau pendant ses 5 s, même si l'appli fait sa petite vérification de la minute entre-temps.
+- 📥 Importer un vieil export ne fait plus payer les jours déjà comptés sur le téléphone (même règle que « Restaurer »).
+- ☕ Reprendre puis relancer une pause le même matin : la veille reste couverte par la pause.
+- ✅ Cocher deux fois une tâche « fait hier » affiche « Déjà noté pour hier ✅ » (et plus « aujourd'hui »).
+- 🔧 Dans « Construire », un bâtiment abîmé explique quoi faire : « À réparer d'abord : touche « Voir » ».
+- 🏰 Village : les animations d'un bâtiment remplacé s'arrêtent bien (moins de travail pour le téléphone).
+- 🧰 Coulisses : une seule porte pour remplacer toutes les données d'un coup ; seuil d'humeur 😊 et bornes du moral
+  dans `config.js` ; durée de garde des événements tirée de la pause rétroactive ; colonnes de la simulation tirées de la Mairie.
+
 ## 1.0.0 — 2026-11-16 · Première version complète
 - 🔊 Réglages : interrupteurs **Sons** et **Vibrations** (gardés après redémarrage).
 - 🛟 **Sauvegardes automatiques** : la liste des copies (une par semaine + avant chaque opération délicate), avec « Restaurer ».

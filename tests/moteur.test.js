@@ -81,6 +81,17 @@ test('quotidienne : une seule fois par jour logique, à nouveau le lendemain, ja
   assert.equal(e.joueur.ressources.pierre, 50);
 });
 
+test('quotidienne déjà faite : le message suit le jour coché (aujourd\'hui / hier)', () => {
+  const e = etatAvec({ nom: 'Muscu', type: 'quotidienne', categorieId: 'muscu' });
+  M.saisir(e, 't0', null, ctx('2026-11-16'), C);
+  assert.equal(M.saisir(e, 't0', null, ctx('2026-11-16'), C).erreur, 'Déjà fait aujourd\'hui ✅');
+  M.saisir(e, 't0', null, { ...ctx('2026-11-15'), veille: true }, C);
+  const r = M.saisir(e, 't0', null, { ...ctx('2026-11-15'), veille: true }, C);
+  assert.equal(r.ok, false);
+  assert.equal(r.erreur, 'Déjà noté pour hier ✅');
+  assert.doesNotMatch(r.erreur, /aujourd'hui/);
+});
+
 test('objectif d\'un imprévu : la progression continue d\'un jour à l\'autre', () => {
   const e = etatAvec({ nom: 'Livre', objectif: { cible: 100, unite: 'pages' } });
   M.saisir(e, 't0', 40, ctx('2026-11-16'), C);

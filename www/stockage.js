@@ -100,7 +100,8 @@
     if (!estObjet(j)) err('joueur');
     if (!(j.niveau >= 1)) err('niveau < 1');
     if (!(j.xp >= 0) || !(j.xpTotal >= 0)) err('xp négative');
-    if (!(j.moral >= 0 && j.moral <= 100)) err('moral hors de 0-100');
+    const moralMin = C ? C.moral.min : 0, moralMax = C ? C.moral.max : 100;   // bornes de config.js (0-100 sans C)
+    if (!(j.moral >= moralMin && j.moral <= moralMax)) err(`moral hors de ${moralMin}-${moralMax}`);
     for (const [r, v] of Object.entries(j.ressources || {})) if (!(v >= 0)) err('ressource négative : ' + r);
     if (e.village !== undefined) {
       if (!estObjet(e.village) || !Array.isArray(e.village.batiments)) err('village');
@@ -170,9 +171,20 @@
 
   S.nomExport = (jour) => `hameau_${jour}.json`;
 
+  /* ===== CE QUI RESTE CELUI DU TÉLÉPHONE (import comme restauration) =====
+   * - l'adresse iCal (jamais dans un export) ;
+   * - les jours déjà traités ici ne sont PAS rejoués : importer ou restaurer une copie d'il y a 10 jours
+   *   ne doit jamais faire payer 10 jours de « jours manqués ».
+   */
+  function garderDuTelephone(etat, etatActuel) {
+    etat.reglages.icsUrl = etatActuel?.reglages?.icsUrl || '';
+    const traiteIci = etatActuel?.etat?.dernierJourTraite;
+    if (traiteIci && (!etat.etat.dernierJourTraite || etat.etat.dernierJourTraite < traiteIci)) etat.etat.dernierJourTraite = traiteIci;
+  }
+
   /* ===== IMPORT =====
    * → {ok: true, etat, apercu, actuel} ou {ok: false, message}
-   * L'adresse iCal déjà saisie sur l'appareil est conservée.
+   * L'adresse iCal et les jours déjà traités sur l'appareil sont conservés (garderDuTelephone).
    */
   S.analyserImport = function (texte, etatActuel, C) {
     const non = (message) => ({ ok: false, message });
@@ -186,7 +198,7 @@
     try {
       const { meta, ...donnees } = e;
       etat = S.completer(S.migrer(donnees), C);
-      etat.reglages.icsUrl = etatActuel?.reglages?.icsUrl || '';
+      garderDuTelephone(etat, etatActuel);
       S.verifier(etat, C);
     } catch (x) {
       return non('Ce fichier est abîmé, rien n\'a été changé. (' + x.message + ')');
@@ -241,17 +253,14 @@
   S.libelleRaison = (raison) => S.RAISONS[raison] || (/^migration/.test(raison) ? 'avant une mise à jour des données' : 'copie de sécurité');
 
   /* Restaurer une copie automatique → {ok: true, etat, apercu, actuel} ou {ok: false, message}
-   * L'adresse iCal du téléphone est gardée, et les jours déjà traités ne sont PAS rejoués
-   * (sinon restaurer une copie d'il y a une semaine ferait payer une semaine de « jours manqués »).
+   * Même règle que l'import : adresse iCal et jours déjà traités du téléphone gardés (garderDuTelephone).
    */
   S.preparerRestauration = function (texte, etatActuel, C) {
     const d = S.decider(texte, C);
     if (d.type === 'trop-recent') return { ok: false, message: 'Cette copie vient d\'une version plus récente de l\'appli.' };
     if (d.type !== 'ok') return { ok: false, message: 'Cette copie est abîmée, rien n\'a été changé.' };
     const etat = d.etat;
-    etat.reglages.icsUrl = etatActuel?.reglages?.icsUrl || '';
-    const traiteIci = etatActuel?.etat?.dernierJourTraite;
-    if (traiteIci && (!etat.etat.dernierJourTraite || etat.etat.dernierJourTraite < traiteIci)) etat.etat.dernierJourTraite = traiteIci;
+    garderDuTelephone(etat, etatActuel);
     try { S.verifier(etat, C); } catch (x) { return { ok: false, message: 'Cette copie est abîmée, rien n\'a été changé.' }; }
     return { ok: true, etat, apercu: S.resume(etat), actuel: S.resume(etatActuel) };
   };
