@@ -108,6 +108,7 @@
 - [x] 15a. Lecture iCal
 - [x] 15b. Cours du jour + « J'y étais » + examens
 - [x] 16. Événements aléatoires · [x] 17. Examens = boss · [x] 18. Bilan hebdomadaire · [x] 19. Import muscu
+- [x] Tâches « de la semaine » (5 étapes entre lundi et dimanche, n'importe quel jour) — demande de Gauthier, v1.8.0
 - [ ] 1b. Clé de signature + 4 secrets + 1er build + installation sur le Honor — **en tout dernier**
 - [ ] 🔁 Point de contrôle après 2-3 jours d'usage réel
 

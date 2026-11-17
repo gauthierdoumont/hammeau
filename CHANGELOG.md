@@ -1,5 +1,15 @@
 # Journal des versions — Hameau
 
+## 1.8.0 — 2026-11-17 · Tâches de la semaine
+- 📅 Nouveau type **Semaine** : « 5 étapes de Nanoblocks cette semaine », à faire les jours que tu veux, du lundi au dimanche.
+  Une le lundi, deux le jeudi, deux le dimanche : la semaine est bouclée.
+- 💎 Chaque étape rapporte tout de suite (la taille vaut pour chaque fois) ; semaine bouclée → 🎁 une étape offerte en bonus
+  (et la chance d'un coffre).
+- 💪 Tu peux dépasser ton objectif : chaque fois en plus rapporte encore, à moitié.
+- 🌱 Semaine pas bouclée : rien de perdu, le compteur repart à 0 le lundi.
+- 🔥 Une étape de la semaine compte pour ta série, comme une quotidienne faite.
+- ☀️ Lundi matin, tu peux encore noter une étape faite dimanche soir ; dimanche matin, un petit rappel dit ce qu'il reste pour boucler.
+
 ## 1.7.4 — 2026-11-16 · Agenda à l'abri des règles impossibles
 - 🛡️ Une répétition impossible dans un agenda (ex. « tous les 30 février ») ne fige plus l'appli : elle est lue comme
   un seul événement, et tout le reste de l'agenda s'affiche normalement.

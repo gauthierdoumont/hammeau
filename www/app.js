@@ -17,7 +17,7 @@ const Boss = window.Boss;
 const Bilan = window.Bilan;
 const Muscu = window.Muscu;
 const CLE = S.CLE;
-const NOMS_TYPES = { quotidienne: '🔁 Quotidiennes', imprevu: '⚡ Imprévus', bonus: '⭐ Bonus' };
+const NOMS_TYPES = { quotidienne: '🔁 Quotidiennes', semaine: '📅 Cette semaine', imprevu: '⚡ Imprévus', bonus: '⭐ Bonus' };
 const JOURS_COURTS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const JOURS_NOMS = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'];
 
@@ -622,7 +622,7 @@ function ouvrirAjout(tache = null) {
     type: tache?.type ?? C.taches.defauts.type,
     taille: tache?.taille ?? C.taches.defauts.taille,
     jours: [...(tache?.jours ?? T.TOUS_LES_JOURS)],
-    objectif: !!tache?.objectif
+    objectif: !!tache?.objectif && tache.type !== 'semaine'   // pour une tâche de la semaine, l'objectif a ses propres champs
   };
   const f = document.getElementById('form-ajout');
   f.reset();
@@ -631,9 +631,10 @@ function ouvrirAjout(tache = null) {
     champ('ajout-nom', tache.nom);
     champ('ajout-echeance', tache.echeance);
     document.getElementById('ajout-important').checked = !!tache.important;
-    document.getElementById('ajout-objectif').checked = !!tache.objectif;
-    champ('ajout-cible', tache.objectif?.cible);
-    champ('ajout-unite', tache.objectif?.unite);
+    document.getElementById('ajout-objectif').checked = saisie.objectif;
+    const semaine = tache.type === 'semaine';
+    champ(semaine ? 'ajout-semaine-cible' : 'ajout-cible', tache.objectif?.cible);
+    champ(semaine ? 'ajout-semaine-unite' : 'ajout-unite', tache.objectif?.unite);
   }
   document.getElementById('ajout-titre').textContent = tache ? 'Modifier la tâche' : 'Nouvelle tâche';
   document.getElementById('btn-supprimer').hidden = !tache;
@@ -691,7 +692,11 @@ function rendreAjout() {
   document.getElementById('choix-jours').replaceChildren(...JOURS_COURTS.map((j, i) => el('button', {
     type: 'button', 'data-jour': i + 1, 'aria-pressed': String(saisie.jours.includes(i + 1)), 'aria-label': JOURS_NOMS[i]
   }, j)));
-  document.getElementById('zone-objectif').hidden = !saisie.objectif;
+  // Tâche de la semaine : « Combien de fois ? » remplace l'objectif chiffré, et la taille vaut pour chaque fois
+  const semaine = saisie.type === 'semaine';
+  document.getElementById('ligne-objectif').hidden = semaine;
+  document.getElementById('zone-objectif').hidden = semaine || !saisie.objectif;
+  document.getElementById('titre-taille').textContent = semaine ? 'Taille de chaque fois' : 'Taille';
 }
 
 function blocGrille(titre, categories) {
@@ -716,7 +721,8 @@ function enregistrerTache() {
     jours: saisie.jours,
     echeance: val('ajout-echeance') || undefined,
     important: document.getElementById('ajout-important').checked,
-    objectif: saisie.objectif ? { cible: val('ajout-cible'), unite: val('ajout-unite') } : undefined
+    objectif: saisie.type === 'semaine' ? { cible: val('ajout-semaine-cible'), unite: val('ajout-semaine-unite') }
+      : saisie.objectif ? { cible: val('ajout-cible'), unite: val('ajout-unite') } : undefined
   };
   const ancienne = tacheEditee ? etat.taches.find(t => t.id === tacheEditee) : null;
   const r = ancienne ? T.modifierTache(ancienne, donnees, etat, C, maintenant().toISOString())
@@ -753,8 +759,16 @@ function cocher(tacheId, quantite = null) {
     if (!r.ok) throw refus(r.erreur);
   });
   if (!ok) return false;
-  retourGain(depart, r, avant, r.terminee ? 'Bien joué ✅' : `${Math.round(r.progression * 100)} % fait ✨`);
+  retourGain(depart, r, avant, r.semaine ? texteSemaine(r.semaine)
+    : r.terminee ? 'Bien joué ✅' : `${Math.round(r.progression * 100)} % fait ✨`);
   return true;
+}
+// Retour d'une étape de la semaine : où on en est, la semaine bouclée (bonus), ou le dépassement
+function texteSemaine(s) {
+  const compte = `${nombre(s.somme)} / ${nombre(s.cible)} ${s.unite}`;
+  if (s.boucle) return `🎁 Semaine bouclée ! ${compte} · bonus +${nombre(s.bonus)}`;
+  if (s.somme > s.cible) return `En plus de ta semaine 💪 ${compte}`;
+  return `${compte} cette semaine ✨`;
 }
 // Retour immédiat après un gain (tâche cochée, « J'y étais ») : le gain s'envole vers son compteur, vibration, son, Annuler
 function retourGain(depart, r, avant, texteFini) {
@@ -1037,7 +1051,7 @@ function montrerProchaine() {
   document.getElementById('prochaine-tache').replaceChildren(carte);
   document.getElementById('prochaine-carte').hidden = false;
   document.getElementById('btn-prochaine').hidden = true;
-  document.getElementById('btn-c-est-fait').textContent = t.objectif ? '➕ J\'avance' : '✅ C\'est fait';
+  document.getElementById('btn-c-est-fait').textContent = t.type === 'semaine' ? '➕ Une de plus' : t.objectif ? '➕ J\'avance' : '✅ C\'est fait';
 }
 function fermerProchaine() {
   prochaineId = null;
@@ -1072,13 +1086,18 @@ function rendreHier() {
   if (!Jours.hierOuvert(m, C) || Jours.enPause(etat.joueur, J.ajouterJours(jourActuel(), -1))) { zone.hidden = true; return; }
   const hier = J.ajouterJours(jourActuel(), -1);
   const restantes = Jours.quotidiennesPrevues(etat, hier, C).filter(t => M.progression(t, etat.journal, hier) < 1);
+  // Lundi matin : la semaine d'hier (dimanche) peut encore recevoir une étape faite hier soir
+  if (J.jourIso(hier) === 7) restantes.push(...etat.taches.filter(t => t.type === 'semaine' && !t.archivee && M.progression(t, etat.journal, hier) < 1));
   zone.hidden = !restantes.length;
   document.getElementById('liste-hier').replaceChildren(...restantes.map(t => {
     const cat = T.categorie(etat, t.categorieId);
+    const aide = t.type === 'semaine'
+      ? `Une de plus hier ? Touche la case (${nombre(M.bilan(t, etat.journal, hier).somme)} / ${nombre(t.objectif.cible)} ${t.objectif.unite})`
+      : 'Fait hier ? Touche la case';
     const ligne = el('div', { class: 'tache hier-tache' },
       el('button', { class: 'case', 'data-hier': t.id, 'aria-label': 'Fait hier : ' + t.nom }),
       el('span', { class: 'tache-corps' }, el('span', { class: 'tache-emoji', 'aria-hidden': 'true' }, cat?.emoji ?? '•'),
-        el('span', { class: 'tache-texte' }, el('span', { class: 'tache-nom' }, t.nom), el('small', {}, 'Fait hier ? Touche la case'))));
+        el('span', { class: 'tache-texte' }, el('span', { class: 'tache-nom' }, t.nom), el('small', {}, aide))));
     ligne.style.setProperty('--famille', cat ? `var(--${cat.familleId})` : '');
     return ligne;
   }));
@@ -1095,7 +1114,7 @@ function cocherHier(tacheId) {
   if (!ok) return;
   vibrer('LIGHT');
   window.Sons?.jouer('pieces');
-  proposerAnnulation(`Noté pour hier ✅ +${r.gain} XP`, avant);
+  proposerAnnulation(r.semaine?.boucle ? `Semaine d'hier bouclée 🎁 +${r.gain} XP` : `Noté pour hier ✅ +${r.gain} XP`, avant);
   if (r.coffre) celebrer({ type: 'coffre', coffre: r.coffre });
   if (r.niveauxGagnes) celebrer({ type: 'niveau', niveau: etat.joueur.niveau, gagnes: r.niveauxGagnes });
 }
@@ -1217,6 +1236,21 @@ function ouvrirSaisie(tacheId) {
   const reste = M.reste(t, b);
   document.getElementById('form-saisie').reset();
   document.getElementById('saisie-titre').textContent = t.nom;
+  if (t.type === 'semaine') {
+    // Nombre entier de fois ; « Tout le reste » boucle la semaine ; au-delà de l'objectif, ça rapporte encore (à moitié)
+    document.getElementById('saisie-info').textContent = `${nombre(b.somme)} / ${nombre(t.objectif.cible)} ${t.objectif.unite} cette semaine`
+      + (reste > 0 ? '' : ' · objectif atteint, chaque fois en plus rapporte encore 💪');
+    document.getElementById('saisie-question').textContent = `Combien de ${t.objectif.unite} en plus ?`;
+    document.getElementById('saisie-erreur').textContent = '';
+    const raccourcis = [1, 2, 3].filter(v => reste <= 0 || v < reste).map(v => el('button', { type: 'button', 'data-valeur': v }, `+${v}`));
+    if (reste > 0) raccourcis.push(el('button', { type: 'button', 'data-valeur': reste }, `Boucler la semaine (+${nombre(reste)})`));
+    document.getElementById('saisie-raccourcis').replaceChildren(...raccourcis);
+    document.getElementById('saisie-valeur').setAttribute('inputmode', 'numeric');
+    document.getElementById('feuille-saisie').showModal();
+    setTimeout(() => document.getElementById('saisie-valeur').focus(), 60);
+    return;
+  }
+  document.getElementById('saisie-valeur').setAttribute('inputmode', 'decimal');
   document.getElementById('saisie-info').textContent = `${nombre(Math.min(b.somme, t.objectif.cible))} / ${nombre(t.objectif.cible)} ${t.objectif.unite}`;
   document.getElementById('saisie-question').textContent = `Combien de ${t.objectif.unite} ?`;
   document.getElementById('saisie-erreur').textContent = '';
@@ -1497,7 +1531,7 @@ function rendreHistorique() {
     const jour = J.ajouterJours(auj, -i);
     const saisies = parJour.get(jour) || [];
     const xp = saisies.reduce((a, s) => a + (s.gains?.xp || 0), 0);
-    const finies = saisies.filter(s => s.progression >= 1).length;
+    const finies = saisies.filter(M.estTerminaison).length;
     const emojis = [...new Set(saisies.map(s => T.categorie(etat, Bilan.categorieDe(etat, s, C))?.emoji).filter(Boolean))].slice(0, 6);
     const nom = i === 0 ? 'Aujourd\'hui' : i === 1 ? 'Hier' : dateJourCourt(jour);
     const pause = Jours.enPause(etat.joueur, jour);
@@ -1527,7 +1561,7 @@ function rendreListes() {
   rendreTableau();
   const jour = jourActuel();
   const listes = M.listesDuJour(etat, jour, J.jourIso(jour));
-  const total = listes.quotidienne.length + listes.imprevu.length + listes.bonus.length;
+  const total = T.TYPES.reduce((a, type) => a + listes[type].length, 0);
   // Liste vide : message adapté (1re fois, tout fait aujourd'hui, ou rien de prévu) — jamais culpabilisant
   document.getElementById('aujourdhui-vide').hidden = total > 0;
   if (!total) {
@@ -1546,7 +1580,7 @@ function rendreListes() {
     if (!listes[type].length) continue;
     const faites = listes[type].filter(t => M.estFaite(t, listes.bilans.get(t.id))).length;
     blocs.push(el('h3', { class: 'intertitre' }, NOMS_TYPES[type],
-      type === 'quotidienne' ? el('span', { class: 'compte' + (faites === listes[type].length ? ' complet' : '') }, `${faites}/${listes[type].length}`) : ''));
+      type === 'quotidienne' || type === 'semaine' ? el('span', { class: 'compte' + (faites === listes[type].length ? ' complet' : '') }, `${faites}/${listes[type].length}`) : ''));
     for (const t of listes[type]) blocs.push(carteTache(t, listes.bilans.get(t.id)));
   }
   jourAffiche = jour;
@@ -1563,12 +1597,14 @@ function carteTache(t, bilan) {
   const progression = bilan.progression;
   const fait = M.estFaite(t, bilan);
   const details = [];
-  if (t.objectif) details.push(`${nombre(Math.min(bilan.somme, t.objectif.cible))} / ${nombre(t.objectif.cible)} ${t.objectif.unite}`);
+  const semaine = t.type === 'semaine';
+  if (semaine) details.push(`${nombre(bilan.somme)} / ${nombre(t.objectif.cible)} ${t.objectif.unite}` + (fait ? ' · semaine bouclée 🎁' : ` · ${resteSemaine()}`));
+  else if (t.objectif) details.push(`${nombre(Math.min(bilan.somme, t.objectif.cible))} / ${nombre(t.objectif.cible)} ${t.objectif.unite}`);
   if (t.type === 'quotidienne' && t.jours.length < 7) details.push(t.jours.map(j => JOURS_NOMS[j - 1]).join(', '));
   if (t.echeance) details.push('Pour le ' + dateEcheance(t.echeance));
   if (t.important) details.push('❗ Important');
 
-  const carte = el('div', { class: 'tache' + (fait ? ' fait' : '') + (t.id === derniereAjoutee ? ' nouvelle' : ''), 'data-tache': t.id });
+  const carte = el('div', { class: 'tache' + (fait && !semaine ? ' fait' : '') + (t.id === derniereAjoutee ? ' nouvelle' : ''), 'data-tache': t.id });
   carte.style.setProperty('--famille', cat ? `var(--${cat.familleId})` : '');
   const texte = el('span', { class: 'tache-texte' }, el('span', { class: 'tache-nom' }, t.nom), details.length ? el('small', {}, details.join(' · ')) : '');
   if (t.objectif) {
@@ -1576,18 +1612,26 @@ function carteTache(t, bilan) {
     barre.firstChild.style.width = `${progression * 100}%`;
     texte.append(barre);
   }
+  // Semaine : la case ajoute une fois (même bouclée : on peut dépasser), le « + » en ajoute plusieurs
+  const etiquetteCase = semaine ? 'Une de plus : ' + t.nom : (fait ? 'Fait : ' : 'Terminer : ') + t.nom;
   carte.append(
-    el('button', { class: 'case', 'data-cocher': t.id, 'aria-label': (fait ? 'Fait : ' : 'Terminer : ') + t.nom, ...(fait ? { disabled: '' } : {}) }),
+    el('button', { class: 'case', 'data-cocher': t.id, 'aria-label': etiquetteCase, ...(fait && !semaine ? { disabled: '' } : {}) }),
     el('button', { class: 'tache-corps', 'data-modifier': t.id, 'aria-label': 'Modifier : ' + t.nom },
       el('span', { class: 'tache-emoji', 'aria-hidden': 'true' }, cat?.emoji ?? '•'), texte)
   );
-  if (!fait) {
+  if (!fait || semaine) {
     const reste = M.gainRestant(t, bilan, C, M.multiplicateurs(t, etat, C, jourActuel(), cat?.familleId).total);
     const res = M.ressourceDe(cat, C);
     carte.append(el('span', { class: 'gain', 'aria-label': `rapporte ${reste}` }, `+${reste} ${res ? C.ressources.find(r => r.id === res).emoji : 'XP'}`));
     if (t.objectif) carte.append(el('button', { class: 'plus', 'data-saisir': t.id, 'aria-label': `Ajouter des ${t.objectif.unite}` }, '+'));
   }
+  if (semaine) carte.classList.toggle('semaine-bouclee', fait);
   return carte;
+}
+// « jusqu'à dimanche », « dernier jour 🎯 » : le temps qu'il reste dans la semaine, sans pression
+function resteSemaine() {
+  const jIso = J.jourIso(jourActuel());
+  return jIso === 7 ? 'dernier jour 🎯' : jIso === 6 ? 'jusqu\'à demain' : 'jusqu\'à dimanche';
 }
 
 function rendreCategories() {
@@ -1719,7 +1763,7 @@ document.getElementById('btn-pas-maintenant').addEventListener('click', () => { 
 document.getElementById('btn-c-est-fait').addEventListener('click', () => {
   const t = etat.taches.find(x => x.id === prochaineId);
   if (!t) return fermerProchaine();
-  if (t.objectif) return ouvrirSaisie(t.id);
+  if (t.objectif && t.type !== 'semaine') return ouvrirSaisie(t.id);
   if (cocher(t.id)) fermerProchaine();
 });
 document.getElementById('btn-reprendre').addEventListener('click', reprendre);

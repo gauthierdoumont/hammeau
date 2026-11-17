@@ -338,6 +338,7 @@ dialog::backdrop { background: var(--voile); }
 
 /* Choix segmentés (type, taille) et jours */
 .segments { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+#choix-type { grid-template-columns: repeat(2, 1fr); }   /* 4 types : 2 × 2, lisible même à 360 px */
 .segments button, .jours button, .familles button {
   min-height: var(--toucher); padding: 0 6px; border-radius: var(--rayon);
   background: var(--fond); border: 1px solid var(--bord); font-weight: 600; font-size: .9rem;
@@ -569,6 +570,8 @@ body.bloque main { padding-bottom: calc(var(--bas) + 24px); }
 .tache.fait .case::before { content: '✓'; background: var(--accent); border-color: var(--accent); box-shadow: 0 0 10px var(--lueur); }
 .tache.fait .tache-nom { opacity: .6; text-decoration: line-through; }
 .tache.fait .tache-emoji { opacity: .6; }
+/* Tâche de la semaine bouclée : coche dorée, mais la case reste touchable (on peut dépasser l'objectif) */
+.tache.semaine-bouclee .case::before { content: '✓'; background: var(--accent); border-color: var(--accent); box-shadow: 0 0 10px var(--lueur); }
 .tache-corps { background: none; border: 0; padding: 6px 0; text-align: left; display: flex; gap: 10px; align-items: center; min-height: var(--toucher); }
 .tache-texte { flex: 1; min-width: 0; }
 .mini { display: block; height: 5px; background: var(--surface-2); border-radius: 9px; margin-top: 6px; overflow: hidden; }

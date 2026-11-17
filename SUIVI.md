@@ -1,9 +1,16 @@
 # Suivi — Hameau
 
 ## Où on en est
-- Version : 1.7.4 · Données : **schéma v3** · Prochaine session : **1b** (clé de signature + 1er APK), puis point de contrôle · Dernière session : 2026-11-16
+- Version : 1.8.0 · Données : **schéma v3** · Prochaine session : **1b** (clé de signature + 1er APK), puis point de contrôle · Dernière session : 2026-11-17
 
 ## Dernière session
+- 2026-11-17 — Demande de Gauthier : **tâches de la semaine** (v1.8.0). Nouveau type `semaine` (« 5 étapes de Nanoblocks
+  cette semaine », n'importe quel jour du lundi au dimanche) : `T.creerTache` (objectif entier 1-14), `M.saisir` → `saisirSemaine`
+  (gain par étape, bonus à la saisie qui boucle, moitié au-delà), `M.compte` par semaine (`M.lundiDe`), série (`jours.js` étape 3),
+  `M.estTerminaison` (anti-farm, tempête, bilan, historique), section « 📅 Cette semaine », feuille « Combien de fois ? »,
+  lundi matin : étape notable pour dimanche, rappel du dimanche matin. Pas de migration (nouvelle valeur de type + champ
+  `semaine` facultatif dans les saisies). Testé : `npm test` (190, dont `tests/semaine.test.js`), `npm run e2e` (section 20).
+  Non testé : simulation de l'économie avec des tâches de la semaine (les profils n'en ont pas).
 - Fait : 2.0 rééquilibrage (v0.7.1, tests de coûts calculés depuis `CONFIG`) puis étape 8 (v1.0.0) : Sons / Vibrations,
   Sauvegardes automatiques + Restaurer, rappel d'export (carte sur Aujourd'hui), Vérifier les mises à jour (`@capacitor/browser`).
 - Étape 14 (v1.1.0) : rappels locaux (`www/notifications.js`, fonction pure testée), explication avant la permission,
@@ -47,7 +54,7 @@
 - (aucun)
 
 ## Retours de Gauthier à traiter
-- (aucun)
+- (aucun) — « pouvoir fixer pour la semaine » : fait en v1.8.0.
 
 ## Décisions (ne pas reposer la question)
 | Date | Décision | Pourquoi |
@@ -97,6 +104,7 @@
 | 2026-11-16 | Étape 19 : la source est son appli HTML muscu (format d'export à lire dans son dépôt) | Réponse de Gauthier |
 | 2026-11-16 | Import muscu : séances des 14 derniers jours (`muscu.joursMax`), muscu / express / élastique → Muscu, course → Course ; taille selon minutes ou km ; pas de coffre | Ne pas fausser l'équilibre du village avec des mois d'historique |
 | 2026-11-16 | Agenda : plafond d'une répétition en nombre de tours (20 000), pas en temps | Choix de Gauthier : résultat identique sur toutes les machines, tests stables pour GitHub |
+| 2026-11-17 | Tâche de la semaine : chaque étape rapporte + bonus (1 étape offerte) à 5/5 ; pas bouclée → rien ; dépasser → moitié ; compte pour la série ; taille = par étape ; 4e bouton « 📅 Semaine » ; rappel le dimanche matin | Choix de Gauthier (6 questions) |
 | 2026-11-15 | `joueur.xp` = XP dans le niveau en cours, `joueur.xpTotal` = cumul (champ ajouté) | Un changement de courbe ne fera jamais baisser un niveau |
 
 ## À faire plus tard (noté, hors étape)

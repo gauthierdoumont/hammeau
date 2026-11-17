@@ -1087,6 +1087,106 @@ function S_ok(e) { return e.schemaVersion === SCHEMA && new Set(e.taches.map(t =
   await ctx.close();
 }
 
+/* 20. Tâches de la semaine (demande de Gauthier, 2026-11-17) : 5 étapes entre lundi et dimanche, n'importe quel jour */
+{
+  const { ctx, page, erreurs, externes } = await nouvellePage(360);
+  const etat = () => page.evaluate(() => Appli.etat());
+  const changerJour = async (quand) => {
+    await page.evaluate(q => { localStorage.setItem('debug_maintenant', q); verifierNouveauJour(); rendre(); }, quand);
+    await pause(page);
+    // Message de retour (« Content de te revoir ») : on le ferme comme Gauthier le ferait
+    if (await page.isVisible('#dialogue[open]')) { await page.click('#dialogue-boutons .principal'); await pause(page); }
+  };
+  const ajouterSemaine = async (nom, categorie, cible, unite) => {
+    await page.click('#fab');
+    await page.fill('#ajout-nom', nom);
+    await page.click('#btn-options');
+    await page.click(`.tuile[data-categorie="${categorie}"]`);
+    await page.click('#choix-type [data-type="semaine"]');
+    await page.fill('#ajout-semaine-cible', cible);
+    await page.fill('#ajout-semaine-unite', unite);
+  };
+  await ajouterSemaine('Nanoblocks', 'nanoblocks', '5', 'étapes');
+  verifier(await page.isHidden('#ligne-objectif') && (await page.textContent('#titre-taille')) === 'Taille de chaque fois', 'semaine : objectif chiffré caché, taille « de chaque fois »');
+  verifier(!(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)), 'semaine : pas de défilement horizontal à 360 px');
+  await pause(page);
+  await page.screenshot({ path: 'tests/captures/semaine-ajout.png', fullPage: true });
+  await page.click('#btn-enregistrer');
+  await pause(page);
+  await ajouterSemaine('Courir', 'course', '3', '');
+  await page.click('#btn-enregistrer');
+  await pause(page);
+  let e = await etat();
+  const nano = e.taches.find(t => t.nom === 'Nanoblocks'), course = e.taches.find(t => t.nom === 'Courir');
+  verifier(nano?.type === 'semaine' && nano.objectif.cible === 5 && nano.objectif.unite === 'étapes' && course?.objectif.unite === 'fois', 'tâches de la semaine créées : ' + JSON.stringify(nano));
+  const texteListes = await page.textContent('#listes');
+  verifier(texteListes.includes('📅 Cette semaine') && texteListes.includes('0 / 5 étapes · jusqu\'à dimanche'), 'section « Cette semaine » : ' + texteListes);
+  verifier((await page.textContent(`.tache[data-tache="${nano.id}"] .gain`)).includes('+25 💎'), 'gain d\'une étape affiché');
+
+  // Lundi : une étape (la case)
+  await page.click(`[data-cocher="${nano.id}"]`);
+  await page.waitForTimeout(900);
+  e = await etat();
+  verifier(e.journal.length === 1 && e.joueur.ressources.cristaux === 25, 'lundi : 1 étape, +25 💎');
+  verifier((await page.textContent('#toast-texte')).includes('1 / 5 étapes cette semaine'), 'message : ' + await page.textContent('#toast-texte'));
+  await page.screenshot({ path: 'tests/captures/semaine-lundi.png' });
+
+  // Jeudi : 2 étapes d'un coup (le +)
+  await changerJour('2026-11-19T18:00:00+01:00');
+  await page.click(`[data-saisir="${nano.id}"]`);
+  await page.waitForSelector('#feuille-saisie[open]');
+  verifier((await page.textContent('#saisie-info')).includes('1 / 5 étapes cette semaine'), 'feuille : où on en est');
+  await page.fill('#saisie-valeur', '2');
+  await page.press('#saisie-valeur', 'Enter');
+  await page.waitForTimeout(900);
+  verifier((await page.textContent(`.tache[data-tache="${nano.id}"]`)).includes('3 / 5 étapes'), 'jeudi : 3 / 5');
+
+  // Dimanche : « Boucler la semaine (+2) » → bonus, puis une étape en plus (à moitié)
+  await changerJour('2026-11-22T18:00:00+01:00');
+  verifier((await page.textContent(`.tache[data-tache="${nano.id}"]`)).includes('dernier jour 🎯'), 'dimanche : dernier jour');
+  await page.click(`[data-saisir="${nano.id}"]`);
+  await page.waitForSelector('#feuille-saisie[open]');
+  await page.click('#saisie-raccourcis button:last-child');
+  await page.waitForTimeout(900);
+  e = await etat();
+  // Le niveau 2 tombe ici : son message passe avant « Semaine bouclée » (gradation des fêtes). Jeudi a validé un jour de
+  // série → les étapes du dimanche ont +5 % : attendus lus dans le journal, pas figés.
+  const boucle = e.journal.at(-1);
+  const toast = await page.textContent('#toast-texte');
+  verifier(boucle.semaine?.boucle && boucle.semaine.bonus > 0 && (toast.includes('Semaine bouclée') || toast.includes('Niveau')), 'semaine bouclée avec bonus : ' + JSON.stringify(boucle) + ' / ' + toast);
+  verifier(e.joueur.ressources.cristaux === 3 * 25 + boucle.gains.xp, '5 étapes + bonus : ' + e.joueur.ressources.cristaux);
+  if (await page.isVisible('#celebration')) { await page.click('[data-celebration-fermer]'); await pause(page); }   // niveau 2 atteint
+  verifier(await page.locator(`.tache.semaine-bouclee[data-tache="${nano.id}"]`).count() === 1
+    && await page.locator(`[data-cocher="${nano.id}"][disabled]`).count() === 0, 'bouclée : coche dorée, case encore touchable');
+  await page.click(`[data-cocher="${nano.id}"]`);
+  await page.waitForTimeout(900);
+  const avantPlus = e.joueur.ressources.cristaux;
+  e = await etat();
+  verifier(e.journal.at(-1).semaine?.enPlus === 1 && e.joueur.ressources.cristaux - avantPlus === Math.round(boucle.semaine.bonus / 2), 'une étape en plus : la moitié d\'une étape : ' + (e.joueur.ressources.cristaux - avantPlus));
+  verifier((await page.textContent('#toast-texte')).includes('En plus de ta semaine'), 'message du dépassement');
+  await page.screenshot({ path: 'tests/captures/semaine-bouclee.png' });
+
+  // Lundi suivant, 9 h : compteur à 0, « Courir » de la semaine passée encore notable pour hier (dimanche)
+  const moral = e.joueur.moral;
+  await changerJour('2026-11-23T09:00:00+01:00');
+  verifier((await page.textContent(`.tache[data-tache="${nano.id}"]`)).includes('0 / 5 étapes'), 'nouvelle semaine : 0 / 5');
+  verifier(await page.isVisible('#hier') && (await page.textContent('#liste-hier')).includes('Courir'), 'lundi matin : la semaine d\'hier reste ouverte');
+  await page.click(`[data-hier="${course.id}"]`);
+  await page.waitForTimeout(400);
+  e = await etat();
+  verifier(e.journal.at(-1).jour === '2026-11-22' && e.journal.at(-1).tacheId === course.id, 'étape notée pour hier (dimanche)');
+  verifier(e.joueur.moral >= moral, 'semaine pas bouclée : aucun moral perdu');
+
+  // Modifier : la feuille reprend l'objectif de la semaine
+  await page.click(`.tache[data-tache="${nano.id}"] .tache-corps`);
+  await page.waitForSelector('#feuille-ajout[open]');
+  verifier((await page.inputValue('#ajout-semaine-cible')) === '5' && (await page.inputValue('#ajout-semaine-unite')) === 'étapes', 'modification pré-remplie');
+  await page.click('#feuille-ajout [data-fermer]');
+  verifier(!externes.length, 'ressources externes (semaine) : ' + externes);
+  verifier(!erreurs.length, 'erreurs console (semaine) : ' + erreurs);
+  await ctx.close();
+}
+
 await nav.close(); serveur.close();
-console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso, cocher, village, construction, décorations, agrandir, réparer, coffre, fête, jours, prochaine action, perso, réglages, sauvegardes, rappel d\'export, mises à jour, rappels, agenda, cours du jour, surprises, boss, bilan, import muscu');
+console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso, cocher, village, construction, décorations, agrandir, réparer, coffre, fête, jours, prochaine action, perso, réglages, sauvegardes, rappel d\'export, mises à jour, rappels, agenda, cours du jour, surprises, boss, bilan, import muscu, tâches de la semaine');
 process.exit(echecs.length ? 1 : 0);

@@ -77,7 +77,15 @@ window.CONFIG = {
   /* ===== Gains (V1) ===== */
   tailles: { petite: 10, moyenne: 25, grosse: 50 },     // ↑ = plus d'XP et de ressources par tâche
   tailleObjectifParDefaut: 'moyenne',                   // taille utilisée pour un objectif chiffré
-  types: { quotidienne: 1, imprevu: 1.2, bonus: 1.25 }, // ↑ = ce type rapporte plus
+  types: { quotidienne: 1, semaine: 1, imprevu: 1.2, bonus: 1.25 }, // ↑ = ce type rapporte plus
+  /* Tâche « de la semaine » (ex. 5 étapes de Nanoblocks entre lundi et dimanche, n'importe quel jour) :
+   * la taille vaut pour CHAQUE étape ; rien de perdu si la semaine n'est pas bouclée (lundi, le compteur repart à 0). */
+  semaine: {
+    cibleMax: 14,          // ↑ = objectif hebdomadaire plus haut possible (et nombre max d'étapes notées d'un coup)
+    bonusEtapes: 1,        // semaine bouclée → bonus = N étapes offertes ; ↑ = boucler sa semaine rapporte plus
+    facteurEnPlus: 0.5,    // étapes au-delà de l'objectif : part du gain normal ; ↑ = dépasser rapporte plus
+    uniteDefaut: 'fois'    // unité si rien n'est écrit (« 3 / 5 fois »)
+  },
   serie: {
     parJour: 0.05,        // ↑ = chaque jour de série augmente plus les gains
     max: 0.5,             // ↑ = plafond du bonus de série plus haut

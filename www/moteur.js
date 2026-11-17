@@ -23,7 +23,10 @@
    * → {type, serie, batiment, repos, antiFarm, total} pour une tâche, un jour donné, dans l'état actuel.
    * Anti-farm : au-delà de C.antiFarm.seuil tâches TERMINÉES dans le même jour logique, gains × facteur.
    */
-  M.terminesDuJour = (journal, jour) => journal.filter(s => s.jour === jour && s.progression >= 1).length;
+  // Une saisie « termine » une tâche quand elle la passe à 100 %. Tâche de la semaine : seulement la saisie qui boucle
+  // la semaine (les étapes en plus, déjà à 100 %, ne comptent pas une 2e fois : anti-farm, tempête, bilan).
+  M.estTerminaison = (s) => s.progression >= 1 && (!s.semaine || !!s.semaine.boucle);
+  M.terminesDuJour = (journal, jour) => journal.filter(s => s.jour === jour && M.estTerminaison(s)).length;
   M.multiplicateurs = function (tache, etat, C, jour, familleId) {
     const type = C.types[tache.type] ?? 1;
     const serie = 1 + Math.min(C.serie.max, (etat.joueur?.serie?.jours || 0) * C.serie.parJour);
@@ -85,13 +88,25 @@
     return C.familles.find(f => f.id === categorie?.familleId)?.ressource ?? null;
   };
 
+  /* ===== SEMAINE (lundi → dimanche) ===== */
+  // Lundi de la semaine d'un jour « AAAA-MM-JJ » (calcul en UTC : pas d'heure d'été)
+  M.lundiDe = function (jour) {
+    const [a, m, j] = jour.split('-').map(Number);
+    const d = new Date(Date.UTC(a, m - 1, j));
+    d.setUTCDate(d.getUTCDate() - (d.getUTCDay() + 6) % 7);
+    return d.toISOString().slice(0, 10);
+  };
+  M.memeSemaine = (a, b) => !!a && !!b && M.lundiDe(a) === M.lundiDe(b);
+
   /* ===== PROGRESSION =====
    * Quotidienne : seulement les saisies du jour logique (elle ne rapporte qu'une fois par jour).
+   * Semaine : les saisies de la même semaine (lundi → dimanche) que le jour demandé, depuis `depuis` si la tâche a changé.
    * Imprévu / bonus : toutes les saisies depuis la création, ou depuis `depuis` si la tâche a changé de nature.
    */
   M.compte = function (tache, saisie, jour) {
     if (saisie.tacheId !== tache.id) return false;
     if (tache.type === 'quotidienne') return saisie.jour === jour;
+    if (tache.type === 'semaine') return M.memeSemaine(saisie.jour, jour) && (!tache.depuis || saisie.horodatage >= tache.depuis);
     return !tache.depuis || saisie.horodatage >= tache.depuis;
   };
 
@@ -128,11 +143,15 @@
 
   M.progression = (tache, journal, jour) => M.bilan(tache, journal, jour).progression;
 
-  // Une quotidienne est « faite » pour la journée ; un imprévu / bonus terminé est archivé
-  M.estFaite = (tache, bilan) => tache.type === 'quotidienne' ? bilan.progression >= 1 : !!tache.archivee;
+  // Une quotidienne est « faite » pour la journée, une tâche de la semaine pour la semaine ; un imprévu / bonus terminé est archivé
+  M.estFaite = (tache, bilan) => tache.type === 'quotidienne' || tache.type === 'semaine' ? bilan.progression >= 1 : !!tache.archivee;
 
-  // Ce qu'il reste à gagner sur la tâche (affiché sur la carte : « +25 📜 »)
-  M.gainRestant = (tache, bilan, C, facteur = 1) => Math.max(0, Math.round(M.brut(tache, C, facteur)) - bilan.deja);
+  // Ce qu'il reste à gagner sur la tâche (affiché sur la carte : « +25 📜 »).
+  // Semaine : gain de la PROCHAINE étape (moitié au-delà de l'objectif), bonus de fin de semaine non compté.
+  M.gainRestant = function (tache, bilan, C, facteur = 1) {
+    if (tache.type === 'semaine') return Math.round(M.brut(tache, C, facteur) * (bilan.progression >= 1 ? C.semaine.facteurEnPlus : 1));
+    return Math.max(0, Math.round(M.brut(tache, C, facteur)) - bilan.deja);
+  };
 
   // Quantité qu'il reste à faire pour un objectif chiffré
   M.reste = (tache, bilan) => tache.objectif ? arrondi(Math.max(0, tache.objectif.cible - bilan.somme)) : 0;
@@ -163,6 +182,7 @@
     const tache = etat.taches.find(t => t.id === tacheId);
     if (!tache || tache.archivee) return { ok: false, erreur: 'Tâche introuvable.' };
     const categorie = etat.categories.find(c => c.id === tache.categorieId);
+    if (tache.type === 'semaine') return saisirSemaine(etat, tache, categorie, quantite, ctx, C);
     const b = M.bilan(tache, etat.journal, ctx.jour);
     // Le texte suit le jour coché (ctx.veille = coche « fait hier ») : sinon on lirait « aujourd'hui » pour hier
     if (tache.type === 'quotidienne' && b.progression >= 1) return { ok: false, erreur: ctx.veille ? 'Déjà noté pour hier ✅' : 'Déjà fait aujourd\'hui ✅' };
@@ -197,6 +217,47 @@
     const defi = M.releverDefi(etat, ctx.jour);
     return { ok: true, gain, ressource, progression: apres, terminee, niveauxGagnes: niv.niveauxGagnes, multiplicateurs: mult, coffre, defi };
   };
+
+  /* ===== SAISIE D'UNE TÂCHE DE LA SEMAINE =====
+   * quantite = null → une étape ; sinon nombre ENTIER d'étapes (1 à C.semaine.cibleMax). Jamais refusée parce que
+   * l'objectif est atteint : on peut le dépasser. Gain calculé à CHAQUE saisie (pas « total − déjà ») :
+   *   étapes dans l'objectif × gain d'une tâche de cette taille (tous multiplicateurs du jour)
+   * + étapes en plus × C.semaine.facteurEnPlus
+   * + bonus (C.semaine.bonusEtapes étapes offertes) à la saisie qui boucle la semaine, avec la chance de coffre et le moral.
+   * Journal : semaine = {boucle, bonus, enPlus} (sert à M.estTerminaison et à l'historique).
+   */
+  function saisirSemaine(etat, tache, categorie, quantite, ctx, C) {
+    const n = quantite === null || quantite === undefined ? 1 : Number(quantite);
+    if (!Number.isInteger(n) || n < 1) return { ok: false, erreur: 'Entre un nombre entier plus grand que 0.' };
+    if (n > C.semaine.cibleMax) return { ok: false, erreur: `${C.semaine.cibleMax} au maximum d'un coup.` };
+    const cible = tache.objectif?.cible || 1;
+    const b = M.bilan(tache, etat.journal, ctx.jour);
+    const dansObjectif = Math.min(n, Math.max(0, cible - b.somme));
+    const enPlus = n - dansObjectif;
+    const boucle = b.progression < 1 && b.somme + n >= cible - 1e-9;
+    const familleId = categorie?.familleId;
+    const mult = M.multiplicateurs(tache, etat, C, ctx.jour, familleId);
+    const parEtape = M.brut(tache, C, mult.total);
+    const bonus = boucle ? Math.round(parEtape * C.semaine.bonusEtapes) : 0;
+    const gain = Math.max(0, Math.round(parEtape * (dansObjectif + enPlus * C.semaine.facteurEnPlus)) + bonus);
+    const somme = arrondi(b.somme + n);
+    const apres = finaliser(tache, somme, 0).progression;
+    const ressource = M.ressourceDe(categorie, C);
+    const coffre = boucle ? M.tirerCoffre(ctx.rng, C) : null;
+    const entree = {
+      id: ctx.id, tacheId: tache.id, horodatage: ctx.horodatage, jour: ctx.jour, valeur: n,
+      progression: apres, gains: { xp: gain, ressource, quantite: ressource ? gain : 0 },
+      semaine: { boucle, bonus, enPlus }
+    };
+    if (coffre) entree.coffre = coffre;
+    etat.journal.push(entree);
+    const niv = crediter(etat, gain, ressource, categorie ? familleId : null, coffre, boucle, C);
+    const defi = M.releverDefi(etat, ctx.jour);
+    return {
+      ok: true, gain, ressource, progression: apres, terminee: boucle, niveauxGagnes: niv.niveauxGagnes, multiplicateurs: mult, coffre, defi,
+      semaine: { somme, cible, unite: tache.objectif?.unite, boucle, bonus, enPlus }
+    };
+  }
 
   // Ajoute un gain au joueur (XP, niveau, ressource, stats, coffre, moral). Partagé par saisir et jYEtais.
   function crediter(etat, gain, ressource, familleId, coffre, vientDeFinir, C) {
@@ -281,6 +342,7 @@
     const fait = t => (bilans.get(t.id).progression >= 1 ? 1 : 0);
     return {
       quotidienne: prevues.sort((a, b) => fait(a) - fait(b) || parCreation(a, b)),
+      semaine: actives.filter(t => t.type === 'semaine').sort((a, b) => fait(a) - fait(b) || parCreation(a, b)),
       autresJours: quotidiennes.length - prevues.length,
       imprevu: actives.filter(t => t.type === 'imprevu').sort(M.ordreImprevus),
       bonus: actives.filter(t => t.type === 'bonus').sort(parCreation),
@@ -290,7 +352,8 @@
 
   /* ===== PROCHAINE ACTION (étape 7, CLAUDE.md §7) =====
    * UNE seule tâche, dans cet ordre : imprévu avec échéance (la plus proche) → quotidienne prévue non faite
-   * (la plus petite) → imprévu sans échéance (le plus ancien) → bonus (le plus ancien).
+   * (la plus petite) → tâche de la semaine pas encore bouclée (la plus en retard : il reste le plus d'étapes)
+   * → imprévu sans échéance (le plus ancien) → bonus (le plus ancien).
    * ignorees = Set d'ids écartés par « Pas maintenant » ; tout écarté → on recommence au début.
    */
   const ORDRE_TAILLE = { petite: 0, moyenne: 1, grosse: 2 };
@@ -301,9 +364,12 @@
       .sort((a, b) => a.echeance.localeCompare(b.echeance) || parCreation(a, b));
     const quotidiennes = actives.filter(t => t.type === 'quotidienne' && (t.jours || []).includes(jourIso) && pasFaite(t))
       .sort((a, b) => (ORDRE_TAILLE[a.taille] ?? 1) - (ORDRE_TAILLE[b.taille] ?? 1) || parCreation(a, b));
+    const resteSemaine = t => M.reste(t, M.bilan(t, etat.journal, jour));
+    const semaine = actives.filter(t => t.type === 'semaine' && pasFaite(t))
+      .sort((a, b) => resteSemaine(b) - resteSemaine(a) || parCreation(a, b));
     const sansEcheance = actives.filter(t => t.type === 'imprevu' && !t.echeance).sort(parCreation);
     const bonus = actives.filter(t => t.type === 'bonus').sort(parCreation);
-    return [...avecEcheance, ...quotidiennes, ...sansEcheance, ...bonus];
+    return [...avecEcheance, ...quotidiennes, ...semaine, ...sansEcheance, ...bonus];
   };
   M.prochaineAction = function (etat, jour, jourIso, ignorees = new Set()) {
     const candidats = M.candidatsProchaineAction(etat, jour, jourIso);

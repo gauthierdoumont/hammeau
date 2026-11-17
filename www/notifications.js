@@ -3,6 +3,7 @@
  * La programmation réelle (plugin @capacitor/local-notifications) est dans app.js : tout est recalculé
  * à chaque ouverture et à chaque changement (tâche cochée…), sinon le message du soir serait périmé.
  *
+ * Dimanche matin : en plus, les tâches de la semaine pas encore bouclées (bonus à la clé).
  * IDs fixes : 1+i matin · 100+i soir (i = jour 0 à joursAvance − 1) · 1000+ veilles d'échéance · 9999 test.
  * Heures acceptées : de la bascule du jour logique (4 h) à 23:59, sinon le rappel tomberait sur le mauvais jour.
  * Ton : toujours un gain à prendre, jamais un reproche. Rien pendant une pause.
@@ -30,14 +31,33 @@
     return Jours.quotidiennesPrevues(etat, jour, C).filter(t => M.progression(t, etat.journal, jour) < 1);
   }
 
+  // Tâches de la semaine pas encore bouclées (semaine du jour donné)
+  function semainesOuvertes(etat, jour) {
+    return etat.taches.filter(t => !t.archivee && t.type === 'semaine' && M.progression(t, etat.journal, jour) < 1);
+  }
+  // Dimanche matin (choix de Gauthier) : ce qui reste pour boucler la semaine, formulé en gain. Toujours précis :
+  // chaque étape notée reprogramme les rappels, le compte ne peut donc pas être périmé.
+  function ligneDimanche(etat, jour) {
+    if (J.jourIso(jour) !== 7) return null;
+    const ouvertes = semainesOuvertes(etat, jour);
+    if (!ouvertes.length) return null;
+    if (ouvertes.length > 1) return `🎁 ${ouvertes.length} tâches de la semaine à boucler`;
+    const t = ouvertes[0];
+    const reste = M.reste(t, M.bilan(t, etat.journal, jour));
+    return `🎁 « ${t.nom} » : encore ${reste} ${t.objectif.unite} pour boucler ta semaine`;
+  }
+
   // Matin : programme du jour (précis pour aujourd'hui et demain, générique ensuite)
   function texteMatin(etat, jour, precis, C) {
+    const dimanche = ligneDimanche(etat, jour);
+    if (!precis && dimanche) return { title: '☀️ Dernier jour de la semaine', body: dimanche + ' — un bonus t\'attend !' };
     if (!precis) return { title: '☀️ Ton hameau t\'attend', body: 'Chaque tâche cochée aujourd\'hui fait grandir ton village.' };
     const q = Jours.quotidiennesPrevues(etat, jour, C).length;
     const ech = echeances(etat).filter(t => t.echeance === jour);
     const morceaux = [];
     if (q) morceaux.push(pluriel(q, 'quotidienne'));
     if (ech.length) morceaux.push(ech.length === 1 ? `📌 « ${ech[0].nom} » pour aujourd'hui` : `📌 ${ech.length} échéances aujourd'hui`);
+    if (dimanche) morceaux.push(dimanche);
     if (!morceaux.length) return { title: '☀️ Journée libre', body: 'Un petit bonus pour ton hameau ? Tout compte 🌱' };
     return { title: '☀️ Ton programme du jour', body: morceaux.join(' · ') + ' — à toi de jouer !' };
   }

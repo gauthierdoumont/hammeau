@@ -58,12 +58,18 @@ Navigation : barre d'onglets en bas. Bouton retour Android = écran précédent.
 **Ajout express** : taper le nom → **Enregistrer**. Valeurs par défaut : catégorie = dernière utilisée, type = imprévu, taille = moyenne. Un bouton « Plus d'options » déplie :
 - **Catégorie** (grille d'icônes, favoris en haut)
 - **Type** : `quotidienne` (jours de la semaine, tous par défaut) · `imprévu` (échéance facultative + case « important ») · `bonus`
+  · `semaine` (ajouté en v1.8.0, demande de Gauthier) : « N fois cette semaine » (ex. 5 étapes de Nanoblocks), à faire n'importe quel jour du lundi au dimanche
 - **Taille** : petite / moyenne / grosse, OU **objectif chiffré** (cible + unité : 20 pages, 30 minutes…)
 
 Règles :
 - Progression partielle : saisir « 10 » sur un objectif de 20 → 50 % des gains. Plusieurs saisies par jour s'additionnent, plafond 100 %.
 - Une quotidienne ne rapporte qu'une fois par jour logique. Un imprévu ou bonus terminé est archivé.
 - **Saisie pour la veille** possible jusqu'à midi (« Je l'ai fait hier »).
+- **Tâche de la semaine** (choix de Gauthier, 2026-11-17) : objectif = nombre entier de fois (1 à `semaine.cibleMax`), la taille vaut
+  pour **chaque** fois ; chaque étape rapporte tout de suite ; semaine bouclée → bonus (`semaine.bonusEtapes` étape offerte, chance de coffre,
+  moral +1) ; dépasser l'objectif rapporte encore, à moitié (`semaine.facteurEnPlus`) ; pas bouclée le dimanche → **rien de perdu**,
+  le compteur repart à 0 le lundi ; une étape compte comme une quotidienne faite pour la **série** (un jour avec seulement une étape
+  trop petite reste neutre) ; lundi matin, la semaine d'hier peut encore recevoir une étape ; rappel doux le **dimanche matin**.
 
 ## 5. Moteur de récompenses (valeurs de départ dans `config.js`, à ajuster après test)
 

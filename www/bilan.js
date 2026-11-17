@@ -38,7 +38,7 @@
       const i = index.get(s.jour);
       if (i === undefined) continue;
       jours[i].xp += xp;
-      if (s.progression >= 1) jours[i].taches++;
+      if (s.progression >= 1 && (!s.semaine || s.semaine.boucle)) jours[i].taches++;   // étapes en plus d'une tâche de la semaine : pas une 2e tâche finie
       const f = familleDe(etat, s, C);
       if (f && xp) familles.set(f, (familles.get(f) || 0) + xp);
     }

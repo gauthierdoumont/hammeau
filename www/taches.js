@@ -6,7 +6,7 @@
   'use strict';
   const T = {};
 
-  T.TYPES = ['quotidienne', 'imprevu', 'bonus'];
+  T.TYPES = ['quotidienne', 'semaine', 'imprevu', 'bonus'];   // ordre des sections sur Aujourd'hui
   T.TOUS_LES_JOURS = [1, 2, 3, 4, 5, 6, 7];   // 1 = lundi … 7 = dimanche
 
   /* ===== FAMILLES ET CATÉGORIES ===== */
@@ -50,6 +50,8 @@
 
   /* ===== CRÉATION D'UNE TÂCHE =====
    * saisie = {nom, categorieId, type, taille, objectif?{cible, unite}, jours?[], echeance?, important?}
+   * Type « semaine » : objectif obligatoire = nombre ENTIER d'étapes sur la semaine (1 à C.semaine.cibleMax),
+   * unité facultative (C.semaine.uniteDefaut) ; la taille vaut pour chaque étape (voir Moteur.saisir).
    * → {ok: true, tache} ou {ok: false, erreur}
    */
   T.creerTache = function (saisie, etat, C, id, creeLe) {
@@ -65,7 +67,14 @@
 
     const tache = { id, nom, categorieId: saisie.categorieId, type, taille, incendieApplique: false, creeLe, archivee: false };
 
-    if (saisie.objectif) {
+    if (type === 'semaine') {
+      const cible = Number(String(saisie.objectif?.cible ?? '').replace(',', '.'));
+      const max = C.semaine.cibleMax;
+      if (!Number.isInteger(cible) || cible < 1 || cible > max) return non(`Combien de fois cette semaine ? Un nombre entier de 1 à ${max}.`);
+      const unite = nettoyer(saisie.objectif?.unite) || C.semaine.uniteDefaut;
+      if (unite.length > C.taches.uniteMax) return non('Unité trop longue.');
+      tache.objectif = { cible, unite };
+    } else if (saisie.objectif) {
       const cible = Number(String(saisie.objectif.cible ?? '').replace(',', '.'));
       const unite = nettoyer(saisie.objectif.unite);
       if (!(cible > 0) || !Number.isFinite(cible)) return non('L\'objectif doit être un nombre plus grand que 0.');

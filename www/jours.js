@@ -9,7 +9,10 @@
  *  1. jour couvert par une pause → rien (les échéances importantes arrivées sont marquées traitées, sans feu)
  *  2. quotidiennes prévues et non faites → moral −5 chacune (min 0)
  *  3. série : jour sans quotidienne prévue = neutre ; sinon validé si ≥ 1 quotidienne faite ET ≥ xpMinJour XP ;
- *     non validé → joker s'il en reste, sinon série = 0
+ *     non validé → joker s'il en reste, sinon série = 0.
+ *     Une étape d'une tâche de la semaine compte comme une quotidienne faite (choix de Gauthier, 2026-11-17) ;
+ *     un jour avec seulement une étape de la semaine valide la série s'il atteint xpMinJour, sinon il reste neutre.
+ *     Tâche de la semaine pas bouclée le dimanche → rien (le compteur repart à 0 le lundi).
  *  4. imprévu « important » à l'échéance dépassée → incendie, UNE seule fois par tâche (jamais si l'échéance tombait en pause) :
  *     un bâtiment au hasard est endommagé ; sans bâtiment, perte de 20 % de la ressource (max 50)
  * Limite : « hier » n'est traité qu'après midi (on peut encore dire « je l'ai fait hier » le matin).
@@ -72,11 +75,13 @@
       j.moral = Math.max(C.moral.min, j.moral + nonFaites * C.moral.quotidienneNonFaite);
       if (j.moral !== avant) evenements.push({ jour, type: 'moral', avant: { moral: avant }, perte: avant - j.moral, nonFaites });
     }
-    if (prevues.length > 0) {                                                         // 3. série
+    const etapeSemaine = e.journal.some(s => s.jour === jour && s.semaine);
+    if (prevues.length > 0 || etapeSemaine) {                                         // 3. série
       const xpJour = e.journal.filter(s => s.jour === jour).reduce((a, s) => a + (s.gains?.xp || 0), 0);
-      const valide = faites.length >= 1 && xpJour >= C.serie.xpMinJour;
+      const valide = (faites.length >= 1 || etapeSemaine) && xpJour >= C.serie.xpMinJour;
       const avant = { serie: j.serie.jours, joker: j.serie.joker };
       if (valide) j.serie.jours++;
+      else if (prevues.length === 0) { /* seulement une étape de la semaine : jamais de perte, jour neutre */ }
       else if (j.serie.joker > 0) { j.serie.joker--; evenements.push({ jour, type: 'joker', avant }); }
       else if (j.serie.jours > 0) { j.serie.jours = 0; evenements.push({ jour, type: 'serie', avant }); }
     }

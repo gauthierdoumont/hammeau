@@ -543,12 +543,21 @@
         <h3 class="intertitre">Type</h3>
         <div class="segments" id="choix-type" role="radiogroup" aria-label="Type">
           <button type="button" data-type="quotidienne">🔁 Quotidienne</button>
+          <button type="button" data-type="semaine">📅 Semaine</button>
           <button type="button" data-type="imprevu">⚡ Imprévu</button>
           <button type="button" data-type="bonus">⭐ Bonus</button>
         </div>
         <div class="sous-options" data-pour="quotidienne">
           <p class="discret">Les jours où elle revient :</p>
           <div class="jours" id="choix-jours"></div>
+        </div>
+        <div class="sous-options" data-pour="semaine">
+          <p class="discret">Les jours que tu veux, entre lundi et dimanche. Lundi, le compteur repart à zéro.</p>
+          <span class="etiquette-champ">Combien de fois cette semaine ?</span>
+          <div class="objectif">
+            <input class="champ" id="ajout-semaine-cible" type="text" inputmode="numeric" placeholder="5" aria-label="Combien de fois cette semaine">
+            <input class="champ" id="ajout-semaine-unite" type="text" placeholder="étapes" maxlength="20" aria-label="Unité (facultatif)">
+          </div>
         </div>
         <div class="sous-options" data-pour="imprevu">
           <label class="etiquette-champ">Pour quand ? (facultatif)
@@ -560,13 +569,13 @@
           <p class="discret">Un petit plus, à faire quand tu en as envie.</p>
         </div>
 
-        <h3 class="intertitre">Taille</h3>
+        <h3 class="intertitre" id="titre-taille">Taille</h3>
         <div class="segments" id="choix-taille" role="radiogroup" aria-label="Taille">
           <button type="button" data-taille="petite">Petite</button>
           <button type="button" data-taille="moyenne">Moyenne</button>
           <button type="button" data-taille="grosse">Grosse</button>
         </div>
-        <label class="case-a-cocher"><input type="checkbox" id="ajout-objectif"> Objectif chiffré</label>
+        <label class="case-a-cocher" id="ligne-objectif"><input type="checkbox" id="ajout-objectif"> Objectif chiffré</label>
         <div class="objectif" id="zone-objectif" hidden>
           <input class="champ" id="ajout-cible" type="text" inputmode="decimal" placeholder="20" aria-label="Objectif">
           <input class="champ" id="ajout-unite" type="text" placeholder="pages" maxlength="20" aria-label="Unité">
