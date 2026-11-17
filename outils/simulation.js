@@ -21,6 +21,9 @@ const PROFILS = {
   intense:  { taches: 12, actifs: 0.95 },
 };
 const [profilArg = 'tous', joursArg = '200', grainesArg = '20'] = process.argv.slice(2);
+// Tâches de la semaine (v1.8.0) : SIM_SEMAINE=0.2 → 20 % des tâches faites sont une étape d'une tâche de la semaine
+// (5 fois par semaine, moyenne, une par famille). Même effort qu'avant : seule la façon de compter change (bonus, dépassement à moitié).
+const PART_SEMAINE = Number(process.env.SIM_SEMAINE) || 0;
 const JOURS = +joursArg, GRAINES = +grainesArg;
 
 function mulberry32(a) { return function () {
@@ -41,11 +44,23 @@ function simuler(profil, graine) {
   const jalons = { niveau: {}, mairie: {}, tout5: null };
   const goulot = {};
   let joursAntiFarm = 0, id = 0, x = 0;
+  // Une tâche de la semaine (5 fois) par famille qui rapporte une ressource : toutes les ressources restent nourries
+  // (deux tâches dans deux familles seulement ralentissaient le village : 154 j au lieu de 125, faute de pierre et de bois)
+  const semaines = PART_SEMAINE ? C.familles.filter(f => f.ressource).map((f, i) => {
+    const t = T.creerTache({ nom: 'Semaine ' + i, categorieId: catParFamille[f.id], type: 'semaine', objectif: { cible: 5 } }, e, C, 'sem' + i, jourDe(0)).tache;
+    e.taches.push(t);
+    return t;
+  }) : [];
   for (let i = 0; i < JOURS; i++) {
     const jour = jourDe(i);
     let xpJour = 0;
     if (rng() < profil.actifs) {
       for (let k = 0; k < profil.taches; k++) {
+        if (semaines.length && rng() < PART_SEMAINE) {
+          const t = semaines[Math.floor(rng() * semaines.length)];
+          xpJour += M.saisir(e, t.id, null, { id: 's' + (++id), horodatage: jour, jour, rng }, C).gain;
+          continue;
+        }
         const famille = C.familles[Math.floor(rng() * C.familles.length)].id;
         const s = { nom: 't', categorieId: catParFamille[famille],
           type: choisir(rng, [['quotidienne', 50], ['imprevu', 35], ['bonus', 15]]),
@@ -54,7 +69,7 @@ function simuler(profil, graine) {
         e.taches.push(t);
         const r = M.saisir(e, t.id, null, { id: 's' + id, horodatage: jour, jour, rng }, C);
         xpJour += r.gain;
-        e.taches.pop();                         // la liste reste courte (le journal garde tout)
+        e.taches.splice(e.taches.indexOf(t), 1);   // la liste reste courte (le journal garde tout)
       }
       if (M.terminesDuJour(e.journal, jour) > C.antiFarm.seuil) joursAntiFarm++;
     }
@@ -98,7 +113,7 @@ for (const [nom, profil] of Object.entries(PROFILS)) {
     `${NIVEAUX_MAIRIE.map(n => m(r => r.jalons.mairie[n])).join(' / ')} | ${m(r => r.jalons.tout5)} | ` +
     `${Object.entries(goulots).sort((a, b) => b[1] - a[1])[0][0]} | ${Math.round(mediane(runs.map(r => r.antiFarm)) * 100)} % |`);
 }
-console.log(`Simulation sur ${JOURS} jours, ${GRAINES} graines, médianes (en jours) :\n`);
+console.log(`Simulation sur ${JOURS} jours, ${GRAINES} graines, médianes (en jours)${PART_SEMAINE ? `, ${Math.round(PART_SEMAINE * 100)} % d'étapes de la semaine` : ''} :\n`);
 console.log(`| Profil | ${NIVEAUX_CHEF.map((n, i) => (i ? 'niv. ' : 'Chef niv. ') + n).join(' | ')} | Mairie ${NIVEAUX_MAIRIE.join(' / ')} | Tout niveau ${NIV_MAX} | Ressource goulot | Jours anti-farm |`);
 console.log('|' + '---|'.repeat(NIVEAUX_CHEF.length + 5));
 console.log(lignes.join('\n'));

@@ -190,8 +190,35 @@
     });
   };
 
+  /* Un seul événement abîmé (ex. RRULE:…;BYYEARDAY=367) fait échouer ICAL.parse sur TOUT le fichier.
+   * Dans ce cas seulement, on relit chaque VEVENT à part (avec l'en-tête et les fuseaux) et on écarte les illisibles.
+   * → {texte (lisible), ignores (nombre d'événements écartés)} ; erreur relancée si le problème n'est pas dans un événement.
+   */
+  Cal.sansEvenementsIllisibles = function (txt, ICAL) {
+    let erreur;
+    try { ICAL.parse(txt); return { texte: txt, ignores: 0 }; } catch (x) { erreur = x; }
+    const hors = [], blocs = [];
+    let bloc = null;
+    for (const l of String(txt).split(/\r?\n/)) {
+      // Événement jamais fermé : il s'arrête au prochain événement ou à la fin de l'agenda (écarté comme illisible)
+      if (bloc && /^(BEGIN:VEVENT|END:VCALENDAR)\s*$/i.test(l)) { blocs.push(bloc); bloc = null; }
+      if (/^BEGIN:VEVENT\s*$/i.test(l)) { bloc = [l]; continue; }
+      if (bloc) { bloc.push(l); if (/^END:VEVENT\s*$/i.test(l)) { blocs.push(bloc); bloc = null; } continue; }
+      hors.push(l);
+    }
+    if (bloc) blocs.push(bloc);                                // événement jamais fermé : testé comme les autres (écarté)
+    let finCal = hors.length;
+    while (finCal > 0 && !/^END:VCALENDAR\s*$/i.test(hors[finCal - 1])) finCal--;
+    if (!finCal) throw erreur;                                 // pas d'agenda complet : vraiment illisible
+    const avant = hors.slice(0, finCal - 1), apres = hors.slice(finCal - 1);
+    const assembler = (bs) => [...avant, ...bs.flat(), ...apres].join('\r\n');
+    try { ICAL.parse(assembler([])); } catch { throw erreur; }  // l'en-tête lui-même est abîmé
+    const bons = blocs.filter(b => { try { ICAL.parse(assembler([b])); return true; } catch { return false; } });
+    return { texte: assembler(bons), ignores: blocs.length - bons.length };
+  };
+
   Cal.lireEvenements = function (txt, debut, fin, ICAL, garder = null, debutSerie = null) {
-    const comp = new ICAL.Component(ICAL.parse(txt));
+    const comp = new ICAL.Component(ICAL.parse(Cal.sansEvenementsIllisibles(txt, ICAL).texte));
     comp.getAllSubcomponents('vtimezone').forEach(tz => ICAL.TimezoneService.register(tz));
     const vevents = comp.getAllSubcomponents('vevent');
     const exceptions = vevents.filter(v => v.hasProperty('recurrence-id'));
@@ -223,13 +250,16 @@
       return true;
     };
     for (const v of vevents) {
-      if (v.getFirstPropertyValue('status') === 'CANCELLED') continue;
+      try { lireUn(v); } catch { /* événement illisible malgré tout : on passe au suivant, le reste de l'agenda est gardé */ }
+    }
+    function lireUn(v) {
+      if (v.getFirstPropertyValue('status') === 'CANCELLED') return;
       const uid = v.getFirstPropertyValue('uid');
       const estException = v.hasProperty('recurrence-id');
-      if (estException && origines.has(uid)) continue;   // lue avec son origine
+      if (estException && origines.has(uid)) return;     // lue avec son origine
       // Exceptions du MÊME uid seulement (sans cette liste, ical.js relie celles de TOUS les événements du fichier)
       const ev = new ICAL.Event(v, { exceptions: estException ? [] : exceptions.filter(x => x.getFirstPropertyValue('uid') === uid) });
-      if (!ev.isRecurring() || Cal.regleImpossible(v)) { ajouter(ev.startDate, ev.endDate, ev); continue; }
+      if (!ev.isRecurring() || Cal.regleImpossible(v)) { ajouter(ev.startDate, ev.endDate, ev); return; }
       const depuis = debutSerie?.(uid, texte(ev.summary)) || debut;
       try { repetition(ev, debut, fin, ajouter, ICAL, depuis); } catch { /* règle illisible : le reste de l'agenda est gardé */ }
     }

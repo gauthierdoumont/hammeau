@@ -1,5 +1,12 @@
 # Journal des versions — Hameau
 
+## 1.9.0 — 2026-11-18 · Petites finitions
+- ✏️ Réglages → Mes catégories : touche une catégorie perso pour changer son nom ou son emoji (sa famille reste la même,
+  pour que tes gains passés gardent leur place dans le bilan).
+- 📅 Agenda : un rendez-vous abîmé dans ton agenda (règle de répétition impossible, rendez-vous coupé) est simplement
+  laissé de côté ; tout le reste de l'agenda s'affiche (avant : plus rien ne se mettait à jour).
+- 🧮 Outil de simulation : peut inclure des tâches de la semaine (`SIM_SEMAINE=0.2`) ; elles ne déséquilibrent pas le village.
+
 ## 1.8.0 — 2026-11-17 · Tâches de la semaine
 - 📅 Nouveau type **Semaine** : « 5 étapes de Nanoblocks cette semaine », à faire les jours que tu veux, du lundi au dimanche.
   Une le lundi, deux le jeudi, deux le dimanche : la semaine est bouclée.

@@ -1336,13 +1336,25 @@ function defiler(pastille, de, a) {
   requestAnimationFrame(pas);
 }
 
-/* ===== NOUVELLE CATÉGORIE PERSO ===== */
-function ouvrirNouvelleCategorie(origine) {
+/* ===== NOUVELLE CATÉGORIE PERSO (ou modification : nom et emoji, la famille reste fixe) ===== */
+let categorieEditee = null;
+function ouvrirNouvelleCategorie(origine, aModifier = null) {
   origineCategorie = origine;
-  const catActuelle = origine === 'ajout' ? T.categorie(etat, saisie.categorieId) : null;
+  categorieEditee = aModifier?.id ?? null;
+  const catActuelle = aModifier ?? (origine === 'ajout' ? T.categorie(etat, saisie.categorieId) : null);
   familleCategorie = catActuelle?.familleId ?? null;
   document.getElementById('form-categorie').reset();
   document.getElementById('categorie-erreur').textContent = '';
+  document.getElementById('categorie-titre').textContent = aModifier ? 'Modifier la catégorie' : 'Nouvelle catégorie';
+  document.getElementById('btn-categorie-valider').textContent = aModifier ? 'Enregistrer' : 'Créer';
+  document.getElementById('zone-famille').hidden = !!aModifier;
+  const f = aModifier && T.famille(aModifier.familleId, C);
+  document.getElementById('categorie-famille-fixe').hidden = !aModifier;
+  if (f) document.getElementById('categorie-famille-fixe').textContent = `Famille : ${f.emoji} ${f.nom} (elle reste la même : tes gains passés gardent leur famille).`;
+  if (aModifier) {
+    document.getElementById('categorie-nom').value = aModifier.nom;
+    document.getElementById('categorie-emoji').value = aModifier.emoji;
+  }
   document.getElementById('emojis-suggeres').replaceChildren(...C.categories.emojisSuggeres.map(e =>
     el('button', { type: 'button', 'data-emoji': e, 'aria-label': 'Emoji ' + e }, e)));
   rendreFamilles();
@@ -1359,6 +1371,7 @@ function rendreFamilles() {
 }
 
 function creerCategorie() {
+  if (categorieEditee) return enregistrerCategorie();
   const r = T.creerCategorie({
     nom: document.getElementById('categorie-nom').value,
     emoji: document.getElementById('categorie-emoji').value,
@@ -1369,6 +1382,16 @@ function creerCategorie() {
   document.getElementById('feuille-categorie').close();
   if (origineCategorie === 'ajout') { saisie.categorieId = r.categorie.id; rendreAjout(); }
   toast(`Catégorie ${r.categorie.emoji} ${r.categorie.nom} créée`);
+}
+function enregistrerCategorie() {
+  const r = T.modifierCategorie(categorieEditee, {
+    nom: document.getElementById('categorie-nom').value,
+    emoji: document.getElementById('categorie-emoji').value
+  }, etat, C);
+  if (!r.ok) { document.getElementById('categorie-erreur').textContent = r.erreur; return; }
+  if (!modifier(e => T.remplacerCategorie(e, r.categorie))) return;
+  document.getElementById('feuille-categorie').close();
+  toast(`Catégorie ${r.categorie.emoji} ${r.categorie.nom} modifiée ✏️`);
 }
 
 /* ===== DÉMARRAGE =====
@@ -1645,7 +1668,8 @@ function rendreCategories() {
   }
   liste.replaceChildren(el('h3', { class: 'intertitre' }, 'Mes catégories perso'), ...perso.map(c => {
     const f = T.famille(c.familleId, C);
-    const ligne = el('div', { class: 'cat-ligne' }, el('span', { 'aria-hidden': 'true' }, c.emoji), el('span', {}, c.nom), el('small', {}, `${f.emoji} ${f.nom}`));
+    const ligne = el('button', { type: 'button', class: 'cat-ligne', 'data-categorie-modifier': c.id, 'aria-label': 'Modifier : ' + c.nom },
+      el('span', { 'aria-hidden': 'true' }, c.emoji), el('span', {}, c.nom), el('small', {}, `${f.emoji} ${f.nom} ›`));
     ligne.style.setProperty('--famille', `var(--${c.familleId})`);
     return ligne;
   }));
@@ -1718,7 +1742,7 @@ function toast(texte, option = null) {
 
 /* ===== ÉVÉNEMENTS ===== */
 document.addEventListener('click', (e) => {
-  const cible = e.target.closest('[data-aller], [data-action], [data-fermer], [data-cocher], [data-hier], [data-saisir], [data-modifier]');
+  const cible = e.target.closest('[data-aller], [data-action], [data-fermer], [data-cocher], [data-hier], [data-saisir], [data-modifier], [data-categorie-modifier]');
   if (!cible) return;
   if (cible.dataset.aller) return aller(cible.dataset.aller);
   if (cible.dataset.cocher) return cocher(cible.dataset.cocher);
@@ -1729,6 +1753,7 @@ document.addEventListener('click', (e) => {
   const action = cible.dataset.action;
   if (action === 'ajouter' && etat) ouvrirAjout();
   if (action === 'nouvelle-categorie' && etat) ouvrirNouvelleCategorie(cible.closest('#feuille-ajout') ? 'ajout' : 'reglages');
+  if (cible.dataset.categorieModifier && etat) ouvrirNouvelleCategorie('reglages', T.categorie(etat, cible.dataset.categorieModifier));
 });
 
 // Feuille d'ajout : choix dans la grille, type, taille, jours, objectif

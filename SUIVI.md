@@ -1,9 +1,16 @@
 # Suivi — Hameau
 
 ## Où on en est
-- Version : 1.8.0 · Données : **schéma v3** · Prochaine session : **1b** (clé de signature + 1er APK), puis point de contrôle · Dernière session : 2026-11-17
+- Version : 1.9.0 · Données : **schéma v3** · Prochaine session : réponses de Gauthier sur le test de jouabilité, puis fin de la **1b** (installation sur le Honor) et point de contrôle · Dernière session : 2026-11-18
 
 ## Dernière session
+- 2026-11-18 — v1.9.0. **1b côté GitHub OK** : Gauthier a créé les 4 secrets, build 26 vert, Release `v1.8.0-build.26` publiée
+  (APK signé). Reste : installation sur le Honor + vérifications sur le téléphone.
+  Liste « plus tard » : catégories perso modifiables (nom, emoji ; famille fixe) ; agenda : `Cal.sansEvenementsIllisibles`
+  (un VEVENT abîmé est écarté, le reste lu) + chaque événement lu dans son propre try ; simulation `SIM_SEMAINE`
+  (une tâche de la semaine par famille : neutre, 119-128 j au lieu de 125 ; dans 2 familles seulement : 154 j, faute de pierre / bois).
+  Répétition mensuelle + COUNT + BYSETPOS : mesurée 0,27 s (4 ms sans BYSETPOS), PAS optimisée (risque > gain, voir plus bas).
+  **Test de jouabilité** : 4 semaines fictives jouées au clic (script hors dépôt) → défauts listés dans « Retours de Gauthier à traiter ».
 - 2026-11-17 — Demande de Gauthier : **tâches de la semaine** (v1.8.0). Nouveau type `semaine` (« 5 étapes de Nanoblocks
   cette semaine », n'importe quel jour du lundi au dimanche) : `T.creerTache` (objectif entier 1-14), `M.saisir` → `saisirSemaine`
   (gain par étape, bonus à la saisie qui boucle, moitié au-delà), `M.compte` par semaine (`M.lundiDe`), série (`jours.js` étape 3),
@@ -54,7 +61,13 @@
 - (aucun)
 
 ## Retours de Gauthier à traiter
-- (aucun) — « pouvoir fixer pour la semaine » : fait en v1.8.0.
+- « pouvoir fixer pour la semaine » : fait en v1.8.0.
+- Test de jouabilité du 2026-11-18 : défauts présentés à Gauthier, EN ATTENTE de sa décision (corriger ou non) :
+  1. Village vide après 4 semaines : la Mairie demande toutes les ressources ; peu de tâches 🤝 Social → 14 🍞 contre 1 600 📜.
+  2. Moral qui baisse chez un joueur actif (80 → 48 en 4 semaines, série de 23 jours) : −5 par quotidienne pas finie (même à moitié) contre +1 par tâche.
+  3. (bug v1.8.0) Le jour de l'installation, « Hier, jusqu'à midi » propose les tâches de la semaine créées le jour même.
+  4. Révisions « fiscalité » qui frappent le boss « Interro néerlandais » (dégâts toujours au plus proche examen).
+  5. Une tâche Bonus disparaît une fois faite (pas répétable).
 
 ## Décisions (ne pas reposer la question)
 | Date | Décision | Pourquoi |
@@ -104,14 +117,13 @@
 | 2026-11-16 | Étape 19 : la source est son appli HTML muscu (format d'export à lire dans son dépôt) | Réponse de Gauthier |
 | 2026-11-16 | Import muscu : séances des 14 derniers jours (`muscu.joursMax`), muscu / express / élastique → Muscu, course → Course ; taille selon minutes ou km ; pas de coffre | Ne pas fausser l'équilibre du village avec des mois d'historique |
 | 2026-11-16 | Agenda : plafond d'une répétition en nombre de tours (20 000), pas en temps | Choix de Gauthier : résultat identique sur toutes les machines, tests stables pour GitHub |
+| 2026-11-18 | Catégorie perso : nom et emoji modifiables, famille fixe | Sinon les gains passés changeraient de famille dans le bilan |
+| 2026-11-18 | Gauthier a créé lui-même les 4 secrets de signature | Build 26 vert, Release publiée |
 | 2026-11-17 | Tâche de la semaine : chaque étape rapporte + bonus (1 étape offerte) à 5/5 ; pas bouclée → rien ; dépasser → moitié ; compte pour la série ; taille = par étape ; 4e bouton « 📅 Semaine » ; rappel le dimanche matin | Choix de Gauthier (6 questions) |
 | 2026-11-15 | `joueur.xp` = XP dans le niveau en cours, `joueur.xpTotal` = cumul (champ ajouté) | Un changement de courbe ne fera jamais baisser un niveau |
 
 ## À faire plus tard (noté, hors étape)
-- Agenda : une seule valeur invalide (ex. BYYEARDAY=367) rend tout le fichier illisible (message neutre, ancienne version gardée) ; lire les événements un par un si ça arrive.
-- Mensuel avec COUNT (« dernier jour ouvré, 400 fois ») : pas de départ rapide (≈ 0,4 s dans node), à optimiser si besoin.
-- Étape 5a : simulation de l'économie (`outils/simulation.js`, skill `moteur-recompenses`) — impossible avant le moteur de gains.
+- Mensuel avec COUNT + BYSETPOS (« dernier jour ouvré, 400 fois ») : pas de départ rapide (0,27 s mesurés le 2026-11-18 ; 4 ms sans BYSETPOS). Laissé tel quel : Google exporte surtout UNTIL, et ce code a demandé 6 boucles de vérification.
 - Point de contrôle : poser les 5 questions du skill `reprise-session` §7 après 2-3 jours d'usage.
-- Réglages → Mes catégories : renommer / changer l'emoji d'une catégorie perso.
 
 <sub>Créé par Gauthier Doumont</sub>

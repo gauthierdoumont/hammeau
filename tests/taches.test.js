@@ -112,3 +112,23 @@ test('listes : archivées exclues, imprévus par échéance puis sans échéance
   assert.deepEqual(l.quotidienne.map(t => t.id), ['d']);
   assert.deepEqual(l.bonus.map(t => t.id), ['e']);
 });
+
+test('modifier une catégorie perso : nom et emoji changent, famille, id et compteur gardés ; doublon refusé', () => {
+  const e = S.etatInitial(C);
+  const cat = T.creerCategorie({ nom: 'Guitare', emoji: '🎸', familleId: 'creation' }, e, C, 'g').categorie;
+  e.categories.push(cat);
+  cat.nbUtilisations = 4;
+  const r = T.modifierCategorie('perso-g', { nom: 'Guitare électrique', emoji: '🎶', familleId: 'corps' }, e, C);
+  assert.ok(r.ok, r.erreur);
+  assert.deepEqual(r.categorie, { id: 'perso-g', nom: 'Guitare électrique', emoji: '🎶', familleId: 'creation', perso: true, nbUtilisations: 4 });
+  T.remplacerCategorie(e, r.categorie);
+  assert.equal(T.categorie(e, 'perso-g').nom, 'Guitare électrique');
+  // Garder le même nom (seul l'emoji change) : pas un doublon d'elle-même
+  assert.ok(T.modifierCategorie('perso-g', { nom: 'guitare ÉLECTRIQUE', emoji: '🎸' }, e, C).ok);
+  // Nom d'une autre catégorie, nom vide, catégorie de départ : refusés
+  assert.equal(T.modifierCategorie('perso-g', { nom: 'Lecture', emoji: '🎸' }, e, C).ok, false);
+  assert.equal(T.modifierCategorie('perso-g', { nom: '  ', emoji: '🎸' }, e, C).ok, false);
+  assert.equal(T.modifierCategorie('lecture', { nom: 'Lire', emoji: '📖' }, e, C).ok, false);
+});
+
+// Créé par Gauthier Doumont

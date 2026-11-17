@@ -224,6 +224,23 @@ for (const largeur of [360, 412, 1100]) {
   await page.click('#choix-famille [data-famille="esprit"]');
   await page.click('#form-categorie .principal');
   verifier((await page.textContent('#categorie-erreur')).includes('existe déjà'), 'doublon refusé');
+  await page.click('#feuille-categorie [data-fermer]');
+
+  // Modifier une catégorie perso : nom et emoji, famille fixe
+  await page.click('[data-categorie-modifier]');
+  await page.waitForSelector('#feuille-categorie[open]');
+  verifier((await page.textContent('#categorie-titre')) === 'Modifier la catégorie' && (await page.inputValue('#categorie-nom')) === 'Guitare'
+    && await page.isHidden('#zone-famille') && (await page.textContent('#categorie-famille-fixe')).includes('Création'), 'feuille de modification de catégorie');
+  await page.fill('#categorie-nom', 'Guitare électrique');
+  await page.fill('#categorie-emoji', '🎶');
+  await page.click('#form-categorie .principal');
+  await pause(page);
+  e = await etatStocke();
+  const modifiee = e.categories.find(c => c.id === guitare.id);
+  verifier(modifiee?.nom === 'Guitare électrique' && modifiee.emoji === '🎶' && modifiee.familleId === 'creation', 'catégorie modifiée : ' + JSON.stringify(modifiee));
+  verifier((await page.textContent('#liste-categories')).includes('Guitare électrique'), 'liste mise à jour');
+  await page.click('[data-action="nouvelle-categorie"]');
+  verifier((await page.textContent('#categorie-titre')) === 'Nouvelle catégorie' && await page.isVisible('#zone-famille'), 'nouvelle catégorie : feuille remise à neuf');
 
   // Bouton retour : ferme la feuille, puis remonte les écrans
   await page.evaluate(() => retourEcranPrecedent());

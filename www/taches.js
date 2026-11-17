@@ -48,6 +48,23 @@
     return { ok: true, categorie: { id: 'perso-' + id, nom, emoji, familleId: saisie.familleId, perso: true, nbUtilisations: 0 } };
   };
 
+  /* ===== MODIFIER UNE CATÉGORIE PERSO (nom, emoji) =====
+   * La famille ne change pas : elle décide de la ressource gagnée, et l'historique (bilan, familles) resterait faux.
+   * → {ok: true, categorie} (nouvel objet, même id, compteur gardé) ou {ok: false, erreur}
+   */
+  T.modifierCategorie = function (id, saisie, etat, C) {
+    const ancienne = T.categorie(etat, id);
+    if (!ancienne || !ancienne.perso) return { ok: false, erreur: 'Seules tes catégories perso se modifient.' };
+    const r = T.creerCategorie({ ...saisie, familleId: ancienne.familleId }, { ...etat, categories: etat.categories.filter(c => c.id !== id) }, C, '');
+    if (!r.ok) return r;
+    return { ok: true, categorie: { ...ancienne, nom: r.categorie.nom, emoji: r.categorie.emoji } };
+  };
+  T.remplacerCategorie = function (etat, categorie) {
+    const i = etat.categories.findIndex(c => c.id === categorie.id);
+    if (i < 0) throw new Error('Catégorie introuvable');
+    etat.categories[i] = categorie;
+  };
+
   /* ===== CRÉATION D'UNE TÂCHE =====
    * saisie = {nom, categorieId, type, taille, objectif?{cible, unite}, jours?[], echeance?, important?}
    * Type « semaine » : objectif obligatoire = nombre ENTIER d'étapes sur la semaine (1 à C.semaine.cibleMax),

@@ -500,3 +500,23 @@ test('règle IMPOSSIBLE (« le 30 février » tous les jours ou toutes les heure
   assert.equal(Cal.regleImpossible(V('FREQ=WEEKLY;BYDAY=MO')), false);
   assert.equal(Cal.regleImpossible(V('FREQ=DAILY;BYMONTH=2;BYMONTHDAY=30')), true);
 });
+
+test('un événement abîmé (BYYEARDAY=367, événement jamais fermé) est écarté : le reste de l\'agenda est lu', () => {
+  const normal = Cal.lireEvenements(ICS, ...TOUT, ICAL);
+  const casse = 'BEGIN:VEVENT\r\nUID:casse@exemple.invalid\r\nDTSTART:20261116T090000Z\r\nDTEND:20261116T100000Z\r\n'
+    + 'RRULE:FREQ=YEARLY;BYYEARDAY=367\r\nSUMMARY:Cassé\r\nEND:VEVENT\r\n';
+  const avecCasse = ICS.replace('END:VCALENDAR', casse + 'END:VCALENDAR');
+  assert.throws(() => ICAL.parse(avecCasse));                             // ical.js seul refuse tout le fichier
+  const r = Cal.sansEvenementsIllisibles(avecCasse, ICAL);
+  assert.equal(r.ignores, 1);
+  assert.deepEqual(Cal.lireEvenements(avecCasse, ...TOUT, ICAL), normal);
+  // Événement jamais fermé (fichier coupé en plein milieu d'un événement, puis fin d'agenda)
+  const coupe = ICS.replace('END:VCALENDAR', 'BEGIN:VEVENT\r\nUID:coupe@exemple.invalid\r\nDTSTART:2026111\r\nEND:VCALENDAR');
+  assert.deepEqual(Cal.lireEvenements(coupe, ...TOUT, ICAL), normal);
+  // Fichier lisible : rien d'écarté, texte inchangé
+  assert.deepEqual(Cal.sansEvenementsIllisibles(ICS, ICAL), { texte: ICS, ignores: 0 });
+  // Vraiment illisible (pas d'agenda complet) : l'erreur reste, l'ancienne version de l'agenda est gardée par l'appli
+  assert.throws(() => Cal.lireEvenements('BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPAS:UN AGENDA', ...TOUT, ICAL));
+});
+
+// Créé par Gauthier Doumont

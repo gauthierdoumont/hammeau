@@ -619,12 +619,15 @@
                enterkeyhint="done" aria-label="Nom de la catégorie">
       </div>
       <div class="emojis" id="emojis-suggeres"></div>
-      <h3 class="intertitre">Famille</h3>
-      <div class="familles" id="choix-famille"></div>
+      <div id="zone-famille">
+        <h3 class="intertitre">Famille</h3>
+        <div class="familles" id="choix-famille"></div>
+      </div>
+      <p class="discret" id="categorie-famille-fixe" hidden></p>
       <p class="erreur" id="categorie-erreur" role="alert"></p>
       <div class="feuille-boutons">
         <button type="button" class="bouton" data-fermer>Annuler</button>
-        <button type="submit" class="bouton principal">Créer</button>
+        <button type="submit" class="bouton principal" id="btn-categorie-valider">Créer</button>
       </div>
     </form>
   </dialog>
