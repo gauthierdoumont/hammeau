@@ -99,13 +99,15 @@
   M.memeSemaine = (a, b) => !!a && !!b && M.lundiDe(a) === M.lundiDe(b);
 
   /* ===== PROGRESSION =====
-   * Quotidienne : seulement les saisies du jour logique (elle ne rapporte qu'une fois par jour).
+   * Quotidienne et bonus : seulement les saisies du jour logique (une fois par jour ; le bonus n'est jamais dû).
    * Semaine : les saisies de la même semaine (lundi → dimanche) que le jour demandé, depuis `depuis` si la tâche a changé.
    * Imprévu / bonus : toutes les saisies depuis la création, ou depuis `depuis` si la tâche a changé de nature.
    */
   M.compte = function (tache, saisie, jour) {
     if (saisie.tacheId !== tache.id) return false;
     if (tache.type === 'quotidienne') return saisie.jour === jour;
+    // Bonus : faisable une fois par jour, revient le lendemain (choix de Gauthier, 2026-11-18), jamais de pénalité
+    if (tache.type === 'bonus') return saisie.jour === jour && (!tache.depuis || saisie.horodatage >= tache.depuis);
     if (tache.type === 'semaine') return M.memeSemaine(saisie.jour, jour) && (!tache.depuis || saisie.horodatage >= tache.depuis);
     return !tache.depuis || saisie.horodatage >= tache.depuis;
   };
@@ -144,7 +146,9 @@
   M.progression = (tache, journal, jour) => M.bilan(tache, journal, jour).progression;
 
   // Une quotidienne est « faite » pour la journée, une tâche de la semaine pour la semaine ; un imprévu / bonus terminé est archivé
-  M.estFaite = (tache, bilan) => tache.type === 'quotidienne' || tache.type === 'semaine' ? bilan.progression >= 1 : !!tache.archivee;
+  M.estFaite = (tache, bilan) => (M.parPeriode(tache) ? bilan.progression >= 1 : !!tache.archivee);
+  // Tâches qui reviennent (jour ou semaine) : jamais archivées une fois faites
+  M.parPeriode = (tache) => tache.type === 'quotidienne' || tache.type === 'bonus' || tache.type === 'semaine';
 
   // Ce qu'il reste à gagner sur la tâche (affiché sur la carte : « +25 📜 »).
   // Semaine : gain de la PROCHAINE étape (moitié au-delà de l'objectif), bonus de fin de semaine non compté.
@@ -185,7 +189,7 @@
     if (tache.type === 'semaine') return saisirSemaine(etat, tache, categorie, quantite, ctx, C);
     const b = M.bilan(tache, etat.journal, ctx.jour);
     // Le texte suit le jour coché (ctx.veille = coche « fait hier ») : sinon on lirait « aujourd'hui » pour hier
-    if (tache.type === 'quotidienne' && b.progression >= 1) return { ok: false, erreur: ctx.veille ? 'Déjà noté pour hier ✅' : 'Déjà fait aujourd\'hui ✅' };
+    if ((tache.type === 'quotidienne' || tache.type === 'bonus') && b.progression >= 1) return { ok: false, erreur: ctx.veille ? 'Déjà noté pour hier ✅' : 'Déjà fait aujourd\'hui ✅' };
 
     const cible = tache.objectif ? tache.objectif.cible : 1;
     let valeur, apres;
@@ -213,7 +217,7 @@
     etat.journal.push(entree);
     const niv = crediter(etat, gain, ressource, categorie ? familleId : null, coffre, terminee && b.progression < 1, C);
 
-    if (terminee && tache.type !== 'quotidienne') { tache.archivee = true; tache.termineeLe = ctx.horodatage; }
+    if (terminee && !M.parPeriode(tache)) { tache.archivee = true; tache.termineeLe = ctx.horodatage; }
     const defi = M.releverDefi(etat, ctx.jour);
     return { ok: true, gain, ressource, progression: apres, terminee, niveauxGagnes: niv.niveauxGagnes, multiplicateurs: mult, coffre, defi };
   };
@@ -345,7 +349,7 @@
       semaine: actives.filter(t => t.type === 'semaine').sort((a, b) => fait(a) - fait(b) || parCreation(a, b)),
       autresJours: quotidiennes.length - prevues.length,
       imprevu: actives.filter(t => t.type === 'imprevu').sort(M.ordreImprevus),
-      bonus: actives.filter(t => t.type === 'bonus').sort(parCreation),
+      bonus: actives.filter(t => t.type === 'bonus').sort((a, b) => fait(a) - fait(b) || parCreation(a, b)),
       bilans
     };
   };
@@ -368,7 +372,7 @@
     const semaine = actives.filter(t => t.type === 'semaine' && pasFaite(t))
       .sort((a, b) => resteSemaine(b) - resteSemaine(a) || parCreation(a, b));
     const sansEcheance = actives.filter(t => t.type === 'imprevu' && !t.echeance).sort(parCreation);
-    const bonus = actives.filter(t => t.type === 'bonus').sort(parCreation);
+    const bonus = actives.filter(t => t.type === 'bonus' && pasFaite(t)).sort(parCreation);
     return [...avecEcheance, ...quotidiennes, ...semaine, ...sansEcheance, ...bonus];
   };
   M.prochaineAction = function (etat, jour, jourIso, ignorees = new Set()) {

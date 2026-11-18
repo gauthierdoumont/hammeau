@@ -66,7 +66,7 @@
   };
 
   /* ===== CRÉATION D'UNE TÂCHE =====
-   * saisie = {nom, categorieId, type, taille, objectif?{cible, unite}, jours?[], echeance?, important?}
+   * saisie = {nom, categorieId, type, taille, objectif?{cible, unite}, jours?[], echeance?, important?, examen?}
    * Type « semaine » : objectif obligatoire = nombre ENTIER d'étapes sur la semaine (1 à C.semaine.cibleMax),
    * unité facultative (C.semaine.uniteDefaut) ; la taille vaut pour chaque étape (voir Moteur.saisir).
    * → {ok: true, tache} ou {ok: false, erreur}
@@ -104,6 +104,8 @@
       if (!jours.length) return non('Choisis au moins un jour.');
       tache.jours = jours;
     }
+    // Révision : examen visé (clé de l'agenda) — facultatif, sinon le plus proche (voir Boss.etats)
+    if (saisie.examen && C.boss?.categories?.includes(saisie.categorieId)) tache.examen = String(saisie.examen).slice(0, 300);
     if (type === 'imprevu') {
       if (saisie.echeance) {
         if (!/^\d{4}-\d{2}-\d{2}$/.test(saisie.echeance)) return non('Date d\'échéance invalide.');

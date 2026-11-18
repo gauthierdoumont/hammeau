@@ -99,7 +99,8 @@ window.CONFIG = {
   coffre: { chance: 0.1, nbRessources: 2, min: 10, max: 30, gemmesMin: 1, gemmesMax: 3 }, // chance ↑ = coffres plus fréquents
 
   /* ===== Moral, jours, pénalités ===== */
-  moral: { depart: 80, min: 0, max: 100, parTache: 1, quotidienneNonFaite: -5, seuilTriste: 40, seuilContent: 70 }, // seuilContent : humeur 😊 dès ce moral
+  // parTache ↑ = le moral remonte plus vite à chaque tâche finie ; quotidienneCommencee : une quotidienne faite à moitié (0 = rien)
+  moral: { depart: 80, min: 0, max: 100, parTache: 2, quotidienneNonFaite: -5, quotidienneCommencee: 0, seuilTriste: 40, seuilContent: 70 }, // seuilContent : humeur 😊 dès ce moral
   jour: { fuseau: 'Europe/Brussels', heureBascule: 4, heureClotureVeille: 12 }, // bascule ↑ = la journée finit plus tard la nuit
   pause: { retroJoursMax: 7 },                          // ↑ = pause activable plus loin dans le passé
   incendie: { part: 0.2, max: 50 },                     // V1 : part de la ressource perdue (plafonnée à max)
@@ -125,6 +126,9 @@ window.CONFIG = {
   // Agrandir le hameau : un anneau de terrain en plus tout autour ; chaque anneau coûte ×1,5 le précédent
   extensions: { facteur: 1.5, max: 3, coutBase: { bois: 120, pierre: 120, or: 60 } },
   // Décorations : communes (ressources) ou rares (gemmes, qui ne viennent que des coffres)
+  /* Marché du village (choix de Gauthier, 2026-11-18) : toujours ouvert, même avant la Mairie.
+   * Sans lui, une famille peu pratiquée (ex. 🤝 Social) bloquait la Mairie pendant des semaines. */
+  marche: { taux: 3, lot: 10 },   // donner taux × lot pour recevoir lot ; taux ↑ = échanger coûte plus (les familles comptent plus)
   decorations: {
     arbre:      { nom: 'Arbre',           emoji: '🌳', cout: { bois: 15 } },
     sapin:      { nom: 'Sapin',           emoji: '🌲', cout: { bois: 15 } },

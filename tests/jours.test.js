@@ -51,7 +51,7 @@ test('jour validé : ≥ 1 quotidienne faite ET ≥ 30 XP → série +1 ; une pe
   faire(e2, 't0', '2026-11-15'); faire(e2, 't1', '2026-11-15');   // 35 XP
   r = D.rattraper(e2, a('2026-11-16'), C);
   assert.equal(r.etat.joueur.serie.jours, 1);
-  assert.equal(r.etat.joueur.moral, C.moral.depart + 2);          // +1 par tâche, aucune pénalité
+  assert.equal(r.etat.joueur.moral, C.moral.depart + 2 * C.moral.parTache);   // + parTache par tâche, aucune pénalité
 });
 
 test('jour sans quotidienne prévue : neutre (ni gain ni perte)', () => {
@@ -88,7 +88,7 @@ test('« hier » reste ouvert jusqu\'à midi (saisie de la veille possible), pui
   faire(r.etat, 't0', '2026-11-15');                   // « je l'ai fait hier »
   r = D.rattraper(r.etat, a('2026-11-16', '12:01'), C);
   assert.equal(r.jours, 1);
-  assert.equal(r.etat.joueur.moral, C.moral.depart + 1);   // pas de pénalité : c'était fait
+  assert.equal(r.etat.joueur.moral, C.moral.depart + C.moral.parTache);   // pas de pénalité : c'était fait
   // À 2 h du matin, on est encore « la veille » : hier = l'avant-veille civile, déjà close
   assert.equal(D.hierOuvert(a('2026-11-17', '02:00'), C), false);
 });
@@ -297,3 +297,14 @@ test('1er lancement : on démarre à hier, rien à rattraper ; message de retour
   assert.ok(msg.lignes.some(l => /repart de zéro/.test(l)));
   for (const l of msg.lignes) assert.doesNotMatch(l, /raté|échec|seulement|oublié|paresse/i, 'aucun mot culpabilisant');
 });
+
+test('quotidienne commencée (10 / 20 pages) : aucun moral perdu ; pas commencée : −5', () => {
+  const e = etatDe('2026-11-15', { nom: 'Lire', type: 'quotidienne', objectif: { cible: 20, unite: 'pages' } }, { nom: 'Ranger', type: 'quotidienne' });
+  M.saisir(e, 't0', 10, { id: 'x1', horodatage: '2026-11-16T12:00:00.000Z', jour: '2026-11-16' }, C);
+  const moral = e.joueur.moral;
+  const r = D.rattraper(e, a('2026-11-17'), C);        // traite le 16 : Lire commencée, Ranger pas commencée
+  assert.equal(r.etat.joueur.moral, Math.max(C.moral.min, moral + C.moral.quotidienneNonFaite + C.moral.quotidienneCommencee));
+  assert.equal(C.moral.quotidienneCommencee, 0);
+});
+
+// Créé par Gauthier Doumont

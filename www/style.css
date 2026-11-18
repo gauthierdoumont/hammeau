@@ -784,7 +784,17 @@ body.village-placement-actif .village-construire { display: none; }
 }
 
 /* ===== ÉTAPE 13 : onglets de Construire, décorations, terrain ===== */
-.onglets-construire { margin-top: 12px; }
+.onglets-construire { margin-top: 12px; grid-template-columns: repeat(2, 1fr); }   /* 4 onglets : 2 × 2 */
+/* Marché : grilles de ressources, nombre de lots */
+.grille-marche button { font-variant-numeric: tabular-nums; }
+.grille-marche button[aria-pressed="true"] { background: var(--accent); color: var(--fond); border-color: var(--accent); }
+.grille-marche button:disabled { opacity: .4; }
+.marche-lots { display: flex; align-items: center; justify-content: center; gap: 18px; margin: 14px 0; }
+.marche-lots .bouton { min-width: var(--toucher); }
+#btn-echanger { margin-top: 4px; }
+.lien-marche { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.lien-marche p { flex: 1; margin: 0; }
+.lien-marche .bouton { flex: none; }
 .segments button[aria-selected="true"] { background: var(--accent); color: var(--fond); border-color: var(--accent); }
 .bat-carte.rare { background: linear-gradient(120deg, var(--or-voile), transparent 55%), var(--surface); }
 .fiche-type { font-size: .875rem; color: var(--texte-doux); font-weight: 600; }

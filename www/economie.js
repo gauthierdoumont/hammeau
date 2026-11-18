@@ -158,6 +158,45 @@
     return { ok: true, extensions: p.n + 1, cout: p.cout };
   };
 
+  /* ===== MARCHÉ (toujours ouvert) : donner C.marche.taux × lot d'une ressource pour recevoir un lot d'une autre =====
+   * Ressources communes seulement (pas les 💠 gemmes, trouvées dans les coffres).
+   */
+  E.ressourcesMarche = (C) => C.ressources.map(r => r.id).filter(id => id !== 'gemmes');
+  E.prixLot = (C) => C.marche.taux * C.marche.lot;
+  E.lotsPossibles = (etat, donne, C) => Math.floor((etat.joueur.ressources[donne] || 0) / E.prixLot(C));
+  E.echanger = function (etat, donne, recoit, lots, C) {
+    const ok = E.ressourcesMarche(C);
+    if (!ok.includes(donne) || !ok.includes(recoit)) return { ok: false, erreur: 'Ressource inconnue au marché.' };
+    if (donne === recoit) return { ok: false, erreur: 'Choisis deux ressources différentes.' };
+    if (!Number.isInteger(lots) || lots < 1) return { ok: false, erreur: 'Choisis au moins un lot.' };
+    if (lots > E.lotsPossibles(etat, donne, C)) return { ok: false, erreur: 'Il n\'y a pas assez à donner pour autant de lots.' };
+    const q = { donne: lots * E.prixLot(C), recoit: lots * C.marche.lot };
+    etat.joueur.ressources[donne] -= q.donne;
+    etat.joueur.ressources[recoit] = (etat.joueur.ressources[recoit] || 0) + q.recoit;
+    return { ok: true, donne: { [donne]: q.donne }, recoit: { [recoit]: q.recoit } };
+  };
+  /* Pour un coût donné : peut-on combler ce qui manque au marché, avec ce qui reste APRÈS avoir payé le reste du coût ?
+   * → [{recoit, donne, lots}] (un échange par ressource manquante) ou null si le marché ne suffit pas.
+   * On donne toujours la ressource la plus abondante (après le coût et les échanges déjà prévus).
+   */
+  E.planMarche = function (etat, cout, C) {
+    const manque = E.manque(etat, cout);
+    const manquants = Object.keys(manque);
+    if (!manquants.length || manque.gemmes) return null;
+    const libre = {};
+    for (const r of E.ressourcesMarche(C)) libre[r] = Math.max(0, (etat.joueur.ressources[r] || 0) - (cout[r] || 0));
+    const plan = [];
+    for (const recoit of manquants) {
+      const lots = Math.ceil(manque[recoit] / C.marche.lot);
+      const prix = lots * E.prixLot(C);
+      const donne = E.ressourcesMarche(C).filter(r => !manquants.includes(r) && libre[r] >= prix).sort((a, b) => libre[b] - libre[a])[0];
+      if (!donne) return null;
+      libre[donne] -= prix;
+      plan.push({ recoit, donne, lots });
+    }
+    return plan;
+  };
+
   /* ===== DÉCORATIONS (étape 13) ===== */
   E.acheterDecoration = function (etat, type, x, y, ctx, C) {
     const def = C.decorations[type];

@@ -11,7 +11,7 @@
 
   /* ===== MODÈLE (schemaVersion 3) =====
    * categories[] {id, nom, emoji, familleId, perso, nbUtilisations}
-   * taches[]     {id, nom, categorieId, type, taille, objectif?{cible, unite}, jours?[1-7], echeance?, important?,
+   * taches[]     {id, nom, categorieId, type, taille, objectif?{cible, unite}, jours?[1-7], echeance?, important?, examen? (clé, révision),
    *               incendieApplique, creeLe, termineeLe?, archivee}
    * journal[]    {id, tacheId, horodatage, jour, valeur, progression, gains{xp, ressource, quantite}}
    *              « J'y étais » (v3) : tacheId null + cours (uid|début de l'occurrence) + titre

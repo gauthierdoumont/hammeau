@@ -179,3 +179,37 @@ test('examens X (20/11) puis Y (03/12) : le 05/12, Y garde ses dégâts (ceux de
   assert.ok(vus.includes('2026-12-05'), 'Y encore affiché le 05/12');
   assert.equal(Cal.joursExamensGardes(C), C.boss.joursAvant + C.boss.joursApres);
 });
+
+test('révision qui vise un examen : elle le frappe lui, même si un autre est plus proche ; surplus et examen disparu', () => {
+  const e = etat();
+  const EXAM = 'exam@exemple.invalid|2026-11-23T08:00:00.000Z';
+  const viser = (id, examen, jour, taille = 'grosse') => {
+    const r = T.creerTache({ nom: 'Réviser ' + id, categorieId: 'revision', taille, examen }, e, C, id, '2026-11-01T08:00:00.000Z');
+    T.ajouterTache(e, r.tache);
+    return M.saisir(e, id, null, { id: 's' + id, horodatage: jour + 'T10:00:00.000Z', jour }, C);
+  };
+  assert.equal(T.creerTache({ nom: 'x', categorieId: 'lecture', examen: EXAM }, e, C, 'z', '2026-11-01').tache.examen, undefined, 'seulement pour une révision');
+  const r = viser('fisc', EXAM, '2026-11-17');
+  let b = B.etats(e, C);
+  assert.equal(b.find(x => x.titre === 'Examen de fiscalité').degats, r.gain);
+  assert.equal(b.find(x => x.titre === 'Interrogation Consolidation').degats, 0, 'l\'interro plus proche n\'est pas touchée');
+  // Sans choix : toujours le plus proche
+  const r2 = viser('auto', undefined, '2026-11-17');
+  b = B.etats(e, C);
+  assert.equal(b.find(x => x.titre === 'Interrogation Consolidation').degats, r2.gain);
+  // Examen visé déjà vaincu : le surplus passe au plus proche encore debout
+  const avant = B.etats(e, C).find(x => x.titre === 'Interrogation Consolidation').degats;
+  for (let i = 0; i < 6; i++) viser('f' + i, EXAM, '2026-11-18');
+  b = B.etats(e, C);
+  assert.equal(b.find(x => x.titre === 'Examen de fiscalité').vaincu, true);
+  assert.ok(b.find(x => x.titre === 'Interrogation Consolidation').degats > avant);
+  // Examen visé qui n'est plus dans l'agenda : comme sans choix
+  const e2 = etat();
+  T.ajouterTache(e2, T.creerTache({ nom: 'R', categorieId: 'revision', examen: 'parti@x|2026-01-01' }, e2, C, 'p', '2026-11-01').tache);
+  const r3 = M.saisir(e2, 'p', null, { id: 'sp', horodatage: '2026-11-17T10:00:00.000Z', jour: '2026-11-17' }, C);
+  assert.equal(B.etats(e2, C).find(x => x.titre === 'Interrogation Consolidation').degats, r3.gain);
+  // Liste du choix : examens à venir seulement
+  assert.deepEqual(B.examensAVenir(e, '2026-11-21', C).map(x => x.titre), ['Examen de fiscalité']);
+});
+
+// Créé par Gauthier Doumont

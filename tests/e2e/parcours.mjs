@@ -580,7 +580,8 @@ function S_ok(e) { return e.schemaVersion === SCHEMA && new Set(e.taches.map(t =
   await page.click('#dialogue-boutons .principal');
   await pause(page);
   e = await page.evaluate(() => Appli.etat());
-  verifier(e.joueur.pause.actif && e.joueur.moral === 81 && e.joueur.serie.jours === 4, `pause : moral ${e.joueur.moral}, série ${e.joueur.serie.jours}`);
+  const plusUne = await page.evaluate(() => CONFIG.moral.depart + CONFIG.moral.parTache);   // une tâche finie (pour hier)
+  verifier(e.joueur.pause.actif && e.joueur.moral === plusUne && e.joueur.serie.jours === 4, `pause : moral ${e.joueur.moral}, série ${e.joueur.serie.jours}`);
   await page.click('.onglet[data-aller="aujourdhui"]');
   verifier(await page.isVisible('#bandeau-pause'), 'bandeau « en pause »');
   await page.click('#btn-reprendre');
@@ -612,7 +613,7 @@ function S_ok(e) { return e.schemaVersion === SCHEMA && new Set(e.taches.map(t =
   await page.click('.onglet[data-aller="perso"]');
   await pause(page);
   verifier((await page.textContent('#perso-historique')).includes("Aujourd'hui") && (await page.textContent('#perso-historique')).includes('1 ✅'), 'historique du jour');
-  verifier(/\d/.test(await page.textContent('#perso-serie')) && (await page.textContent('#perso-moral')) === '81', 'série et moral affichés');
+  verifier(/\d/.test(await page.textContent('#perso-serie')) && (await page.textContent('#perso-moral')) === String(await page.evaluate(() => CONFIG.moral.depart + CONFIG.moral.parTache)), 'série et moral affichés');
   await page.screenshot({ path: 'tests/captures/etape7-perso.png', fullPage: true });
   verifier(!(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)), 'Perso : pas de défilement horizontal');
   verifier(!erreurs.length, 'erreurs console (étape 7) : ' + erreurs);
@@ -1136,6 +1137,7 @@ function S_ok(e) { return e.schemaVersion === SCHEMA && new Set(e.taches.map(t =
   let e = await etat();
   const nano = e.taches.find(t => t.nom === 'Nanoblocks'), course = e.taches.find(t => t.nom === 'Courir');
   verifier(nano?.type === 'semaine' && nano.objectif.cible === 5 && nano.objectif.unite === 'étapes' && course?.objectif.unite === 'fois', 'tâches de la semaine créées : ' + JSON.stringify(nano));
+  verifier(await page.isHidden('#hier'), 'jour de création : « hier » ne propose pas les tâches de la semaine créées ce matin');
   const texteListes = await page.textContent('#listes');
   verifier(texteListes.includes('📅 Cette semaine') && texteListes.includes('0 / 5 étapes · jusqu\'à dimanche'), 'section « Cette semaine » : ' + texteListes);
   verifier((await page.textContent(`.tache[data-tache="${nano.id}"] .gain`)).includes('+25 💎'), 'gain d\'une étape affiché');
@@ -1204,6 +1206,85 @@ function S_ok(e) { return e.schemaVersion === SCHEMA && new Set(e.taches.map(t =
   await ctx.close();
 }
 
+/* 21. Marché du village (après le test de jouabilité) : 14 🍞 contre 1 600 📜 → la Mairie se débloque au marché */
+{
+  const { ctx, page, erreurs, externes } = await nouvellePage(360);
+  await page.evaluate(() => Appli.modifier(e => { Object.assign(e.joueur.ressources, { savoir: 1600, pierre: 1200, cristaux: 800, nourriture: 14, bois: 120, or: 130 }); }));
+  verifier((await page.textContent('#chantier-detail')).includes('💱 échangeable au marché'), 'carte chantier : marché signalé');
+  await page.click('.onglet[data-aller="village"]');
+  await page.waitForFunction(() => window.Village?.estPret(), null, { timeout: 15000 });
+  if (await page.isVisible('#village-bulle')) await page.click('#village-bulle-ok');
+  await page.click('#btn-construire');
+  await page.click('[data-construire="mairie"]');
+  await page.waitForSelector('#dialogue[open]');
+  verifier((await page.textContent('#dialogue-texte')).includes('Ou tout de suite au marché'), '« Il manque » propose le marché');
+  await page.click('#dialogue-boutons .principal');                       // 💱 Au marché
+  await page.waitForSelector('#feuille-construire[open]');
+  verifier(await page.getAttribute('[data-onglet="marche"]', 'aria-selected') === 'true', 'onglet Marché ouvert');
+  verifier(await page.getAttribute('[data-marche-recoit="nourriture"]', 'aria-pressed') === 'true'
+    && await page.getAttribute('[data-marche-donne="savoir"]', 'aria-pressed') === 'true', 'marché déjà réglé : 📜 → 🍞');
+  verifier(await page.isDisabled('[data-marche-donne="nourriture"]'), 'on ne donne pas ce qu\'on reçoit');
+  verifier(!(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)), 'marché : pas de défilement horizontal à 360 px');
+  await pause(page);
+  await page.screenshot({ path: 'tests/captures/marche.png', fullPage: true });
+  const attendu = await page.evaluate(() => { const c = Economie.cout('mairie', 1, CONFIG); const lots = Math.ceil((c.nourriture - 14) / CONFIG.marche.lot);
+    return { lots, prix: lots * CONFIG.marche.taux * CONFIG.marche.lot, recu: lots * CONFIG.marche.lot }; });
+  await page.click('#btn-echanger');
+  await pause(page);
+  let e = await page.evaluate(() => Appli.etat());
+  verifier(e.joueur.ressources.savoir === 1600 - attendu.prix && e.joueur.ressources.nourriture === 14 + attendu.recu, 'échange fait : ' + JSON.stringify(e.joueur.ressources));
+  verifier((await page.textContent('#toast-texte')).includes('Échange fait'), 'message de l\'échange');
+  await page.click('[data-onglet="batiments"]');
+  await page.click('[data-construire="mairie"]');
+  verifier(await page.isVisible('#village-placement'), 'Mairie : placement possible après l\'échange');
+  await page.click('#btn-placer');
+  await page.waitForTimeout(400);
+  e = await page.evaluate(() => Appli.etat());
+  verifier(e.village.batiments.some(b => b.type === 'mairie'), 'Mairie construite grâce au marché');
+  verifier(!externes.length, 'ressources externes (marché) : ' + externes);
+  verifier(!erreurs.length, 'erreurs console (marché) : ' + erreurs);
+  await ctx.close();
+}
+
+/* 22. Révision → examen choisi (après le test de jouabilité) */
+{
+  const { ctx, page, erreurs, externes } = await nouvellePage(360);
+  await page.evaluate(ics => localStorage.setItem('debug_ics', ics), fs.readFileSync('tests/exemple.ics', 'utf8'));
+  await page.click('.onglet[data-aller="reglages"]');
+  await page.click('.ligne[data-aller="agenda"]');
+  await page.fill('#agenda-adresse', 'https://agenda.exemple.invalid/fictif/basic.ics');
+  await page.click('#btn-agenda-enregistrer');
+  await page.waitForTimeout(400);
+  await page.click('.onglet[data-aller="aujourdhui"]');
+  await page.click('#fab');
+  await page.fill('#ajout-nom', 'Lire un roman');
+  await page.click('#btn-options');
+  await page.click('.tuile[data-categorie="lecture"]');
+  verifier(await page.isHidden('#zone-examen'), 'pas de choix d\'examen hors Révision');
+  await page.fill('#ajout-nom', 'Réviser la consolidation');
+  await page.click('.tuile[data-categorie="revision"]');
+  verifier(await page.isVisible('#zone-examen'), 'Révision : « Pour quel examen ? »');
+  const options = await page.locator('#ajout-examen option').allTextContents();
+  verifier(options[0].includes('Le plus proche') && options.some(o => o.includes('Interrogation Consolidation')), 'examens proposés : ' + options);
+  const cle = await page.locator('#ajout-examen option').nth(1).getAttribute('value');
+  await page.selectOption('#ajout-examen', cle);
+  await page.click('.tuile[data-categorie="revision"]');                    // un nouveau rendu garde le choix
+  verifier((await page.inputValue('#ajout-examen')) === cle, 'choix gardé');
+  await page.screenshot({ path: 'tests/captures/revision-examen.png', fullPage: true });
+  await page.click('#btn-enregistrer');
+  await pause(page);
+  const t = (await page.evaluate(() => Appli.etat())).taches.find(x => x.nom === 'Réviser la consolidation');
+  verifier(t?.examen === cle, 'examen visé enregistré : ' + JSON.stringify(t));
+  verifier((await page.textContent(`.tache[data-tache="${t.id}"]`)).includes('⚔️ Interrogation Consolidation'), 'carte : examen visé');
+  await page.click(`.tache[data-tache="${t.id}"] .tache-corps`);
+  await page.waitForSelector('#feuille-ajout[open]');
+  verifier((await page.inputValue('#ajout-examen')) === cle, 'modification : examen pré-choisi');
+  await page.click('#feuille-ajout [data-fermer]');
+  verifier(!externes.length, 'ressources externes (révision) : ' + externes);
+  verifier(!erreurs.length, 'erreurs console (révision) : ' + erreurs);
+  await ctx.close();
+}
+
 await nav.close(); serveur.close();
-console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso, cocher, village, construction, décorations, agrandir, réparer, coffre, fête, jours, prochaine action, perso, réglages, sauvegardes, rappel d\'export, mises à jour, rappels, agenda, cours du jour, surprises, boss, bilan, import muscu, tâches de la semaine');
+console.log(echecs.length ? '✗ ' + echecs.join('\n✗ ') : '✓ parcours OK : navigation (360/412/1100 px, hors ligne), export, rechargement, import, récupération, ajout de tâches, catégories perso, cocher, village, construction, décorations, agrandir, réparer, coffre, fête, jours, prochaine action, perso, réglages, sauvegardes, rappel d\'export, mises à jour, rappels, agenda, cours du jour, surprises, boss, bilan, import muscu, tâches de la semaine, marché, examen visé');
 process.exit(echecs.length ? 1 : 0);

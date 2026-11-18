@@ -1,5 +1,14 @@
 # Journal des versions — Hameau
 
+## 1.10.0 — 2026-11-18 · Après le test de jouabilité
+- 💱 **Marché du village**, toujours ouvert : 3 d'une ressource contre 1 d'une autre (30 → 10). Quand il manque une ressource
+  pour construire, améliorer ou réparer, le message propose le bon échange, déjà réglé : un toucher et c'est fait.
+  (Avant : avec peu de tâches 🤝 Social, la Mairie pouvait attendre des semaines.)
+- 🙂 **Moral plus juste** : une quotidienne commencée (10 pages sur 20) ne fait plus rien perdre, et chaque tâche finie donne +2.
+- ⭐ **Les bonus reviennent chaque jour** : faisables une fois par jour, jamais dus, aucune pénalité.
+- ⚔️ **Révisions ciblées** : une tâche 📚 Révision peut viser un examen précis (« Pour quel examen ? ») ; sinon, le plus proche.
+- 🐛 Le jour de l'installation, « Hier, jusqu'à midi » ne propose plus les tâches de la semaine créées le matin même.
+
 ## 1.9.0 — 2026-11-18 · Petites finitions
 - ✏️ Réglages → Mes catégories : touche une catégorie perso pour changer son nom ou son emoji (sa famille reste la même,
   pour que tes gains passés gardent leur place dans le bilan).

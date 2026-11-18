@@ -539,6 +539,12 @@
       <div id="options" hidden>
         <h3 class="intertitre">Catégorie</h3>
         <div id="grille-categories"></div>
+        <div id="zone-examen" hidden>
+          <label class="etiquette-champ">⚔️ Pour quel examen ?
+            <select class="champ" id="ajout-examen"></select>
+          </label>
+          <p class="discret">Tes révisions frappent ce boss. Le surplus passe au suivant.</p>
+        </div>
 
         <h3 class="intertitre">Type</h3>
         <div class="segments" id="choix-type" role="radiogroup" aria-label="Type">
@@ -566,7 +572,7 @@
           <label class="case-a-cocher"><input type="checkbox" id="ajout-important"> Important</label>
         </div>
         <div class="sous-options" data-pour="bonus">
-          <p class="discret">Un petit plus, à faire quand tu en as envie.</p>
+          <p class="discret">Un petit plus, à faire quand tu en as envie. Il revient chaque jour, sans jamais être dû.</p>
         </div>
 
         <h3 class="intertitre" id="titre-taille">Taille</h3>
@@ -642,6 +648,7 @@
         <button type="button" role="tab" data-onglet="batiments" aria-selected="true">🏠 Bâtiments</button>
         <button type="button" role="tab" data-onglet="decorations" aria-selected="false">🌳 Décos</button>
         <button type="button" role="tab" data-onglet="terrain" aria-selected="false">🗺️ Terrain</button>
+        <button type="button" role="tab" data-onglet="marche" aria-selected="false">💱 Marché</button>
       </div>
       <div id="liste-construire" class="liste-construire"></div>
       <div class="feuille-boutons"><button type="button" class="bouton" data-fermer>Fermer</button></div>

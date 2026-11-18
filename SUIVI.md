@@ -1,9 +1,16 @@
 # Suivi — Hameau
 
 ## Où on en est
-- Version : 1.9.0 · Données : **schéma v3** · Prochaine session : réponses de Gauthier sur le test de jouabilité, puis fin de la **1b** (installation sur le Honor) et point de contrôle · Dernière session : 2026-11-18
+- Version : 1.10.0 · Données : **schéma v3** · Prochaine session : fin de la **1b** (installation via Obtainium sur le Honor) et point de contrôle · Dernière session : 2026-11-18
 
 ## Dernière session
+- 2026-11-18 (suite) — v1.10.0 : les 5 défauts du test de jouabilité corrigés (choix de Gauthier : toutes les options recommandées).
+  Marché `E.echanger` / `E.planMarche` (+ onglet 💱 Marché, liens depuis « Il manque », la fiche et la carte chantier) ; moral
+  `quotidienneCommencee: 0`, `parTache: 2` ; bonus par jour (`M.parPeriode`) ; `tache.examen` + `Boss.examensAVenir` ;
+  « hier » du lundi : seulement les tâches de la semaine qui existaient la veille. Pas de migration (champs facultatifs).
+  Test de jouabilité rejoué : 8 bâtiments en 9 jours (avant : village vide après 4 semaines), Mairie 2 le 3 décembre,
+  moral 93-100 (avant 80 → 48). À surveiller : le moral reste presque toujours à 100 chez un joueur actif.
+  Tests : `npm test` 197, `npm run e2e` (sections 21 marché, 22 examen visé).
 - 2026-11-18 — v1.9.0. **1b côté GitHub OK** : Gauthier a créé les 4 secrets, build 26 vert, Release `v1.8.0-build.26` publiée
   (APK signé). Reste : installation sur le Honor + vérifications sur le téléphone.
   Liste « plus tard » : catégories perso modifiables (nom, emoji ; famille fixe) ; agenda : `Cal.sansEvenementsIllisibles`
@@ -62,7 +69,7 @@
 
 ## Retours de Gauthier à traiter
 - « pouvoir fixer pour la semaine » : fait en v1.8.0.
-- Test de jouabilité du 2026-11-18 : défauts présentés à Gauthier, EN ATTENTE de sa décision (corriger ou non) :
+- Test de jouabilité du 2026-11-18 : 5 défauts présentés à Gauthier → tous corrigés en v1.10.0 :
   1. Village vide après 4 semaines : la Mairie demande toutes les ressources ; peu de tâches 🤝 Social → 14 🍞 contre 1 600 📜.
   2. Moral qui baisse chez un joueur actif (80 → 48 en 4 semaines, série de 23 jours) : −5 par quotidienne pas finie (même à moitié) contre +1 par tâche.
   3. (bug v1.8.0) Le jour de l'installation, « Hier, jusqu'à midi » propose les tâches de la semaine créées le jour même.
@@ -117,6 +124,7 @@
 | 2026-11-16 | Étape 19 : la source est son appli HTML muscu (format d'export à lire dans son dépôt) | Réponse de Gauthier |
 | 2026-11-16 | Import muscu : séances des 14 derniers jours (`muscu.joursMax`), muscu / express / élastique → Muscu, course → Course ; taille selon minutes ou km ; pas de coffre | Ne pas fausser l'équilibre du village avec des mois d'historique |
 | 2026-11-16 | Agenda : plafond d'une répétition en nombre de tours (20 000), pas en temps | Choix de Gauthier : résultat identique sur toutes les machines, tests stables pour GitHub |
+| 2026-11-18 | Marché 3 contre 1 ; moral : commencée = rien, tâche +2 ; bonus une fois par jour ; révision → examen choisi (le plus proche par défaut) | Choix de Gauthier après le test de jouabilité |
 | 2026-11-18 | Catégorie perso : nom et emoji modifiables, famille fixe | Sinon les gains passés changeraient de famille dans le bilan |
 | 2026-11-18 | Gauthier a créé lui-même les 4 secrets de signature | Build 26 vert, Release publiée |
 | 2026-11-17 | Tâche de la semaine : chaque étape rapporte + bonus (1 étape offerte) à 5/5 ; pas bouclée → rien ; dépasser → moitié ; compte pour la série ; taille = par étape ; 4e bouton « 📅 Semaine » ; rappel le dimanche matin | Choix de Gauthier (6 questions) |

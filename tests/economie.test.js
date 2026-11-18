@@ -182,3 +182,42 @@ test('décorations : achat en ressources ou en gemmes, déplacer, retirer', () =
   e.village.decorations.push({ id: 'z', type: 'licorne', x: 0, y: 0 });
   assert.throws(() => S.verifier(e, C), /décoration inconnue/);
 });
+
+test('marché : 3 contre 1 par lots, ressources communes seulement, jamais à découvert', () => {
+  const e = S.etatInitial(C);
+  e.joueur.ressources.savoir = 100;
+  e.joueur.ressources.gemmes = 50;
+  const prix = C.marche.taux * C.marche.lot;
+  assert.equal(E.lotsPossibles(e, 'savoir', C), Math.floor(100 / prix));
+  const r = E.echanger(e, 'savoir', 'nourriture', 2, C);
+  assert.ok(r.ok, r.erreur);
+  assert.deepEqual(r.donne, { savoir: 2 * prix });
+  assert.deepEqual(r.recoit, { nourriture: 2 * C.marche.lot });
+  assert.equal(e.joueur.ressources.savoir, 100 - 2 * prix);
+  assert.equal(e.joueur.ressources.nourriture, 2 * C.marche.lot);
+  assert.equal(E.echanger(e, 'savoir', 'nourriture', 99, C).ok, false);     // pas assez
+  assert.equal(E.echanger(e, 'savoir', 'savoir', 1, C).ok, false);
+  assert.equal(E.echanger(e, 'gemmes', 'or', 1, C).ok, false);             // gemmes : coffres seulement
+  assert.equal(E.echanger(e, 'savoir', 'or', 0, C).ok, false);
+  assert.equal(E.echanger(e, 'savoir', 'or', 1.5, C).ok, false);
+  assert.ok(Object.values(e.joueur.ressources).every(v => v >= 0));
+});
+
+test('marché : plan pour finir un chantier (le cas du test de jouabilité : 14 🍞, 1 600 📜)', () => {
+  const e = S.etatInitial(C);
+  Object.assign(e.joueur.ressources, { savoir: 1600, pierre: 1200, cristaux: 800, nourriture: 14, bois: 120, or: 130 });
+  const cout = E.cout('mairie', 1, C);
+  const plan = E.planMarche(e, cout, C);
+  assert.ok(plan && plan.length === 1);
+  assert.equal(plan[0].recoit, 'nourriture');
+  assert.equal(plan[0].donne, 'savoir');                                    // le plus abondant
+  assert.equal(plan[0].lots, Math.ceil((cout.nourriture - 14) / C.marche.lot));
+  for (const x of plan) E.echanger(e, x.donne, x.recoit, x.lots, C);
+  assert.equal(Object.keys(E.manque(e, cout)).length, 0, 'la Mairie devient constructible');
+  // Rien à combler, ou pas assez de quoi échanger : pas de plan
+  assert.equal(E.planMarche(e, cout, C), null);
+  const pauvre = S.etatInitial(C);
+  assert.equal(E.planMarche(pauvre, cout, C), null);
+});
+
+// Créé par Gauthier Doumont

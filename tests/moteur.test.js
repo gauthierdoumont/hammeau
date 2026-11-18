@@ -268,15 +268,15 @@ test('anti-farm : à partir de la 16e tâche terminée du jour, gains × 0,5', (
   assert.equal(M.saisir(e, 't0', null, ctx('2026-11-17'), C).gain, 25);
 });
 
-test('moral : +1 par tâche terminée, +5 pour une tâche Repos, plafond 100 ; une saisie partielle ne compte pas', () => {
+test('moral : + parTache par tâche terminée, +5 pour une tâche Repos, plafond 100 ; une saisie partielle ne compte pas', () => {
   const e = etatAvec({ nom: 'A' }, { nom: 'Balade', categorieId: 'balade' }, { nom: 'Lire', objectif: { cible: 20, unite: 'p' } });
   const m0 = e.joueur.moral;
   M.saisir(e, 't0', null, ctx(), C);
-  assert.equal(e.joueur.moral, m0 + 1);
+  assert.equal(e.joueur.moral, m0 + C.moral.parTache);
   M.saisir(e, 't1', null, ctx(), C);
-  assert.equal(e.joueur.moral, m0 + 6);
+  assert.equal(e.joueur.moral, m0 + C.moral.parTache + C.repos.moral);
   M.saisir(e, 't2', 5, ctx(), C);
-  assert.equal(e.joueur.moral, m0 + 6);
+  assert.equal(e.joueur.moral, m0 + C.moral.parTache + C.repos.moral);
   e.joueur.moral = 99;
   M.saisir(e, 't2', null, ctx(), C);
   assert.equal(e.joueur.moral, 100);
@@ -328,3 +328,19 @@ test('prochaine action : échéance la plus proche → petite quotidienne → im
   M.saisir(e, 'q2', null, { id: 'x', horodatage: 'x', jour }, C);
   assert.ok(!M.candidatsProchaineAction(e, jour, iso).some(t => t.id === 'q2'));
 });
+
+test('bonus : une fois par jour, revient le lendemain, jamais archivé ni dû', () => {
+  const e = etatAvec({ nom: 'Appeler grand-mère', categorieId: 'famille', type: 'bonus' });
+  const r = M.saisir(e, 't0', null, ctx('2026-11-16'), C);
+  assert.equal(r.gain, Math.round(C.tailles.moyenne * C.types.bonus));
+  assert.equal(e.taches[0].archivee, false);
+  assert.equal(M.saisir(e, 't0', null, ctx('2026-11-16'), C).ok, false);      // déjà fait aujourd'hui
+  const t = e.taches[0];
+  assert.equal(M.estFaite(t, M.bilan(t, e.journal, '2026-11-16')), true);
+  assert.equal(M.estFaite(t, M.bilan(t, e.journal, '2026-11-17')), false);   // revient le lendemain
+  assert.deepEqual(M.candidatsProchaineAction(e, '2026-11-16', 1).map(x => x.id), []);
+  assert.deepEqual(M.candidatsProchaineAction(e, '2026-11-17', 2).map(x => x.id), ['t0']);
+  assert.equal(M.saisir(e, 't0', null, ctx('2026-11-17'), C).ok, true);
+});
+
+// Créé par Gauthier Doumont

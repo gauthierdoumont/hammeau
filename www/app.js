@@ -622,7 +622,8 @@ function ouvrirAjout(tache = null) {
     type: tache?.type ?? C.taches.defauts.type,
     taille: tache?.taille ?? C.taches.defauts.taille,
     jours: [...(tache?.jours ?? T.TOUS_LES_JOURS)],
-    objectif: !!tache?.objectif && tache.type !== 'semaine'   // pour une tâche de la semaine, l'objectif a ses propres champs
+    objectif: !!tache?.objectif && tache.type !== 'semaine',  // pour une tâche de la semaine, l'objectif a ses propres champs
+    examen: tache?.examen ?? ''                                 // révision : examen visé ('' = le plus proche)
   };
   const f = document.getElementById('form-ajout');
   f.reset();
@@ -697,6 +698,21 @@ function rendreAjout() {
   document.getElementById('ligne-objectif').hidden = semaine;
   document.getElementById('zone-objectif').hidden = semaine || !saisie.objectif;
   document.getElementById('titre-taille').textContent = semaine ? 'Taille de chaque fois' : 'Taille';
+  rendreChoixExamen();
+}
+// Révision : « Pour quel examen ? » (examens à venir de l'agenda ; le plus proche par défaut)
+function rendreChoixExamen() {
+  const zone = document.getElementById('zone-examen');
+  const examens = C.boss.categories.includes(saisie.categorieId) ? Boss.examensAVenir(etat, jourActuel(), C) : [];
+  const connu = examens.some(b => b.cle === saisie.examen);
+  zone.hidden = !examens.length && !saisie.examen;
+  if (zone.hidden) return;
+  const select = document.getElementById('ajout-examen');
+  select.replaceChildren(
+    el('option', { value: '' }, '🎯 Le plus proche (automatique)'),
+    ...examens.map(b => el('option', { value: b.cle }, `${b.titre} · ${dateEcheance(b.jourExamen)}`)),
+    ...(saisie.examen && !connu ? [el('option', { value: saisie.examen }, 'Examen plus dans l\'agenda → le plus proche')] : []));
+  select.value = saisie.examen;
 }
 
 function blocGrille(titre, categories) {
@@ -721,6 +737,7 @@ function enregistrerTache() {
     jours: saisie.jours,
     echeance: val('ajout-echeance') || undefined,
     important: document.getElementById('ajout-important').checked,
+    examen: saisie.examen || undefined,
     objectif: saisie.type === 'semaine' ? { cible: val('ajout-semaine-cible'), unite: val('ajout-semaine-unite') }
       : saisie.objectif ? { cible: val('ajout-cible'), unite: val('ajout-unite') } : undefined
   };
@@ -1087,7 +1104,9 @@ function rendreHier() {
   const hier = J.ajouterJours(jourActuel(), -1);
   const restantes = Jours.quotidiennesPrevues(etat, hier, C).filter(t => M.progression(t, etat.journal, hier) < 1);
   // Lundi matin : la semaine d'hier (dimanche) peut encore recevoir une étape faite hier soir
-  if (J.jourIso(hier) === 7) restantes.push(...etat.taches.filter(t => t.type === 'semaine' && !t.archivee && M.progression(t, etat.journal, hier) < 1));
+  // (seulement les tâches qui existaient déjà hier : pas celles créées ce matin)
+  if (J.jourIso(hier) === 7) restantes.push(...etat.taches.filter(t => t.type === 'semaine' && !t.archivee
+    && J.jourLogique(new Date(t.creeLe), C) <= hier && M.progression(t, etat.journal, hier) < 1));
   zone.hidden = !restantes.length;
   document.getElementById('liste-hier').replaceChildren(...restantes.map(t => {
     const cat = T.categorie(etat, t.categorieId);
@@ -1505,7 +1524,8 @@ function rendreChantier() {
   const manques = Object.entries(p.manque).sort((a, b) => b[1] - a[1]);
   document.getElementById('chantier-detail').textContent = pret
     ? 'Tout est prêt : va construire ! 🔨'
-    : 'Il manque ' + manques.slice(0, 3).map(([r, q]) => `${nombre(q)} ${C.ressources.find(x => x.id === r).emoji}`).join(' · ') + (manques.length > 3 ? ' …' : '');
+    : 'Il manque ' + manques.slice(0, 3).map(([r, q]) => `${nombre(q)} ${C.ressources.find(x => x.id === r).emoji}`).join(' · ') + (manques.length > 3 ? ' …' : '')
+      + (Economie.planMarche(etat, p.cout, C) ? ' · 💱 échangeable au marché' : '');
 }
 
 // Écran Perso : le chef, sa série, son moral, ses talents (stats), son hameau, ses 7 derniers jours
@@ -1626,6 +1646,7 @@ function carteTache(t, bilan) {
   if (t.type === 'quotidienne' && t.jours.length < 7) details.push(t.jours.map(j => JOURS_NOMS[j - 1]).join(', '));
   if (t.echeance) details.push('Pour le ' + dateEcheance(t.echeance));
   if (t.important) details.push('❗ Important');
+  if (t.examen) { const b = Boss.liste(etat, C).find(x => x.cle === t.examen); if (b) details.push(`⚔️ ${b.titre}`); }
 
   const carte = el('div', { class: 'tache' + (fait && !semaine ? ' fait' : '') + (t.id === derniereAjoutee ? ' nouvelle' : ''), 'data-tache': t.id });
   carte.style.setProperty('--famille', cat ? `var(--${cat.familleId})` : '');
@@ -1774,6 +1795,7 @@ document.getElementById('feuille-ajout').addEventListener('click', (e) => {
     document.getElementById('grille-categories').querySelector('.choisie')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }
 });
+document.getElementById('ajout-examen').addEventListener('change', (e) => { saisie.examen = e.target.value; });
 document.getElementById('ajout-objectif').addEventListener('change', (e) => {
   saisie.objectif = e.target.checked;
   if (saisie.objectif && saisie.taille === C.taches.defauts.taille) saisie.taille = C.tailleObjectifParDefaut;

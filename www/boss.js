@@ -33,15 +33,20 @@
       .sort((a, b) => (a.horodatage < b.horodatage ? -1 : a.horodatage > b.horodatage ? 1 : 0));
   }
 
-  /* État de tous les boss : chaque révision frappe le boss le plus proche encore debout dont la fenêtre
-   * contient ce jour (apparition ≤ jour ≤ jour de l'examen) ; le surplus passe au suivant.
+  /* État de tous les boss : chaque révision frappe d'abord l'examen choisi dans sa tâche (tache.examen = clé, choix de
+   * Gauthier 2026-11-18 : « Réviser fiscalité » ne doit pas frapper « Interro néerlandais »), sinon le boss le plus
+   * proche encore debout dont la fenêtre contient ce jour (apparition ≤ jour ≤ jour de l'examen) ; le surplus passe au suivant.
+   * Examen choisi disparu de l'agenda (déplacé, passé) : retour au plus proche.
    * → [{…boss, degats, pv, vaincu}]
    */
   B.etats = function (etat, C) {
     const boss = B.liste(etat, C).map(b => ({ ...b, degats: 0 }));
+    const cibles = new Map(etat.taches.filter(t => t.examen).map(t => [t.id, t.examen]));
     for (const s of coups(etat, C)) {
       let reste = s.gains.xp;
-      for (const b of boss) {
+      const cible = cibles.get(s.tacheId);
+      const ordre = cible ? [...boss.filter(b => b.cle === cible), ...boss.filter(b => b.cle !== cible)] : boss;
+      for (const b of ordre) {
         if (reste <= 0) break;
         if (s.jour < b.apparition || s.jour > b.jourExamen || b.degats >= b.pvMax) continue;
         const coup = Math.min(reste, b.pvMax - b.degats);
@@ -87,6 +92,9 @@
     etat.agenda.recompenses[cle] = jour;
     return { ok: true, recompense, vaincu: b.vaincu };
   };
+
+  // Examens qu'une tâche de révision peut viser (pas encore passés), le plus proche d'abord → [{cle, titre, jourExamen}]
+  B.examensAVenir = (etat, jour, C) => B.liste(etat, C).filter(b => b.jourExamen >= jour);
 
   if (typeof module !== 'undefined') module.exports = B; else racine.Boss = B;
 })(typeof window !== 'undefined' ? window : globalThis);

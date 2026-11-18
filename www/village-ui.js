@@ -11,6 +11,7 @@
   let ficheOuverte = null;         // id du bâtiment (ou de la décoration) affiché dans la fiche
   let ficheMode = 'batiment';      // 'batiment' | 'decoration'
   let onglet = 'batiments';        // onglet de la fenêtre Construire
+  let marche = { recoit: null, donne: null, lots: 1 };   // choix en cours au marché
 
   const $ = (id) => document.getElementById(id);
   const res = (id) => C.ressources.find(r => r.id === id);
@@ -67,6 +68,7 @@
     for (const b of document.querySelectorAll('#onglets-construire button')) b.setAttribute('aria-selected', String(b.dataset.onglet === onglet));
     if (onglet === 'decorations') rendreDecorations();
     else if (onglet === 'terrain') rendreTerrain();
+    else if (onglet === 'marche') rendreMarche();
     else rendreBatiments();
     if (!$('feuille-construire').open) $('feuille-construire').showModal();
   }
@@ -125,18 +127,85 @@
     $('liste-construire').replaceChildren(carte);
   }
 
+  /* ===== MARCHÉ (toujours ouvert, même avant la Mairie) ===== */
+  // Choix proposé à l'ouverture : de quoi finir le prochain chantier, sinon donner le plus abondant pour le plus rare
+  function preparerMarche(etat) {
+    const ids = E.ressourcesMarche(C), r = etat.joueur.ressources;
+    const ch = E.prochainChantier(etat, C);
+    const plan = ch && E.planMarche(etat, ch.possibilite.cout, C);
+    if (plan) return { recoit: plan[0].recoit, donne: plan[0].donne, lots: plan[0].lots };
+    const tri = [...ids].sort((a, b) => (r[a] || 0) - (r[b] || 0));
+    return { recoit: tri[0], donne: tri[tri.length - 1], lots: 1 };
+  }
+  function rendreMarche() {
+    const etat = A().etat(), r = etat.joueur.ressources, ids = E.ressourcesMarche(C);
+    if (!marche.recoit || !ids.includes(marche.recoit)) marche = preparerMarche(etat);
+    const max = marche.donne && marche.donne !== marche.recoit ? E.lotsPossibles(etat, marche.donne, C) : 0;
+    marche.lots = Math.max(1, Math.min(marche.lots, max || 1));
+    const grille = (attr, choisi, desactive) => el('div', { class: 'segments grille-marche' }, ...ids.map(id => {
+      const b = el('button', { type: 'button', [attr]: id, 'aria-pressed': String(id === choisi), 'aria-label': `${res(id).nom} (${r[id] || 0})` },
+        `${res(id).emoji} ${nombre(r[id] || 0)}`);
+      if (desactive(id)) b.disabled = true;
+      return b;
+    }));
+    const prix = marche.lots * E.prixLot(C), recu = marche.lots * C.marche.lot;
+    const possible = max >= marche.lots;
+    const bouton = el('button', { type: 'button', class: 'bouton principal large', id: 'btn-echanger' },
+      possible ? `💱 Échanger ${nombre(prix)} ${res(marche.donne).emoji} → ${nombre(recu)} ${res(marche.recoit).emoji}` : 'Choisis quoi donner');
+    if (!possible) bouton.disabled = true;
+    $('liste-construire').replaceChildren(
+      el('p', { class: 'discret aide' }, `Le marchand du hameau échange ${C.marche.taux} contre 1 (${nombre(E.prixLot(C))} → ${nombre(C.marche.lot)}). Pratique quand une famille de tâches est plus calme.`),
+      el('h3', { class: 'intertitre' }, 'Je reçois'),
+      grille('data-marche-recoit', marche.recoit, () => false),
+      el('h3', { class: 'intertitre' }, 'Je donne'),
+      grille('data-marche-donne', marche.donne, id => id === marche.recoit || E.lotsPossibles(etat, id, C) < 1),
+      el('div', { class: 'marche-lots' },
+        el('button', { type: 'button', class: 'bouton', 'data-marche-lots': '-1', 'aria-label': 'Un lot de moins', ...(marche.lots <= 1 ? { disabled: '' } : {}) }, '−'),
+        el('b', { id: 'marche-nb-lots' }, `${marche.lots} lot${marche.lots > 1 ? 's' : ''}`),
+        el('button', { type: 'button', class: 'bouton', 'data-marche-lots': '1', 'aria-label': 'Un lot de plus', ...(marche.lots >= max ? { disabled: '' } : {}) }, '+')),
+      bouton);
+  }
+  function echanger() {
+    const app = A();
+    let r;
+    const ok = app.modifier(e => { r = E.echanger(e, marche.donne, marche.recoit, marche.lots, C); if (!r.ok) throw app.refus(r.erreur); });
+    if (!ok) return;
+    window.Sons?.jouer('pieces');
+    app.vibrer('LIGHT');
+    const [[d, qd]] = Object.entries(r.donne), [[g, qg]] = Object.entries(r.recoit);
+    app.toast(`💱 Échange fait : −${nombre(qd)} ${res(d).emoji} · +${nombre(qg)} ${res(g).emoji}`);
+    marche.lots = 1;
+    rendreMarche();
+  }
+  // « Il manque… » : conseil de tâches, et le marché s'il suffit (bouton qui y mène, déjà réglé)
+  async function dialogueManque(titre, p) {
+    const plan = E.planMarche(A().etat(), p.cout, C);
+    const texteMarche = plan ? `<p class="discret">💱 Ou tout de suite au marché : ${plan.map(x =>
+      `${nombre(x.lots * E.prixLot(C))} ${res(x.donne).emoji} → ${nombre(x.lots * C.marche.lot)} ${res(x.recoit).emoji}`).join(' · ')}.</p>` : '';
+    const choix = await A().dialogue(titre,
+      `<p>Il manque encore : ${Object.entries(p.manque).map(([r, q]) => `<b>${nombre(q)} ${res(r).emoji}</b>`).join(', ')}.</p>` +
+      `<p class="discret">${p.manque.gemmes ? 'Les 💠 gemmes se trouvent dans les coffres, au hasard des tâches terminées.' : conseil(p)}</p>` + texteMarche,
+      plan ? [{ texte: 'Compris', valeur: false }, { texte: '💱 Au marché', valeur: 'marche', principal: true }]
+        : [{ texte: 'Compris', valeur: true, principal: true }]);
+    if (choix === 'marche') { marche = { recoit: plan[0].recoit, donne: plan[0].donne, lots: plan[0].lots }; ouvrirConstruire('marche'); }
+  }
+
+  // Fiche d'un bâtiment (améliorer, réparer) : si le marché suffit à combler ce qui manque, on le dit et on y mène
+  let planFiche = null;
+  function lienMarche(etat, cout) {
+    planFiche = E.planMarche(etat, cout, C);
+    if (!planFiche) return '';
+    return el('div', { class: 'lien-marche' },
+      el('p', { class: 'discret' }, '💱 Ou tout de suite au marché : ' + planFiche.map(x =>
+        `${nombre(x.lots * E.prixLot(C))} ${res(x.donne).emoji} → ${nombre(x.lots * C.marche.lot)} ${res(x.recoit).emoji}`).join(' · ')),
+      el('button', { type: 'button', class: 'bouton', id: 'btn-fiche-marche' }, '💱 Au marché'));
+  }
+
   function decorationChoisie(type) {
     const etat = A().etat(), def = C.decorations[type];
     const manque = E.manque(etat, def.cout);
     $('feuille-construire').close();
-    if (Object.keys(manque).length) {
-      const p = { manque };
-      A().dialogue(`${def.emoji} ${def.nom}`,
-        `<p>Il manque encore : ${Object.entries(manque).map(([r, q]) => `<b>${nombre(q)} ${res(r).emoji}</b>`).join(', ')}.</p>` +
-        `<p class="discret">${manque.gemmes ? 'Les 💠 gemmes se trouvent dans les coffres, au hasard des tâches terminées.' : conseil(p)}</p>`,
-        [{ texte: 'Compris', valeur: true, principal: true }]);
-      return;
-    }
+    if (Object.keys(manque).length) { dialogueManque(`${def.emoji} ${def.nom}`, { manque, cout: def.cout }); return; }
     commencerPlacement({ type, deco: true });
   }
 
@@ -158,10 +227,8 @@
     const p = E.possibilite(etat, type, C);
     $('feuille-construire').close();
     if (!E.faisable(p)) {
-      // On laisse quand même choisir l'emplacement ? Non : on explique ce qui manque, avec un conseil
-      A().dialogue(`${CV.batiments[type].emoji} ${CV.batiments[type].nom}`,
-        `<p>Il manque encore : ${Object.entries(p.manque).map(([r, q]) => `<b>${nombre(q)} ${res(r).emoji}</b>`).join(', ')}.</p>` +
-        `<p class="discret">${conseil(p)}</p>`, [{ texte: 'Compris', valeur: true, principal: true }]);
+      // On laisse quand même choisir l'emplacement ? Non : on explique ce qui manque, avec un conseil (et le marché)
+      dialogueManque(`${CV.batiments[type].emoji} ${CV.batiments[type].nom}`, p);
       return;
     }
     commencerPlacement({ type });
@@ -264,6 +331,7 @@
         el('h3', { class: 'intertitre' }, 'Réparation'),
         couts({ cout, manque }),
         Object.keys(manque).length ? el('p', { class: 'discret' }, conseil({ manque })) : '',
+        lienMarche(etat, cout),
         bouton);
     } else if (p.action === 'max') {
       zone.replaceChildren(el('p', { class: 'fiche-max' }, '⭐ Niveau maximum. Superbe travail !'));
@@ -275,6 +343,7 @@
         el('h3', { class: 'intertitre' }, `Niveau ${p.niveauCible}`),
         couts(p),
         raisonTexte(p) ? el('p', { class: 'bat-raison' }, raisonTexte(p)) : (!faisable ? el('p', { class: 'discret' }, conseil(p)) : ''),
+        p.bloque ? '' : lienMarche(etat, p.cout),
         bouton);
     }
     $('feuille-batiment').showModal();
@@ -357,12 +426,15 @@
     const b = e.target.closest('button');
     if (b?.dataset.construire) construireChoisi(b.dataset.construire);
     if (b?.dataset.decoration) decorationChoisie(b.dataset.decoration);
+    if (b?.dataset.marcheRecoit) { marche.recoit = b.dataset.marcheRecoit; if (marche.donne === marche.recoit) marche.donne = null; rendreMarche(); }
+    if (b?.dataset.marcheDonne) { marche.donne = b.dataset.marcheDonne; rendreMarche(); }
+    if (b?.dataset.marcheLots) { marche.lots += Number(b.dataset.marcheLots); rendreMarche(); }
+    if (b?.id === 'btn-echanger') echanger();
     if (b?.id === 'btn-agrandir') {
       const p = E.possibiliteExtension(A().etat(), C);
       if (Object.keys(p.manque).length) {
         $('feuille-construire').close();
-        A().dialogue('🗺️ Agrandir le hameau', `<p>Il manque encore : ${Object.entries(p.manque).map(([r, q]) => `<b>${nombre(q)} ${res(r).emoji}</b>`).join(', ')}.</p><p class="discret">${conseil(p)}</p>`,
-          [{ texte: 'Compris', valeur: true, principal: true }]);
+        dialogueManque('🗺️ Agrandir le hameau', p);
       } else agrandir();
     }
     if (b?.dataset.voir) {
@@ -377,6 +449,11 @@
   $('feuille-batiment').addEventListener('click', (e) => {
     if (e.target === e.currentTarget) return e.currentTarget.close();
     if (e.target.closest('#btn-ameliorer')) ameliorer();
+    if (e.target.closest('#btn-fiche-marche') && planFiche) {
+      $('feuille-batiment').close();
+      marche = { recoit: planFiche[0].recoit, donne: planFiche[0].donne, lots: planFiche[0].lots };
+      ouvrirConstruire('marche');
+    }
     if (e.target.closest('#btn-reparer')) reparer();
     if (e.target.closest('#btn-retirer')) retirerDecoration();
     if (e.target.closest('#btn-deplacer')) {

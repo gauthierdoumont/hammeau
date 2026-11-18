@@ -63,7 +63,10 @@ Navigation : barre d'onglets en bas. Bouton retour Android = écran précédent.
 
 Règles :
 - Progression partielle : saisir « 10 » sur un objectif de 20 → 50 % des gains. Plusieurs saisies par jour s'additionnent, plafond 100 %.
-- Une quotidienne ne rapporte qu'une fois par jour logique. Un imprévu ou bonus terminé est archivé.
+- Une quotidienne ne rapporte qu'une fois par jour logique. Un imprévu terminé est archivé. Un **bonus** se fait une fois par jour
+  et revient le lendemain, jamais dû (choix de Gauthier, 2026-11-18, v1.10.0 ; avant : archivé comme un imprévu).
+- **Révision** (catégories `boss.categories`) : « Pour quel examen ? » (facultatif, `tache.examen` = clé de l'agenda) ; ses dégâts vont
+  d'abord à cet examen, sinon au plus proche (v1.10.0).
 - **Saisie pour la veille** possible jusqu'à midi (« Je l'ai fait hier »).
 - **Tâche de la semaine** (choix de Gauthier, 2026-11-17) : objectif = nombre entier de fois (1 à `semaine.cibleMax`), la taille vaut
   pour **chaque** fois ; chaque étape rapporte tout de suite ; semaine bouclée → bonus (`semaine.bonusEtapes` étape offerte, chance de coffre,
@@ -93,7 +96,8 @@ Règles :
 ### Rattrapage des jours écoulés
 Au lancement, pour chaque jour logique entre `dernierJourTraite` (exclu) et aujourd'hui (exclu), dans l'ordre :
 1. Si ce jour est couvert par une pause → rien.
-2. **Quotidiennes prévues ce jour-là et non faites** (douce) : moral −5 par tâche (min 0).
+2. **Quotidiennes prévues ce jour-là et pas commencées** (douce) : moral −5 par tâche (min 0). Commencée (10 / 20 pages) : rien.
+   Chaque tâche finie : moral +2 (v1.10.0, avant +1 et −5 même à moitié : un joueur actif voyait son moral fondre).
 3. **Série** : un jour **sans aucune quotidienne prévue est neutre** (ni gain ni perte). Sinon, le jour est validé si au moins une quotidienne a été terminée ET si les gains du jour ≥ 30 XP (évite de tenir la série avec une tâche bidon). Jour non validé → utilise le **joker** s'il en reste, sinon série = 0.
 4. **Joker** : 1 par semaine, remis à 1 à chaque lundi franchi pendant le rattrapage.
 5. **Imprévu « important » dont l'échéance est dépassée** (dure) : événement « Incendie », **une seule fois par tâche** (`incendieApplique = true`). En V1 : perte de 20 % de la ressource de sa famille (max 50). Dès la V2 : un bâtiment aléatoire devient **endommagé** (bonus désactivé) jusqu'à réparation.
@@ -166,6 +170,8 @@ Objectif d'équilibrage : **environ 4 mois** d'usage régulier pour tout monter 
 - **Mairie au niveau n** : `20 × n²` de chaque ressource. Niveau joueur requis : 1 / 3 / 6 / 9 / 12 (rééquilibré le 2026-11-16, au départ 40 et 1 / 5 / 10 / 16 / 23).
 - Niveau max des autres bâtiments = niveau de la Mairie.
 - **Réparation** d'un bâtiment endommagé : 30 % du coût de son niveau actuel.
+- **Marché** (v1.10.0, toujours ouvert, même avant la Mairie) : 3 d'une ressource contre 1 d'une autre, par lots de 10 (`marche`).
+  Proposé (déjà réglé) quand il manque une ressource pour un chantier, une amélioration ou une réparation, et que le marché suffit.
 - **Dépenses continues** (pour éviter l'ennui une fois tout au max) : extensions de terrain (coût ×1,5 à chaque extension), décorations payables en ressources (communes) ou en gemmes (rares).
 - Après 2 semaines d'usage réel, comparer gains moyens par jour et coûts, et proposer un rééquilibrage chiffré à Gauthier.
 

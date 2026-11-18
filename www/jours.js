@@ -7,7 +7,8 @@
  * Règles (CLAUDE.md §6), pour chaque jour logique entre dernierJourTraite (exclu) et la limite (incluse), dans l'ordre :
  *  0. lundi franchi → joker remis à C.serie.jokersParSemaine
  *  1. jour couvert par une pause → rien (les échéances importantes arrivées sont marquées traitées, sans feu)
- *  2. quotidiennes prévues et non faites → moral −5 chacune (min 0)
+ *  2. quotidiennes prévues pas commencées → moral −5 chacune (min 0) ; commencées (10 / 20 pages) → rien
+ *     (choix de Gauthier, 2026-11-18, après le test de jouabilité : un joueur actif voyait son moral fondre)
  *  3. série : jour sans quotidienne prévue = neutre ; sinon validé si ≥ 1 quotidienne faite ET ≥ xpMinJour XP ;
  *     non validé → joker s'il en reste, sinon série = 0.
  *     Une étape d'une tâche de la semaine compte comme une quotidienne faite (choix de Gauthier, 2026-11-17) ;
@@ -68,11 +69,15 @@
     }
 
     const prevues = D.quotidiennesPrevues(e, jour, C);
-    const faites = prevues.filter(t => M.progression(t, e.journal, jour) >= 1);
-    const nonFaites = prevues.length - faites.length;
-    if (nonFaites > 0) {                                                              // 2. moral (douce)
+    const progressions = prevues.map(t => M.progression(t, e.journal, jour));
+    const faites = prevues.filter((t, i) => progressions[i] >= 1);
+    // Pas commencée → quotidienneNonFaite ; commencée (ex. 10 / 20 pages) → quotidienneCommencee (0 : l'effort compte)
+    const nonFaites = progressions.filter(p => p <= 0).length;
+    const commencees = progressions.filter(p => p > 0 && p < 1).length;
+    const delta = nonFaites * C.moral.quotidienneNonFaite + commencees * (C.moral.quotidienneCommencee ?? 0);
+    if (delta < 0) {                                                                  // 2. moral (douce)
       const avant = j.moral;
-      j.moral = Math.max(C.moral.min, j.moral + nonFaites * C.moral.quotidienneNonFaite);
+      j.moral = Math.max(C.moral.min, j.moral + delta);
       if (j.moral !== avant) evenements.push({ jour, type: 'moral', avant: { moral: avant }, perte: avant - j.moral, nonFaites });
     }
     const etapeSemaine = e.journal.some(s => s.jour === jour && s.semaine);
